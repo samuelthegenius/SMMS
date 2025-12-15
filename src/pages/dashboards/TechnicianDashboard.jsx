@@ -126,7 +126,7 @@ export default function TechnicianDashboard() {
                                 <h3 className="text-xl font-bold text-slate-900">{job.title}</h3>
                                 <p className="text-slate-600 mt-2 leading-relaxed">{job.description}</p>
 
-                                <div className="flex items-center gap-2 text-sm text-slate-500 mt-4 font-medium bg-slate-50 inline-flex px-3 py-1.5 rounded-lg">
+                                <div className="inline-flex items-center gap-2 text-sm text-slate-500 mt-4 font-medium bg-slate-50 px-3 py-1.5 rounded-lg">
                                     <MapPin className="w-4 h-4 text-slate-400" />
                                     <span>{job.facility_type} • {job.specific_location}</span>
                                 </div>

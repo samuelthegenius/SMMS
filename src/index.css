@@ -1,7 +1,18 @@
+/* 
+  Tailwind CSS Directives:
+  These inject the framework's utility classes into the compiled CSS bundle.
+*/
 @tailwind base;
+/* Preflight resets (normalize.css equivalent) */
 @tailwind components;
+/* Component classes */
 @tailwind utilities;
+/* Utility classes (p-4, flex, text-center, etc.) */
 
+/* 
+  Global Layer Overrides:
+  Sets the default aesthetic baseline for the application.
+*/
 @layer base {
   body {
     @apply bg-slate-50 text-slate-900;

@@ -1,3 +1,12 @@
+/**
+ * @file src/pages/LandingPage.jsx
+ * @description Public-facing landing page for the SMMS application.
+ * 
+ * Key Features:
+ * - Conversion Funnel: Directs different user types (Students vs. Staff) to appropriate entry points.
+ * - Responsive Design: Uses Tailwind's grid system to adapt layout from mobile to desktop.
+ * - Brand Messaging: Highlights key value propositions (Speed, Efficiency, Intelligence).
+ */
 import { Link } from 'react-router-dom';
 import { Wrench, Clock, Sparkles, ArrowRight, CheckCircle, User } from 'lucide-react';
 
@@ -18,6 +27,7 @@ export default function LandingPage() {
                             </div>
                         </div>
                         <div className="flex items-center gap-4">
+                            {/* UX Routing: Primary Calls to Action */}
                             <Link
                                 to="/login"
                                 className="text-sm font-medium text-slate-300 hover:text-white transition-colors"
@@ -35,7 +45,10 @@ export default function LandingPage() {
                 </div>
             </nav>
 
-            {/* Hero Section */}
+            {/* Hero Section:
+                Designed for high impact with a clear value proposition.
+                Responsive: Stacks vertically on mobile, expands to centered layout on desktop.
+            */}
             <div className="relative bg-slate-900 pt-16 pb-32 overflow-hidden">
                 <div className="absolute inset-0">
                     <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 to-slate-900" />

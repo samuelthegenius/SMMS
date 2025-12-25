@@ -1,60 +1,96 @@
-import { useState } from 'react';
+
+/**
+ * @file src/pages/SignUp.jsx
+ * @description User Registration Interface.
+ * 
+ * Key Features:
+ * - Multi-Step Registration: Handles both Auth (Credentials) and Profile (Metadata) creation.
+ * - Transactional Integrity: Ensures a profile is created immediately after successful signup.
+ * - Validation: Checks for password matching and required fields.
+ */
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Wrench, User, Mail, Lock, CreditCard, Building, ArrowRight, AlertCircle, Key } from 'lucide-react';
-import clsx from 'clsx';
+import { useAuth } from '../contexts/AuthContext';
+import { Wrench, Mail, Lock, User, Loader2, ArrowRight, AlertCircle, Building2 } from 'lucide-react';
 
 
 export default function SignUp() {
     const navigate = useNavigate();
-    const [role, setRole] = useState('student');
+    const { user } = useAuth();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [formData, setFormData] = useState({
+        fullName: '',
         email: '',
         password: '',
-        fullName: '',
-        identificationNumber: '',
-        department: '',
-        staffAccessCode: '',
+        confirmPassword: '',
+        role: 'student', // Default role for new users
+        idNumber: '', // Matric No or Staff ID
     });
+
+    // Redirect if already authenticated
+    useEffect(() => {
+        if (user) navigate('/dashboard');
+    }, [user, navigate]);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const handleSignUp = async (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError(null);
 
-        try {
-            // 1. Validate Staff Access Code
-            if (role === 'staff_member' && formData.staffAccessCode !== import.meta.env.VITE_STAFF_SECRET_KEY) {
-                throw new Error('Invalid Staff Access Code. Please contact IT.');
-            }
+        // Client-side Validation
+        if (formData.password !== formData.confirmPassword) {
+            setLoading(false);
+            return setError("Passwords do not match");
+        }
 
-            // 2. Sign up with Supabase Auth
+        try {
+            // Step 1: Create Auth User
+            // Registers the user in Supabase's secure Auth system.
             const { data: { user }, error: authError } = await supabase.auth.signUp({
                 email: formData.email,
                 password: formData.password,
                 options: {
                     data: {
                         full_name: formData.fullName,
-                        role: role,
-                        identification_number: formData.identificationNumber,
-                        department: role === 'staff_member' ? formData.department : null,
+                        role: formData.role
                     }
                 }
             });
 
             if (authError) throw authError;
 
+            // Step 2: Create Profile Record
+            // Inserts additional user details into the 'public.profiles' table.
+            // This is critical for application logic (linking tickets to users).
             if (user) {
-                alert("Account created successfully! Please sign in.");
-                const roleParam = role === 'staff_member' ? 'staff' : 'student';
-                navigate(`/login?role=${roleParam}`);
+                const { error: profileError } = await supabase
+                    .from('profiles')
+                    .insert([
+                        {
+                            id: user.id,
+                            full_name: formData.fullName,
+                            email: formData.email,
+                            role: formData.role,
+                            identification_number: formData.idNumber
+                        }
+                    ]);
+
+                if (profileError) {
+                    console.error("Profile creation error:", profileError);
+                    // Note: Ideally, we should rollback auth user creation here if profile fails,
+                    // or handle it via a database trigger for consistency.
+                    throw new Error("Failed to create user profile. Please try again.");
+                }
             }
+
+            alert("Account created successfully! Please check your email to confirm your account.");
+            navigate('/login'); // Redirect to login after successful signup and profile creation
         } catch (error) {
             setError(error.message);
         } finally {

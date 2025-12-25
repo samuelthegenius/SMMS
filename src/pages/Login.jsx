@@ -1,20 +1,36 @@
-import { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+/**
+ * @file src/pages/Login.jsx
+ * @description Authentication Entry Point.
+ * 
+ * Key Features:
+ * - Secure Authentication: Uses Supabase Auth (JWT-based) to verify user credentials.
+ * - Error Handling: Provides user-friendly feedback for invalid credentials or network issues.
+ * - Redirect Logic: Routes users to the Dashboard upon successful login.
+ */
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Wrench, User, Lock, ArrowRight, AlertCircle } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { Wrench, Mail, Lock, Loader2, ArrowRight, AlertCircle } from 'lucide-react';
 import clsx from 'clsx';
 
 export default function Login() {
     const navigate = useNavigate();
-    const location = useLocation();
-    const searchParams = new URLSearchParams(location.search);
-    const initialRole = searchParams.get('role') === 'staff' ? 'staff_member' : 'student';
-
-    const [role, setRole] = useState(initialRole);
-    const [identifier, setIdentifier] = useState('');
-    const [password, setPassword] = useState('');
+    const { user } = useAuth();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+
+    // State definitions
+    const [role, setRole] = useState('student'); // Controls visual toggle
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+
+    // UX Optimization: Automatically redirect if session already exists.
+    useEffect(() => {
+        if (user) {
+            navigate('/dashboard');
+        }
+    }, [user, navigate]);
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -22,27 +38,17 @@ export default function Login() {
         setError(null);
 
         try {
-            // 1. Resolve Email from Identification Number
-            const { data: profile, error: profileError } = await supabase
-                .from('profiles')
-                .select('email')
-                .eq('identification_number', identifier)
-                .single();
-
-            if (profileError || !profile) {
-                throw new Error('Invalid Identification Number or Password');
-            }
-
-            // 2. Sign in with resolved email
+            // Authentication Request:
             const { error: authError } = await supabase.auth.signInWithPassword({
-                email: profile.email,
+                email,
                 password,
             });
 
             if (authError) throw authError;
             navigate('/dashboard');
         } catch (error) {
-            setError('Invalid credentials. Please check your ID and password.');
+            console.error(error);
+            setError('Invalid credentials. Please check your email and password.');
         } finally {
             setLoading(false);
         }
@@ -66,7 +72,7 @@ export default function Login() {
                     </div>
 
                     <div className="px-8 py-8">
-                        {/* Segmented Control */}
+                        {/* Segmented Control: Visual Indicator Only */}
                         <div className="mb-8 bg-slate-100 p-1 rounded-xl flex">
                             <button
                                 type="button"
@@ -103,22 +109,23 @@ export default function Login() {
                             )}
 
                             <div>
-                                <label htmlFor="identifier" className="block text-sm font-medium text-slate-700 mb-1">
-                                    {role === 'student' ? 'Matric Number' : 'Staff ID'}
+                                <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
+                                    Email Address
                                 </label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <User className="h-5 w-5 text-slate-400" />
+                                        <Mail className="h-5 w-5 text-slate-400" />
                                     </div>
                                     <input
-                                        id="identifier"
-                                        name="identifier"
-                                        type="text"
+                                        id="email"
+                                        name="email"
+                                        type="email"
+                                        autoComplete="email"
                                         required
-                                        value={identifier}
-                                        onChange={(e) => setIdentifier(e.target.value)}
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
                                         className="block w-full pl-10 pr-3 py-3 border border-slate-300 rounded-xl shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
-                                        placeholder={role === 'student' ? 'e.g. 190102034' : 'e.g. STF/001'}
+                                        placeholder="you@mtu.edu.ng"
                                     />
                                 </div>
                             </div>

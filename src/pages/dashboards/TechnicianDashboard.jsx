@@ -1,3 +1,12 @@
+/**
+ * @file src/pages/dashboards/TechnicianDashboard.jsx
+ * @description Operational Dashboard for Field Technicians.
+ * 
+ * Key Features:
+ * - Workload Management: Shows only tickets assigned to the specific technician.
+ * - Real-time Status Updates: Allows technicians to mark jobs as "In Progress" or "Resolved".
+ * - AI Assistance: Direct integration with the Gemini AI for on-the-job repair advice.
+ */
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -34,6 +43,9 @@ export default function TechnicianDashboard() {
 
     const fetchJobs = async () => {
         try {
+            // Workload Management:
+            // Filters the global tickets table to retrieve only those assigned to the current user.
+            // Excludes 'Resolved' tickets to keep the view focused on active tasks.
             const { data, error } = await supabase
                 .from('tickets')
                 .select('*')
@@ -50,6 +62,9 @@ export default function TechnicianDashboard() {
         }
     };
 
+    // State Update Logic:
+    // Performs a database update to change the lifecycle state of the ticket.
+    // Optimistically updates local state for immediate UI feedback.
     const handleStatusUpdate = async (ticketId, newStatus) => {
         try {
             const { error } = await supabase
@@ -68,6 +83,8 @@ export default function TechnicianDashboard() {
     const getAiHelp = async (ticket) => {
         setAiSuggestion({ ticketId: ticket.id, text: '', loading: true });
         try {
+            // AI Integration:
+            // Fetches specific repair guides based on the ticket's context.
             const response = await fetch('/api/suggest-fix', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -157,6 +174,7 @@ export default function TechnicianDashboard() {
                                 onClick={() => getAiHelp(job)}
                                 className="flex items-center gap-2 text-indigo-600 text-sm font-bold hover:text-indigo-800 transition-colors group"
                             >
+                                {/* AI Action Button: Triggers the getAiHelp function to call the backend */}
                                 <div className="p-1.5 bg-indigo-50 rounded-lg group-hover:bg-indigo-100 transition-colors">
                                     <Bot className="w-4 h-4" />
                                 </div>

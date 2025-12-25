@@ -1,12 +1,22 @@
+/**
+ * @file src/pages/TicketForm.jsx
+ * @description Incident Reporting Interface for Students and Staff.
+ * 
+ * Key Features:
+ * - Structured Data Entry: Categorizes faults (Electrical, Plumbing) for easier triage.
+ * - Auto-Assignment Trigger: Checks if the backend database trigger auto-assigned a technician.
+ * - Multi-Channel Notification: Emails both the student (receipt) and the technician (if assigned).
+ */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { sendEmailNotification } from '../utils/emailService';
 import { AlertCircle, CheckCircle, Send, MapPin, AlertTriangle, FileText, Tag, Building } from 'lucide-react';
 
 const FACILITY_TYPES = [
     'Hostel', 'Lecture Hall', 'Laboratory', 'Office',
-    'Sports Complex', 'Chapel', 'Other'
+    'Sports Complex', 'Chapel', 'Staff Quarters', 'Cafeteria', 'Other'
 ];
 
 const CATEGORIES = [
@@ -39,7 +49,10 @@ export default function TicketForm() {
         setError(null);
 
         try {
-            const { error } = await supabase
+            // Database Insertion:
+            // We select the returned row to immediately inspect fields that might have been
+            // modified by database triggers (like 'assigned_to').
+            const { data, error } = await supabase
                 .from('tickets')
                 .insert([
                     {
@@ -51,13 +64,46 @@ export default function TicketForm() {
                         priority: formData.priority,
                         user_id: user.id,
                     }
-                ]);
+                ])
+                .select()
+                .single();
 
             if (error) throw error;
+
+            // Notification Workflow 1: Student Receipt
+            if (user?.email) {
+                await sendEmailNotification({
+                    to: user.email,
+                    subject: `Ticket Received: ${formData.title}`,
+                    html: `<p>Hello,</p><p>We received your report regarding <strong>${formData.title}</strong>.</p><p>A technician will be assigned shortly.</p>`
+                });
+            }
+
+            // Notification Workflow 2: Auto-Assignment Alert
+            // Checks if the database automatically matched a technician based on the category/location.
+            if (data?.assigned_to) {
+                const { data: technicianData, error: techError } = await supabase
+                    .from('profiles')
+                    .select('email')
+                    .eq('id', data.assigned_to)
+                    .single();
+
+                if (!techError && technicianData?.email) {
+                    await sendEmailNotification({
+                        to: technicianData.email,
+                        subject: `New Auto-Assignment: Ticket #${data.id}`,
+                        html: `<p>You have been automatically assigned a new ticket based on your specialization.</p>
+                               <p><strong>Title:</strong> ${data.title}</p>
+                               <p><strong>Location:</strong> ${data.specific_location}</p>
+                               <p>Check your dashboard for details.</p>`
+                    });
+                }
+            }
 
             setSuccess(true);
             setTimeout(() => navigate('/'), 2000);
         } catch (error) {
+            console.error(error); // Log error for debugging
             setError(error.message);
         } finally {
             setLoading(false);

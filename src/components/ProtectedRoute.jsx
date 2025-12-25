@@ -1,21 +1,44 @@
+/**
+ * @file src/components/ProtectedRoute.jsx
+ * @description Higher-Order Component (HOC) for Route Security.
+ * 
+ * Key Features:
+ * - Authentication Guard: Redirects unauthenticated users to the Login page.
+ * - Loading State: Prevents "flash of unauthenticated content" by showing a loader while checking session.
+ * - Centralized Logic: Wraps protected routes in App.jsx to enforce security policies globally.
+ */
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Loader from './Loader';
 
-export default function ProtectedRoute({ allowedRoles }) {
+export default function ProtectedRoute({ children }) {
     const { user, profile, loading } = useAuth();
 
-    if (loading) {
-        return <Loader />;
+    // Debugging Logs
+    console.log("ProtectedRoute: User state:", user);
+    console.log("ProtectedRoute: Profile state:", profile);
+    console.log("ProtectedRoute: Loading state:", loading);
+    console.log("ProtectedRoute: Checking role:", { required: 'Authenticated User', actual: profile?.role });
+
+    // 1. Loading State:
+    // We wait until we know who the user is (Auth) AND have their details (Profile).
+    if (loading || (user && !profile)) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-slate-50">
+                <div className="text-center">
+                    <Loader />
+                    <p className="mt-4 text-slate-500 font-medium">Loading Profile...</p>
+                </div>
+            </div>
+        );
     }
 
-    if (!user) {
-        return <Navigate to="/login" replace />;
-    }
+    // 2. Authentication Check:
+    // If no user is logged in, redirect to login.
+    if (!user) return <Navigate to="/login" replace />;
 
-    if (allowedRoles && profile && !allowedRoles.includes(profile.role)) {
-        return <Navigate to="/" replace />;
-    }
-
-    return <Outlet />;
+    // 3. Render Content:
+    // If used as a wrapper <ProtectedRoute><Component /></ProtectedRoute>, render children.
+    // If used as a Layout Route <Route element={<ProtectedRoute />}>, render <Outlet />.
+    return children ? children : <Outlet />;
 }

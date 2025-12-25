@@ -1,3 +1,13 @@
+/**
+ * @file src/components/Layout.jsx
+ * @description Main Application Layout Shell.
+ * @author System Administrator
+ * 
+ * Key Features:
+ * - Responsive Design: Adapts navigation (Sidebar vs. Mobile Header) based on viewport size.
+ * - RBAC Navigation: Conditionally renders menu items based on the user's role (Student vs. Technician).
+ * - Persistent UI: Maintains sidebar and header across route transitions using React Router's Outlet.
+ */
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -10,10 +20,12 @@ import {
     Wrench,
     History,
     Menu,
-    X
+    X,
+    BarChart
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useState } from 'react';
+import NotificationBell from './NotificationBell';
 
 export default function Layout() {
     const { profile } = useAuth();
@@ -26,13 +38,18 @@ export default function Layout() {
         navigate('/login');
     };
 
+    // Navigation Configuration with Role-Based Visibility Rules
     const navItems = [
-        { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-        { label: 'New Ticket', path: '/new-ticket', icon: PlusCircle, roles: ['student', 'staff_member'] },
+        { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard }, // Accessible by all
+        { label: 'Analytics', path: '/analytics', icon: BarChart, roles: ['admin'] }, // Strategic Insights
+        { label: 'New Ticket', path: '/new-ticket', icon: PlusCircle, roles: ['student', 'staff_member', 'admin'] }, // Requestors and Managers
         { label: 'My History', path: '/history', icon: History, roles: ['student', 'staff_member'] },
-        { label: 'Jobs', path: '/jobs', icon: Wrench, roles: ['technician'] },
+        { label: 'Jobs', path: '/jobs', icon: Wrench, roles: ['technician'] }, // Service providers only
     ];
 
+    // Security Filter:
+    // Only includes items where the user's role matches one of the allowed roles for that item.
+    // If 'roles' is undefined, the item is considered public (e.g., Dashboard).
     const filteredNavItems = navItems.filter(item =>
         !item.roles || item.roles.includes(profile?.role)
     );
@@ -47,9 +64,12 @@ export default function Layout() {
                     <Wrench className="w-6 h-6 text-secondary" />
                     MTU Smart Maintenance
                 </div>
-                <button onClick={toggleMobileMenu} className="p-2 hover:bg-white/10 rounded-lg">
-                    {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-                </button>
+                <div className="flex items-center gap-2">
+                    <NotificationBell />
+                    <button onClick={toggleMobileMenu} className="p-2 hover:bg-white/10 rounded-lg">
+                        {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                    </button>
+                </div>
             </div>
 
             {/* Sidebar */}
@@ -58,15 +78,20 @@ export default function Layout() {
                 isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
             )}>
                 <div className="p-6 border-b border-white/10 hidden md:block">
-                    <div className="flex items-center gap-3 mb-1">
-                        <div className="bg-white/10 p-2 rounded-lg">
-                            <Wrench className="w-6 h-6 text-secondary" />
+                    <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-white/10 p-2 rounded-lg">
+                                <Wrench className="w-6 h-6 text-secondary" />
+                            </div>
+                            <h1 className="text-lg font-bold leading-tight">
+                                MTU Smart <br /> Maintenance
+                            </h1>
                         </div>
-                        <h1 className="text-lg font-bold leading-tight">
-                            MTU Smart <br /> Maintenance
-                        </h1>
                     </div>
-                    <p className="text-xs text-slate-400 font-medium tracking-wide uppercase pl-1">Campus Facility Management</p>
+                    <p className="text-xs text-slate-400 font-medium tracking-wide uppercase pl-1 mt-2">Campus Facility Management</p>
+                    <div className="mt-4 flex justify-end">
+                        <NotificationBell />
+                    </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto py-6 px-4 space-y-2">

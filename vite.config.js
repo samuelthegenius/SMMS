@@ -1,3 +1,13 @@
+/**
+ * @file vite.config.js
+ * @description Configuration for the Vite build tool.
+ * @author System Administrator
+ * 
+ * Key Features:
+ * - React Plugin: Enables Fast Refresh (HMR) and JSX support.
+ * - PWA Integration: Configures the app as a Progressive Web App (offline support, caching).
+ * - Secure Proxying: Routes /api requests to prevent CORS issues during development.
+ */
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -5,7 +15,11 @@ import { VitePWA } from 'vite-plugin-pwa'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
+    // Integration of React specific features like Fast Refresh
     react(),
+
+    // PWA Plugin configuration for offline capabilities and installation support
+    // Strategies like 'autoUpdate' ensure the user always has the latest service worker.
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
@@ -29,4 +43,18 @@ export default defineConfig({
       }
     })
   ],
+
+  // Development Server Configuration
+  server: {
+    // Proxy Configuration: Acts as a middleware during development.
+    // It forwards requests starting with /api to the backend server (Vercel functions or local server),
+    // effectively bypassing Cross-Origin Resource Sharing (CORS) restrictions that browsers enforce.
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      }
+    }
+  }
 })

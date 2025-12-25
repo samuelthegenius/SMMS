@@ -1,7 +1,16 @@
+/**
+ * @file src/pages/dashboards/UserDashboard.jsx
+ * @description Unified Dashboard for Reporters (Students & Staff).
+ * 
+ * Key Features:
+ * - Role-Aware Greeting: Welcomes users by name and indicates their specific role (Student vs Staff).
+ * - Personal Filter: Enforces data privacy by showing only tickets created by the authenticated user.
+ * - Visual Feedback: Status badges and real-time updates for ticket tracking.
+ */
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Clock, CheckCircle, AlertCircle, MapPin, Calendar, ArrowRight } from 'lucide-react';
+import { Clock, CheckCircle, AlertCircle, MapPin, Calendar } from 'lucide-react';
 import clsx from 'clsx';
 import Loader from '../../components/Loader';
 
@@ -12,14 +21,16 @@ const STATUS_STYLES = {
     'Resolved': { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: CheckCircle, border: 'border-emerald-100' },
 };
 
-export default function StudentDashboard() {
-    const { user } = useAuth();
+export default function UserDashboard() {
+    const { user, profile } = useAuth();
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchTickets = async () => {
             try {
+                // Filtering Logic:
+                // Enforces data privacy by strictly querying tickets where 'user_id' matches the authenticated session ID.
                 const { data, error } = await supabase
                     .from('tickets')
                     .select('*')
@@ -40,10 +51,15 @@ export default function StudentDashboard() {
 
     if (loading) return <Loader />;
 
+    // Logic: Formats the role for display (e.g., 'staff_member' -> 'Staff')
+    const displayRole = profile?.role === 'staff_member' ? 'Staff' : 'Student';
+
     return (
         <div className="space-y-8">
             <div>
-                <h1 className="text-2xl font-bold text-slate-900">My Reports</h1>
+                <h1 className="text-2xl font-bold text-slate-900">
+                    Welcome, {profile?.full_name || 'User'} <span className="text-slate-400 font-normal">({displayRole})</span>
+                </h1>
                 <p className="text-slate-500 mt-1">Track the status of your maintenance requests</p>
             </div>
 

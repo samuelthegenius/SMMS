@@ -21,21 +21,28 @@ export default defineConfig({
     // PWA Plugin configuration for offline capabilities and installation support
     // Strategies like 'autoUpdate' ensure the user always has the latest service worker.
     VitePWA({
+      devOptions: {
+        enabled: true,
+        type: 'module',
+      },
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'MTU Facility Manager',
-        short_name: 'MTU Facilities',
-        description: 'Smart Campus Maintenance System for Mountain Top University',
-        theme_color: '#ffffff',
+        name: 'MTU Smart Maintenance',
+        short_name: 'MTU Maint',
+        description: 'Mountain Top University Facility Maintenance System',
+        theme_color: '#0f172a',
+        background_color: '#0f172a',
+        display: 'standalone',
+        orientation: 'portrait-primary',
         icons: [
           {
-            src: 'pwa-192x192.png',
+            src: '/pwa-192x192.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: 'pwa-512x512.png',
+            src: '/pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png'
           }

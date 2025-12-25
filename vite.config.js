@@ -57,4 +57,21 @@ export default defineConfig({
       }
     }
   }
+  ,
+
+  // Build Configuration for Optimization
+  build: {
+    chunkSizeWarningLimit: 1000, // Increased limit to 1MB to reduce noise for inevitably large chunks
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-ui': ['lucide-react', 'class-variance-authority', 'clsx', 'tailwind-merge'],
+          'vendor-charts': ['recharts'],
+          'vendor-pdf': ['jspdf', 'jspdf-autotable'],
+          'vendor-supabase': ['@supabase/supabase-js']
+        }
+      }
+    }
+  }
 })

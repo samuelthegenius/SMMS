@@ -7,19 +7,22 @@
  * - Dependency Injection: Wraps the entire tree in context providers (AuthProvider) for global state access.
  * - Security Layer: Implements ProtectedRoute middleware to guard sensitive pages.
  */
+import { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
-import Login from './pages/Login';
-import SignUp from './pages/SignUp';
-import TicketForm from './pages/TicketForm';
-import UserDashboard from './pages/dashboards/UserDashboard';
-import TechnicianDashboard from './pages/dashboards/TechnicianDashboard';
-import AdminDashboard from './pages/dashboards/AdminDashboard';
-import AnalyticsPage from './pages/AnalyticsPage';
-import LandingPage from './pages/LandingPage';
 import Loader from './components/Loader';
+
+// Lazy Load Pages for Code Splitting
+const Login = lazy(() => import('./pages/Login'));
+const SignUp = lazy(() => import('./pages/SignUp'));
+const TicketForm = lazy(() => import('./pages/TicketForm'));
+const UserDashboard = lazy(() => import('./pages/dashboards/UserDashboard'));
+const TechnicianDashboard = lazy(() => import('./pages/dashboards/TechnicianDashboard'));
+const AdminDashboard = lazy(() => import('./pages/dashboards/AdminDashboard'));
+const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
+const LandingPage = lazy(() => import('./pages/LandingPage'));
 
 /**
  * @function DashboardRouter
@@ -53,30 +56,32 @@ export default function App() {
           Injects authentication state (user, session, RBAC profile) into all child components.
       */}
       <AuthProvider>
-        <Routes>
-          {/* Public Routes: Accessible without authentication */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<SignUp />} />
+        <Suspense fallback={<Loader />}>
+          <Routes>
+            {/* Public Routes: Accessible without authentication */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<SignUp />} />
 
-          {/* 
+            {/* 
               Protected Routes:
               Wrapped in ProtectedRoute to ensure only authenticated users can access.
               Nested inside Layout for consistent UI (Sidebar/Navbar).
           */}
-          <Route element={<ProtectedRoute />}>
-            <Route element={<Layout />}>
-              <Route path="/dashboard" element={<DashboardRouter />} />
-              <Route path="/new-ticket" element={<TicketForm />} />
-              <Route path="/analytics" element={<AnalyticsPage />} />
-              <Route path="/history" element={<UserDashboard />} />
-              <Route path="/jobs" element={<TechnicianDashboard />} />
+            <Route element={<ProtectedRoute />}>
+              <Route element={<Layout />}>
+                <Route path="/dashboard" element={<DashboardRouter />} />
+                <Route path="/new-ticket" element={<TicketForm />} />
+                <Route path="/analytics" element={<AnalyticsPage />} />
+                <Route path="/history" element={<UserDashboard />} />
+                <Route path="/jobs" element={<TechnicianDashboard />} />
+              </Route>
             </Route>
-          </Route>
 
-          {/* Catch-all Redirect: Handles 404s by sending users back to the landing page */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+            {/* Catch-all Redirect: Handles 404s by sending users back to the landing page */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </AuthProvider>
     </BrowserRouter>
   );

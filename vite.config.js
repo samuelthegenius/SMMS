@@ -28,9 +28,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'MTU Smart Maintenance',
-        short_name: 'MTU Maint',
-        description: 'Mountain Top University Facility Maintenance System',
+        name: 'Smart Maintenance Management System',
+        short_name: 'SMMS',
+        description: 'The official maintenance portal for Mountain Top University.',
         theme_color: '#0f172a',
         background_color: '#0f172a',
         display: 'standalone',

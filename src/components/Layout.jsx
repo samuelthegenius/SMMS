@@ -62,7 +62,7 @@ export default function Layout() {
             <div className="md:hidden fixed top-0 left-0 right-0 bg-primary text-white p-4 flex items-center justify-between z-50 shadow-md">
                 <div className="flex items-center gap-2 font-bold text-lg">
                     <Wrench className="w-6 h-6 text-secondary" />
-                    MTU Smart Maintenance
+                    SMMS
                 </div>
                 <div className="flex items-center gap-2">
                     <NotificationBell />
@@ -84,11 +84,11 @@ export default function Layout() {
                                 <Wrench className="w-6 h-6 text-secondary" />
                             </div>
                             <h1 className="text-lg font-bold leading-tight">
-                                MTU Smart <br /> Maintenance
+                                Smart Maintenance <br /> Management System
                             </h1>
                         </div>
                     </div>
-                    <p className="text-xs text-slate-400 font-medium tracking-wide uppercase pl-1 mt-2">Campus Facility Management</p>
+                    <p className="text-xs text-slate-400 font-medium tracking-wide uppercase pl-1 mt-2">Official Maintenance Portal</p>
                     <div className="mt-4 flex justify-end">
                         <NotificationBell />
                     </div>

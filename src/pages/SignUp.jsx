@@ -12,7 +12,8 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Wrench, Mail, Lock, User, Loader2, ArrowRight, AlertCircle, Building2 } from 'lucide-react';
+import { Wrench, Mail, Lock, User, Loader2, ArrowRight, AlertCircle, Building, CreditCard, Key } from 'lucide-react';
+import clsx from 'clsx';
 
 
 export default function SignUp() {
@@ -27,7 +28,11 @@ export default function SignUp() {
         confirmPassword: '',
         role: 'student', // Default role for new users
         idNumber: '', // Matric No or Staff ID
+        department: '',
+        staffAccessCode: ''
     });
+
+    const { role } = formData;
 
     // Redirect if already authenticated
     useEffect(() => {
@@ -110,9 +115,9 @@ export default function SignUp() {
                                     <Wrench className="h-7 w-7" />
                                 </div>
                             </div>
-                            <h2 className="text-2xl font-bold text-white group-hover:text-blue-200 transition-colors">MTU Smart Maintenance</h2>
+                            <h2 className="text-2xl font-bold text-white group-hover:text-blue-200 transition-colors">Smart Maintenance Management System</h2>
                         </Link>
-                        <p className="text-slate-400 text-sm mt-1">Campus Facility Management System</p>
+                        <p className="text-slate-400 text-sm mt-1">Official Maintenance Portal</p>
                     </div>
 
                     <div className="px-8 py-8">
@@ -120,7 +125,7 @@ export default function SignUp() {
                         <div className="mb-8 bg-slate-100 p-1 rounded-xl flex">
                             <button
                                 type="button"
-                                onClick={() => setRole('student')}
+                                onClick={() => setFormData({ ...formData, role: 'student' })}
                                 className={clsx(
                                     "flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
                                     role === 'student'
@@ -132,7 +137,7 @@ export default function SignUp() {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setRole('staff_member')}
+                                onClick={() => setFormData({ ...formData, role: 'staff_member' })}
                                 className={clsx(
                                     "flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
                                     role === 'staff_member'
@@ -144,7 +149,7 @@ export default function SignUp() {
                             </button>
                         </div>
 
-                        <form className="space-y-5" onSubmit={handleSignUp}>
+                        <form className="space-y-5" onSubmit={handleSubmit}>
                             {error && (
                                 <div className="bg-rose-50 border border-rose-200 text-rose-600 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
                                     <AlertCircle className="w-5 h-5" />

@@ -66,9 +66,9 @@ export default function Login() {
                                     <Wrench className="h-7 w-7" />
                                 </div>
                             </div>
-                            <h2 className="text-2xl font-bold text-white group-hover:text-blue-200 transition-colors">MTU Smart Maintenance</h2>
+                            <h2 className="text-2xl font-bold text-white group-hover:text-blue-200 transition-colors">Smart Maintenance Management System</h2>
                         </Link>
-                        <p className="text-slate-400 text-sm mt-1">Campus Facility Management System</p>
+                        <p className="text-slate-400 text-sm mt-1">Official Maintenance Portal</p>
                     </div>
 
                     <div className="px-8 py-8">

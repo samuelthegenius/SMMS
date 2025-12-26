@@ -22,8 +22,8 @@ export default function LandingPage() {
                                 <Wrench className="h-6 w-6 text-amber-500" />
                             </div>
                             <div>
-                                <h1 className="text-xl font-bold text-white tracking-tight">MTU Smart Maintenance</h1>
-                                <p className="text-xs text-slate-400 font-medium tracking-wide uppercase">Campus Facility Management</p>
+                                <h1 className="text-xl font-bold text-white tracking-tight">Smart Maintenance Management System</h1>
+                                <p className="text-xs text-slate-400 font-medium tracking-wide uppercase">Official Maintenance Portal</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-4">
@@ -95,7 +95,7 @@ export default function LandingPage() {
             <div className="py-24 bg-slate-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center mb-16">
-                        <h2 className="text-3xl font-bold text-slate-900">Why use MTU Smart Maintenance?</h2>
+                        <h2 className="text-3xl font-bold text-slate-900">Why use SMMS?</h2>
                         <p className="mt-4 text-lg text-slate-600">Streamlining operations for students, staff, and technicians.</p>
                     </div>
 
@@ -142,7 +142,7 @@ export default function LandingPage() {
                     <div className="flex flex-col md:flex-row justify-between items-center gap-6">
                         <div className="flex items-center gap-2">
                             <Wrench className="h-5 w-5 text-slate-400" />
-                            <span className="text-slate-500 font-medium">MTU Smart Maintenance</span>
+                            <span className="text-slate-500 font-medium">SMMS</span>
                         </div>
                         <p className="text-slate-400 text-sm">
                             &copy; 2025 Mountain Top University. All rights reserved.

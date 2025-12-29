@@ -14,7 +14,11 @@
   Sets the default aesthetic baseline for the application.
 */
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
-    @apply bg-slate-50 text-slate-900;
+    @apply bg-background text-slate-900 antialiased;
   }
 }

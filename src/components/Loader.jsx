@@ -1,8 +1,28 @@
+import { Skeleton } from "./ui/Skeleton";
+
 export default function Loader() {
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50">
-            <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin"></div>
-            <p className="mt-4 text-slate-500 font-medium animate-pulse">Loading...</p>
+        <div className="flex h-screen w-full bg-background">
+            {/* Sidebar Skeleton */}
+            <div className="w-64 hidden md:block border-r border-slate-200 p-6 space-y-6">
+                <Skeleton className="h-8 w-32 bg-slate-200" />
+                <div className="space-y-3">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                </div>
+            </div>
+            {/* Content Skeleton */}
+            <div className="flex-1 p-6 md:p-8 space-y-6">
+                <Skeleton className="h-8 w-64" />
+                <div className="grid gap-6 md:grid-cols-3">
+                    <Skeleton className="h-32 rounded-xl" />
+                    <Skeleton className="h-32 rounded-xl" />
+                    <Skeleton className="h-32 rounded-xl" />
+                </div>
+                <Skeleton className="h-96 rounded-xl" />
+            </div>
         </div>
     );
 }

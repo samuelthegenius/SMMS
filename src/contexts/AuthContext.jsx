@@ -54,7 +54,7 @@ export function AuthProvider({ children }) {
                 .from('profiles')
                 .select('*')
                 .eq('id', userId)
-                .single();
+                .maybeSingle();
 
             if (!error && data) setProfile(data);
         } catch (error) {
@@ -70,7 +70,7 @@ export function AuthProvider({ children }) {
         loading,
         isAdmin: profile?.role === 'admin',
         isTechnician: profile?.role === 'technician',
-        isStaff: profile?.role === 'staff_member',
+        isStaff: profile?.role === 'staff',
         isStudent: profile?.role === 'student',
     };
 

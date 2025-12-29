@@ -1,17 +1,8 @@
-/**
- * @file src/components/NotificationBell.jsx
- * @description Real-time Notification Component.
- * 
- * Key Features:
- * - Real-time Subscription: Listens for INSERT events on the 'notifications' table.
- * - Interactive UI: Dropdown menu for viewing and clearing alerts.
- * - Persistence: Recent alerts are fetched on mount to ensure offline updates are seen.
- */
 import { useState, useEffect, useRef } from 'react';
-import { Bell } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import clsx from 'clsx';
+import { Bell, Check } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function NotificationBell() {
     const { user } = useAuth();
@@ -20,124 +11,147 @@ export default function NotificationBell() {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
 
-    // Close dropdown when clicking outside
     useEffect(() => {
+        if (!user) return;
+
+        fetchNotifications();
+
+        // Realtime Subscription
+        const subscription = supabase
+            .channel('public:notifications')
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'notifications',
+                    filter: `user_id=eq.${user.id}`,
+                },
+                (payload) => {
+                    const newNotification = payload.new;
+                    setNotifications((prev) => [newNotification, ...prev]);
+                    setUnreadCount((prev) => prev + 1);
+                    toast.info('New Notification: ' + newNotification.message);
+                }
+            )
+            .subscribe();
+
         function handleClickOutside(event) {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
                 setIsOpen(false);
             }
         }
         document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [dropdownRef]);
 
-    useEffect(() => {
-        if (!user) return;
+        return () => {
+            subscription.unsubscribe();
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [user]);
 
-        // 1. Initial Fetch
-        const fetchNotifications = async () => {
-            const { data } = await supabase
+    const fetchNotifications = async () => {
+        try {
+            const { data, error } = await supabase
                 .from('notifications')
                 .select('*')
                 .eq('user_id', user.id)
                 .order('created_at', { ascending: false })
                 .limit(10);
 
-            if (data) {
-                setNotifications(data);
-                setUnreadCount(data.filter(n => !n.is_read).length);
-            }
-        };
+            if (error) throw error;
 
-        fetchNotifications();
+            setNotifications(data);
 
-        // 2. Real-time Subscription
-        const subscription = supabase
-            .channel('public:notifications')
-            .on('postgres_changes', {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'notifications',
-                filter: `user_id=eq.${user.id}`
-            }, (payload) => {
-                // Optimistic Update: Prepend new notification
-                const newNotification = payload.new;
-                setNotifications(prev => [newNotification, ...prev]);
-                setUnreadCount(prev => prev + 1);
-            })
-            .subscribe();
+            // Count all unread (not just the fetched ones if possible, but distinct count helps)
+            // For simple UI, we assume correct sync. To be precise with count:
+            const { count } = await supabase
+                .from('notifications')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', user.id)
+                .eq('is_read', false);
 
-        return () => {
-            subscription.unsubscribe();
-        };
-    }, [user]);
+            setUnreadCount(count || 0);
 
-    const handleMarkAsRead = async () => {
-        if (unreadCount === 0) return;
-
-        // Optimistic UI update
-        setUnreadCount(0);
-        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-
-        // Batch update in background
-        await supabase
-            .from('notifications')
-            .update({ is_read: true })
-            .eq('user_id', user.id)
-            .eq('is_read', false);
-    };
-
-    const toggleDropdown = () => {
-        if (!isOpen) {
-            handleMarkAsRead(); // Auto-read when opening
+        } catch (error) {
+            console.error('Error fetching notifications:', error);
         }
-        setIsOpen(!isOpen);
     };
+
+    const handleToggle = async () => {
+        const newIsOpen = !isOpen;
+        setIsOpen(newIsOpen);
+
+        if (newIsOpen && unreadCount > 0) {
+            await markAllAsRead();
+        }
+    };
+
+    const markAllAsRead = async () => {
+        try {
+            // Optimistic update
+            setUnreadCount(0);
+
+            // Visual update: mark currently loaded list as read too
+            setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+
+            const { error } = await supabase
+                .from('notifications')
+                .update({ is_read: true })
+                .eq('user_id', user.id)
+                .eq('is_read', false);
+
+            if (error) throw error;
+        } catch (error) {
+            console.error('Failed to mark notifications as read', error);
+            // Revert on error? Or just silently fail as it's not critical data loss
+        }
+    }
 
     return (
         <div className="relative" ref={dropdownRef}>
-            {/* Bell Icon Trigger */}
             <button
-                onClick={toggleDropdown}
-                className="relative p-2 text-slate-400 hover:text-white transition-colors rounded-full hover:bg-white/10"
+                onClick={handleToggle}
+                className="relative p-2 rounded-full hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
-                <Bell className="w-6 h-6" />
+                <Bell className="w-6 h-6 text-slate-600" />
                 {unreadCount > 0 && (
-                    <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white ring-2 ring-slate-900">
+                    <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white">
                         {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                 )}
             </button>
 
-            {/* Dropdown Menu */}
             {isOpen && (
-                <div className="absolute left-0 mt-3 w-80 bg-white rounded-xl shadow-lg border border-slate-100 ring-1 ring-black/5 z-50 overflow-hidden origin-top-left">
-                    <div className="p-4 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center">
+                <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-slate-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
+                    <div className="flex items-center justify-between px-4 py-2 border-b border-slate-50">
                         <h3 className="font-semibold text-slate-900">Notifications</h3>
-                        <span className="text-xs text-slate-500">{notifications.length} recent</span>
                     </div>
 
                     <div className="max-h-[300px] overflow-y-auto">
                         {notifications.length === 0 ? (
                             <div className="p-8 text-center text-slate-500 text-sm">
-                                No notifications yet.
+                                No notifications
                             </div>
                         ) : (
-                            <ul className="divide-y divide-slate-50">
+                            <div className="divide-y divide-slate-50">
                                 {notifications.map((notification) => (
-                                    <li key={notification.id} className={clsx(
-                                        "p-4 hover:bg-slate-50 transition-colors",
-                                        !notification.is_read ? "bg-blue-50/30" : ""
-                                    )}>
-                                        <p className="text-sm text-slate-800 leading-relaxed">
-                                            {notification.message}
-                                        </p>
-                                        <p className="text-xs text-slate-400 mt-1.5 font-medium">
-                                            {new Date(notification.created_at).toLocaleString()}
-                                        </p>
-                                    </li>
+                                    <div
+                                        key={notification.id}
+                                        className={`p-4 transition-colors ${!notification.is_read ? 'bg-indigo-50/50' : 'hover:bg-slate-50'}`}
+                                    >
+                                        <div className="flex gap-3 items-start">
+                                            <div className="flex-1 space-y-1">
+                                                <p className={`text-sm ${!notification.is_read ? 'font-semibold text-slate-900' : 'text-slate-600'}`}>
+                                                    {notification.message}
+                                                </p>
+                                                <p className="text-xs text-slate-400">
+                                                    {new Date(notification.created_at).toLocaleString()}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 ))}
-                            </ul>
+                            </div>
                         )}
                     </div>
                 </div>

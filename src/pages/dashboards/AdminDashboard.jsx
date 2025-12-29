@@ -1,20 +1,14 @@
-/**
- * @file src/pages/dashboards/AdminDashboard.jsx
- * @description Central Command Center for Facility Managers (Admins).
- * @author System Administrator
- * 
- * Key Features:
- * - Real-Time Overview: Monitors ongoing maintenance requests across the campus.
- * - Resource Allocation: Allows admins to dispatch technicians to specific tickets.
- * - Data Visualization: Provides high-level metrics (Total, Pending, Resolved).
- */
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { sendEmailNotification } from '../../utils/emailService';
+// import { sendEmailNotification } from '../../utils/emailService'; // Deprecated in favor of Edge Function
 import { Filter, AlertCircle, Clock, Wrench, CheckCircle, Eye } from 'lucide-react';
 import clsx from 'clsx';
 import Loader from '../../components/Loader';
 import TicketDetails from '../../components/TicketDetails';
+import { toast } from 'sonner';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import ReassignTechnician from '../../components/ReassignTechnician';
 
 const FACILITY_TYPES = [
     'All', 'Hostel', 'Lecture Hall', 'Laboratory', 'Office',
@@ -22,30 +16,24 @@ const FACILITY_TYPES = [
 ];
 
 export default function AdminDashboard() {
-    // State Management:
-    // 'tickets': Stores the live snapshot of maintenance requests.
-    // 'technicians': Stores available staff for assignment.
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('All');
     const [profile, setProfile] = useState(null);
 
-    const [technicians, setTechnicians] = useState([]);
-    const [assigning, setAssigning] = useState(null);
+
     const [selectedTicket, setSelectedTicket] = useState(null);
 
     useEffect(() => {
         checkUser();
-        fetchTickets();
-        fetchTechnicians();
 
-        // Real-Time Subscription:
-        // Establishes a WebSocket connection to Supabase to listen for INSERT/UPDATE events on the 'tickets' table.
-        // This ensures the dashboard always reflects the latest state without manual refreshing.
+        fetchTickets();
+
         const subscription = supabase
             .channel('admin_tickets')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
                 fetchTickets();
+                toast.info('Dashboard updated');
             })
             .subscribe();
 
@@ -58,106 +46,36 @@ export default function AdminDashboard() {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                const { data: profileData, error } = await supabase
+                const { data: profileData } = await supabase
                     .from('profiles')
                     .select('*')
                     .eq('id', user.id)
                     .single();
-
-                if (error) {
-                    console.error("Error fetching profile:", error);
-                } else {
-                    console.log("Current User Role:", profileData?.role);
-                    setProfile(profileData);
-                }
+                setProfile(profileData);
             }
         } catch (error) {
             console.error("Error checking user:", error);
         }
     };
 
-    // Data Fetching Strategy:
-    // Performs a joined query to pull ticket data along with the requester's details (using foreign key 'user_id').
     const fetchTickets = async () => {
         try {
             const { data, error } = await supabase
                 .from('tickets')
-                .select(`
-          *,
-          profiles:user_id (full_name, identification_number, role)
-        `)
-                .order('created_at', { ascending: false, foreignTable: '' });
+                .select(`*, creator:created_by (full_name, identification_number, role)`)
+                .order('created_at', { ascending: false });
 
-            if (error) {
-                console.error("Error fetching tickets:", error);
-                alert("Error: " + error.message);
-            } else {
-                console.log("Tickets loaded:", data);
-                setTickets(data || []);
-            }
+            if (error) throw error;
+            setTickets(data || []);
         } catch (error) {
             console.error('Error fetching tickets:', error);
-            alert("Error: " + error.message);
+            toast.error("Error loading tickets: " + error.message);
         } finally {
             setLoading(false);
         }
     };
 
-    const fetchTechnicians = async () => {
-        try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('role', 'technician');
 
-            if (error) throw error;
-            setTechnicians(data || []);
-        } catch (error) {
-            console.error('Error fetching technicians:', error);
-        }
-    };
-
-    // Manual Assignment Workflow:
-    // 1. Updates functionality: Maps the ticket to a technician via 'assigned_to'.
-    // 2. Notification: Triggers an email to the technician to alert them of the new task.
-    // 3. Status Update: Automatically moves the ticket from 'Pending' to 'Assigned'.
-    const handleAssign = async (ticketId, technicianId) => {
-        if (!technicianId) return;
-        setAssigning(ticketId);
-
-        try {
-            // 1. Atomic Update Transaction
-            const { error } = await supabase
-                .from('tickets')
-                .update({
-                    assigned_to: technicianId,
-                    status: 'Assigned' // Or 'In Progress' depending on flow, usually 'Assigned' first
-                })
-                .eq('id', ticketId);
-
-            if (error) throw error;
-
-            // 2. Asynchronous Notification (Fire-and-Forget)
-            const technician = technicians.find(t => t.id === technicianId);
-            const ticket = tickets.find(t => t.id === ticketId);
-
-            if (technician?.email) {
-                await sendEmailNotification({
-                    to: technician.email,
-                    subject: `New Assignment: Ticket #${ticketId}`,
-                    html: `<p>You have been assigned a new task.</p><p><strong>Task:</strong> ${ticket.title}</p><p><strong>Location:</strong> ${ticket.specific_location}</p><p>Please check your dashboard.</p>`
-                });
-            }
-
-            alert("Technician assigned successfully!");
-            fetchTickets(); // Refresh local state to reflect changes
-        } catch (error) {
-            console.error("Error assigning ticket:", error);
-            alert("Failed to assign ticket.");
-        } finally {
-            setAssigning(null);
-        }
-    };
 
     const filteredTickets = filter === 'All'
         ? tickets
@@ -173,15 +91,15 @@ export default function AdminDashboard() {
     if (loading) return <Loader />;
 
     if (profile && profile.role !== 'admin') {
-        return <div className="text-red-500 text-center mt-10">Access Denied: You are logged in as {profile.role}, not 'admin'.</div>;
+        return <div className="text-red-500 text-center mt-10">Access Denied: You are not an admin.</div>;
     }
 
     return (
         <div className="space-y-8">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Facility Manager Dashboard</h1>
-                    <p className="text-slate-500 mt-1">Overview of all maintenance requests</p>
+                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Facility Manager Dashboard</h1>
+                    <p className="text-slate-500 mt-2 text-lg">Overview of all maintenance requests</p>
                 </div>
 
                 <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
@@ -189,7 +107,7 @@ export default function AdminDashboard() {
                     <select
                         value={filter}
                         onChange={(e) => setFilter(e.target.value)}
-                        className="border-none focus:ring-0 text-sm text-slate-700 bg-transparent font-medium cursor-pointer outline-none"
+                        className="border-none focus:ring-0 text-sm text-slate-700 bg-transparent font-medium cursor-pointer outline-none min-w-[150px]"
                     >
                         {FACILITY_TYPES.map(type => (
                             <option key={type} value={type}>{type === 'All' ? 'All Facilities' : type}</option>
@@ -200,57 +118,34 @@ export default function AdminDashboard() {
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="text-sm font-medium text-slate-500">Total Tickets</p>
-                            <p className="text-3xl font-bold text-slate-900 mt-2">{stats.total}</p>
-                        </div>
-                        <div className="p-2 bg-blue-50 rounded-full">
-                            <AlertCircle className="w-6 h-6 text-blue-600" />
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="text-sm font-medium text-slate-500">Pending</p>
-                            <p className="text-3xl font-bold text-slate-900 mt-2">{stats.pending}</p>
-                        </div>
-                        <div className="p-2 bg-amber-50 rounded-full">
-                            <Clock className="w-6 h-6 text-amber-600" />
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="text-sm font-medium text-slate-500">In Progress</p>
-                            <p className="text-3xl font-bold text-slate-900 mt-2">{stats.inProgress}</p>
-                        </div>
-                        <div className="p-2 bg-indigo-50 rounded-full">
-                            <Wrench className="w-6 h-6 text-indigo-600" />
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="text-sm font-medium text-slate-500">Resolved</p>
-                            <p className="text-3xl font-bold text-slate-900 mt-2">{stats.resolved}</p>
-                        </div>
-                        <div className="p-2 bg-emerald-50 rounded-full">
-                            <CheckCircle className="w-6 h-6 text-emerald-600" />
-                        </div>
-                    </div>
-                </div>
+                {[
+                    { label: 'Total Tickets', value: stats.total, icon: AlertCircle, color: 'text-blue-600', bg: 'bg-blue-50' },
+                    { label: 'Pending', value: stats.pending, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
+                    { label: 'In Progress', value: stats.inProgress, icon: Wrench, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+                    { label: 'Resolved', value: stats.resolved, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                ].map((stat, idx) => (
+                    <Card key={idx} className="hover:shadow-md transition-shadow">
+                        <CardContent className="p-6 flex justify-between items-start">
+                            <div>
+                                <p className="text-sm font-medium text-slate-500">{stat.label}</p>
+                                <p className="text-3xl font-bold text-slate-900 mt-2">{stat.value}</p>
+                            </div>
+                            <div className={clsx("p-3 rounded-xl", stat.bg)}>
+                                <stat.icon className={clsx("w-6 h-6", stat.color)} />
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))}
             </div>
 
             {/* Ticket Table */}
-            <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            <Card className="overflow-hidden border-slate-200 shadow-sm">
+                <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-4">
+                    <CardTitle className="text-base font-semibold text-slate-700">Recent Requests</CardTitle>
+                </CardHeader>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-slate-200">
-                        <thead className="bg-slate-50">
+                        <thead className="bg-slate-50/50">
                             <tr>
                                 <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Ticket Details</th>
                                 <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Location</th>
@@ -262,10 +157,10 @@ export default function AdminDashboard() {
                         </thead>
                         <tbody className="bg-white divide-y divide-slate-200">
                             {filteredTickets.map((ticket) => (
-                                <tr key={ticket.id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm font-medium text-slate-900">{ticket.title}</div>
-                                        <div className="text-xs text-slate-500 mt-0.5 max-w-xs truncate">{ticket.description}</div>
+                                <tr key={ticket.id} className="hover:bg-slate-50/50 transition-colors">
+                                    <td className="px-6 py-4">
+                                        <div className="text-sm font-medium text-slate-900 line-clamp-1">{ticket.title}</div>
+                                        <div className="text-xs text-slate-500 mt-0.5 line-clamp-1">{ticket.description}</div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="text-sm text-slate-900">{ticket.facility_type}</div>
@@ -273,41 +168,35 @@ export default function AdminDashboard() {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span className={clsx(
-                                            'px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full',
-                                            ticket.status === 'Resolved' ? 'bg-emerald-100 text-emerald-700' :
-                                                ticket.status === 'In Progress' ? 'bg-indigo-100 text-indigo-700' :
-                                                    ticket.status === 'Assigned' ? 'bg-blue-100 text-blue-700' :
-                                                        'bg-amber-100 text-amber-700'
+                                            'px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border',
+                                            ticket.status === 'Resolved' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                                                ticket.status === 'In Progress' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' :
+                                                    ticket.status === 'Assigned' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                                                        'bg-amber-50 text-amber-700 border-amber-100'
                                         )}>
                                             {ticket.status}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm text-slate-900">{ticket.profiles?.full_name}</div>
-                                        <div className="text-xs text-slate-500 capitalize">{ticket.profiles?.role?.replace('_', ' ')}</div>
+                                        <div className="text-sm text-slate-900">{ticket.creator?.full_name}</div>
+                                        <div className="text-xs text-slate-500 capitalize">{ticket.creator?.role?.replace('_', ' ')}</div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <select
-                                            className="text-sm border-slate-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                            value={ticket.assigned_to || ''}
-                                            onChange={(e) => handleAssign(ticket.id, e.target.value)}
-                                            disabled={assigning === ticket.id}
-                                        >
-                                            <option value="">Unassigned</option>
-                                            {technicians.map(tech => (
-                                                <option key={tech.id} value={tech.id}>{tech.full_name}</option>
-                                            ))}
-                                        </select>
-                                        {assigning === ticket.id && <span className="ml-2 text-xs text-blue-500">Saving...</span>}
+                                        <ReassignTechnician
+                                            ticket={ticket}
+                                            onReassign={fetchTickets}
+                                        />
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                                        <button
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
                                             onClick={() => setSelectedTicket(ticket)}
-                                            className="text-indigo-600 hover:text-indigo-900 flex items-center gap-1"
+                                            className="text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50"
                                         >
-                                            <Eye className="w-4 h-4" />
+                                            <Eye className="w-4 h-4 mr-1" />
                                             View
-                                        </button>
+                                        </Button>
                                     </td>
                                 </tr>
                             ))}
@@ -317,13 +206,11 @@ export default function AdminDashboard() {
                                         <div className="flex flex-col items-center justify-center">
                                             <p className="text-lg font-medium text-slate-900 mb-2">No pending tickets</p>
                                             <p className="text-slate-500 mb-6">Waiting for reports from Students, Staff, or Operations.</p>
-                                            {/* Usability Feature: Allows Facility Managers to log issues they observe during inspections. */}
-                                            <button
+                                            <Button
                                                 onClick={() => window.location.href = '/new-ticket'}
-                                                className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
                                             >
                                                 Log a New Fault
-                                            </button>
+                                            </Button>
                                         </div>
                                     </td>
                                 </tr>
@@ -331,7 +218,7 @@ export default function AdminDashboard() {
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </Card>
 
             {selectedTicket && (
                 <TicketDetails

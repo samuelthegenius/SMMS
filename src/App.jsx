@@ -13,6 +13,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import Loader from './components/Loader';
+import { Toaster } from 'sonner';
 
 // Lazy Load Pages for Code Splitting
 const Login = lazy(() => import('./pages/Login'));
@@ -83,6 +84,7 @@ export default function App() {
           </Routes>
         </Suspense>
       </AuthProvider>
+      <Toaster position="top-right" richColors closeButton />
     </BrowserRouter>
   );
 }

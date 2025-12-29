@@ -18,14 +18,30 @@ export default {
     // ensuring only used styles are included in the final bundle.
     theme: {
         extend: {
-            // Extend allows us to keep default Tailwind classes while adding project-specific overrides.
             colors: {
-                primary: '#0f172a', // Deep Navy Blue
-                secondary: '#f59e0b', // Amber 500
+                primary: '#0f172a', // Navy Blue
+                secondary: '#f59e0b', // Keep for backward compat
+                accent: '#f59e0b', // Gold
+                surface: '#1e293b', // Dark Slate
+                background: '#f8fafc', // Light Gray
             },
             fontFamily: {
                 sans: ['Inter', 'Roboto', 'sans-serif'],
-            }
+            },
+            animation: {
+                'fade-in': 'fadeIn 0.5s ease-out',
+                'slide-up': 'slideUp 0.5s ease-out',
+            },
+            keyframes: {
+                fadeIn: {
+                    '0%': { opacity: '0' },
+                    '100%': { opacity: '1' },
+                },
+                slideUp: {
+                    '0%': { transform: 'translateY(20px)', opacity: '0' },
+                    '100%': { transform: 'translateY(0)', opacity: '1' },
+                },
+            },
         },
     },
     plugins: [],

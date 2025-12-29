@@ -1,15 +1,7 @@
-/**
- * @file src/components/TicketDetails.jsx
- * @description Modal Component for Detailed Ticket Visualization and AI Diagnosis.
- * 
- * Key Features:
- * - Detailed View: Shows expanded information about a specific maintenance request.
- * - AI Integration: Connects to the serverless 'suggest-fix' endpoint to generate repair guides.
- * - RBAC UI: Conditionally shows the AI tool only to Technicians and Admins.
- */
 import React, { useState } from 'react';
 import { X, Sparkles, Wrench, AlertTriangle, Loader2, ClipboardList } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { Button } from './ui/Button';
 
 export default function TicketDetails({ ticket, onClose }) {
     const { profile } = useAuth();
@@ -17,29 +9,22 @@ export default function TicketDetails({ ticket, onClose }) {
     const [aiSuggestion, setAiSuggestion] = useState(null);
     const [error, setError] = useState(null);
 
-    // Security Check: Ensure only privileged users can access the AI tool.
     const isTechnicianOrAdmin = profile?.role === 'technician' || profile?.role === 'admin';
 
     const handleAskAI = async () => {
         setLoading(true);
         setError(null);
         try {
-            // AI Interface Call:
-            // POSTs ticket data to the backend function which wraps Google Gemini.
             const response = await fetch('/api/suggest-fix', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     ticketDescription: ticket.description,
                     category: ticket.category,
                 }),
             });
 
-            if (!response.ok) {
-                throw new Error('Failed to get AI suggestion');
-            }
+            if (!response.ok) throw new Error('Failed to get AI suggestion');
 
             const data = await response.json();
             setAiSuggestion(data);
@@ -54,23 +39,24 @@ export default function TicketDetails({ ticket, onClose }) {
     if (!ticket) return null;
 
     return (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-slate-200">
+                <div className="p-6 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white/90 backdrop-blur-sm z-10">
                     <div>
                         <h2 className="text-xl font-bold text-slate-900">Ticket Details</h2>
                         <p className="text-sm text-slate-500">#{ticket.id} • {ticket.category}</p>
                     </div>
-                    <button
+                    <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={onClose}
-                        className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600"
+                        className="rounded-full"
                     >
                         <X className="w-5 h-5" />
-                    </button>
+                    </Button>
                 </div>
 
                 <div className="p-6 space-y-8">
-                    {/* Ticket Info */}
                     <div className="space-y-4">
                         <h3 className="text-lg font-semibold text-slate-900">{ticket.title}</h3>
                         <p className="text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">
@@ -84,14 +70,13 @@ export default function TicketDetails({ ticket, onClose }) {
                             </div>
                             <div>
                                 <span className="text-slate-500 block mb-1">Status</span>
-                                <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800`}>
+                                <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200`}>
                                     {ticket.status}
                                 </span>
                             </div>
                         </div>
                     </div>
 
-                    {/* AI Section - Technicians Only */}
                     {isTechnicianOrAdmin && (
                         <div className="border-t border-slate-100 pt-8">
                             <div className="flex items-center justify-between mb-4">
@@ -100,13 +85,13 @@ export default function TicketDetails({ ticket, onClose }) {
                                     Technician Support Assistant
                                 </h3>
                                 {!aiSuggestion && !loading && (
-                                    <button
+                                    <Button
                                         onClick={handleAskAI}
-                                        className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-sm font-medium hover:bg-indigo-100 transition-colors flex items-center gap-2"
+                                        className="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border-indigo-100"
                                     >
-                                        <Sparkles className="w-4 h-4" />
+                                        <Sparkles className="w-4 h-4 mr-2" />
                                         Generate Repair Guide
-                                    </button>
+                                    </Button>
                                 )}
                             </div>
 
@@ -118,7 +103,7 @@ export default function TicketDetails({ ticket, onClose }) {
                             )}
 
                             {error && (
-                                <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm">
+                                <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm border border-red-100">
                                     {error}
                                 </div>
                             )}

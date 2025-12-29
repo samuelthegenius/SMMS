@@ -1,193 +1,128 @@
-/**
- * @file src/pages/Login.jsx
- * @description Authentication Entry Point.
- * 
- * Key Features:
- * - Secure Authentication: Uses Supabase Auth (JWT-based) to verify user credentials.
- * - Error Handling: Provides user-friendly feedback for invalid credentials or network issues.
- * - Redirect Logic: Routes users to the Dashboard upon successful login.
- */
-import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
-import { Wrench, Mail, Lock, Loader2, ArrowRight, AlertCircle } from 'lucide-react';
-import clsx from 'clsx';
+import { Wrench } from 'lucide-react';
+import { toast } from 'sonner';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/Card';
 
 export default function Login() {
-    const navigate = useNavigate();
-    const { user } = useAuth();
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-
-    // State definitions
-    const [role, setRole] = useState('student'); // Controls visual toggle
-    const [email, setEmail] = useState('');
+    const [identifier, setIdentifier] = useState(''); // Can be email or ID number
     const [password, setPassword] = useState('');
-
-    // UX Optimization: Automatically redirect if session already exists.
-    useEffect(() => {
-        if (user) {
-            navigate('/dashboard');
-        }
-    }, [user, navigate]);
+    const [loading, setLoading] = useState(false);
+    const navigate = useNavigate();
 
     const handleLogin = async (e) => {
         e.preventDefault();
         setLoading(true);
-        setError(null);
 
         try {
-            // Authentication Request:
+            let emailToUse = identifier;
+
+            // Step A: Check if input is Email or ID
+            const isEmail = identifier.includes('@');
+
+            // Step C: If ID Number (no @), look it up
+            if (!isEmail) {
+                // Use the secure RPC function to look up the email
+                // This bypasses the RLS issue where an unauthenticated user can't search the profiles table
+                const { data: resolvedEmail, error } = await supabase
+                    .rpc('get_email_by_id', { lookup_id: identifier });
+
+                if (error || !resolvedEmail) {
+                    throw new Error('Invalid ID Number');
+                }
+
+                emailToUse = resolvedEmail;
+            }
+
+            // Step B: Proceed with standard Auth (using resolved email)
             const { error: authError } = await supabase.auth.signInWithPassword({
-                email,
+                email: emailToUse,
                 password,
             });
 
             if (authError) throw authError;
+
+            toast.success('Welcome back!');
             navigate('/dashboard');
         } catch (error) {
-            console.error(error);
-            setError('Invalid credentials. Please check your email and password.');
+            toast.error(error.message || 'Failed to sign in');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-            <div className="sm:mx-auto sm:w-full sm:max-w-md">
-                <div className="bg-white shadow-xl shadow-slate-200/50 rounded-2xl overflow-hidden border border-slate-100">
-                    {/* Dark Header */}
-                    <div className="bg-slate-900 px-8 py-6 text-center">
-                        <Link to="/" className="block group hover:text-blue-200 transition-colors cursor-pointer">
-                            <div className="flex justify-center mb-4">
-                                <div className="h-12 w-12 rounded-xl bg-white/10 flex items-center justify-center text-secondary backdrop-blur-sm group-hover:bg-white/20 transition-colors">
-                                    <Wrench className="h-7 w-7" />
-                                </div>
-                            </div>
-                            <h2 className="text-2xl font-bold text-white group-hover:text-blue-200 transition-colors">Smart Maintenance Management System</h2>
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+            {/* Decorative Background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 pointer-events-none" />
+
+            <Card className="w-full max-w-md relative z-10 border-slate-200/60 shadow-xl">
+                <CardHeader className="space-y-2 text-center pb-8 border-b-0">
+                    <div className="mx-auto w-12 h-12 bg-primary rounded-xl flex items-center justify-center mb-2 shadow-lg shadow-primary/20">
+                        <Wrench className="w-6 h-6 text-accent" />
+                    </div>
+                    <CardTitle className="text-2xl font-bold text-slate-900">Welcome Back</CardTitle>
+                    <CardDescription className="text-base">
+                        Sign in to the Smart Maintenance System
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <form onSubmit={handleLogin} className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="identifier">
+                                Email or ID Number
+                            </label>
+                            <Input
+                                id="identifier"
+                                type="text"
+                                placeholder="student@mtu.edu.ng or U/2021/004"
+                                value={identifier}
+                                onChange={(e) => setIdentifier(e.target.value)}
+                                required
+                                className="bg-slate-50/50"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="password">
+                                Password
+                            </label>
+                            <Input
+                                id="password"
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                                className="bg-slate-50/50"
+                            />
+                        </div>
+                        <Button className="w-full mt-4" type="submit" isLoading={loading}>
+                            Sign In
+                        </Button>
+                    </form>
+                </CardContent>
+                <CardFooter className="flex flex-col space-y-4 text-center text-sm pt-0">
+                    <div className="relative w-full">
+                        <div className="absolute inset-0 flex items-center">
+                            <span className="w-full border-t border-slate-200" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-white px-2 text-slate-500">Or</span>
+                        </div>
+                    </div>
+                    <div className="text-slate-500">
+                        Don't have an account?{' '}
+                        <Link to="/signup" className="text-primary font-semibold hover:text-accent transition-colors">
+                            Create Account
                         </Link>
-                        <p className="text-slate-400 text-sm mt-1">Official Maintenance Portal</p>
                     </div>
+                </CardFooter>
+            </Card>
 
-                    <div className="px-8 py-8">
-                        {/* Segmented Control: Visual Indicator Only */}
-                        <div className="mb-8 bg-slate-100 p-1 rounded-xl flex">
-                            <button
-                                type="button"
-                                onClick={() => setRole('student')}
-                                className={clsx(
-                                    "flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
-                                    role === 'student'
-                                        ? "bg-white text-slate-900 shadow-sm"
-                                        : "text-slate-500 hover:text-slate-700"
-                                )}
-                            >
-                                Student
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setRole('staff_member')}
-                                className={clsx(
-                                    "flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
-                                    role === 'staff_member'
-                                        ? "bg-white text-slate-900 shadow-sm"
-                                        : "text-slate-500 hover:text-slate-700"
-                                )}
-                            >
-                                Staff Member
-                            </button>
-                        </div>
-
-                        <form className="space-y-6" onSubmit={handleLogin}>
-                            {error && (
-                                <div className="bg-rose-50 border border-rose-200 text-rose-600 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
-                                    <AlertCircle className="w-5 h-5" />
-                                    {error}
-                                </div>
-                            )}
-
-                            <div>
-                                <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
-                                    Email Address
-                                </label>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Mail className="h-5 w-5 text-slate-400" />
-                                    </div>
-                                    <input
-                                        id="email"
-                                        name="email"
-                                        type="email"
-                                        autoComplete="email"
-                                        required
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                        className="block w-full pl-10 pr-3 py-3 border border-slate-300 rounded-xl shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
-                                        placeholder="you@mtu.edu.ng"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1">
-                                    Password
-                                </label>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Lock className="h-5 w-5 text-slate-400" />
-                                    </div>
-                                    <input
-                                        id="password"
-                                        name="password"
-                                        type="password"
-                                        autoComplete="current-password"
-                                        required
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        className="block w-full pl-10 pr-3 py-3 border border-slate-300 rounded-xl shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
-                                        placeholder="••••••••"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-xl shadow-lg text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
-                                >
-                                    {loading ? 'Signing in...' : (
-                                        <>
-                                            Sign in
-                                            <ArrowRight className="w-4 h-4" />
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </form>
-
-                        <div className="mt-6">
-                            <div className="relative">
-                                <div className="absolute inset-0 flex items-center">
-                                    <div className="w-full border-t border-slate-200" />
-                                </div>
-                                <div className="relative flex justify-center text-sm">
-                                    <span className="px-2 bg-white text-slate-500">
-                                        Don't have an account?
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="mt-6 text-center">
-                                <Link to="/signup" className="font-medium text-blue-600 hover:text-blue-500 transition-colors">
-                                    Create an account
-                                </Link>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div className="absolute bottom-6 text-center text-xs text-slate-400">
+                &copy; {new Date().getFullYear()} Mountain Top University. All rights reserved.
             </div>
         </div>
     );

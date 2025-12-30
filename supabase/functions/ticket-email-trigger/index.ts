@@ -132,7 +132,7 @@ serve(async (req: Request) => {
 
             const adminEmail = await getAdminEmail();
             const emailSubject = `ALERT: Repair Rejected for Ticket #${record.id}`;
-            const dashboardLink = "https://mtusmms.me/admin/dashboard"; // Admin specific link if needed
+            const dashboardLink = "https://mtusmms.me/dashboard";
 
             const emailBody = `
                 <div style="font-family: sans-serif; color: #333;">

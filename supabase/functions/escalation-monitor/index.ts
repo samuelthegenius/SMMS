@@ -98,7 +98,7 @@ serve(async (req: Request) => {
                     template_params: {
                         to_email: recipientEmail,
                         subject: `URGENT ESCALATION: ${ticket.title}`,
-                        message: `This ticket (ID: ${ticket.id}) has been ignored for over 4 hours.\n\nDetails:\nTitle: ${ticket.title}\nLocation: ${ticket.specific_location || 'Unknown'}\nPriority: ${ticket.priority}\nSubmitted: ${new Date(ticket.created_at).toLocaleString()}`,
+                        message: `This ticket (ID: ${ticket.id}) has been ignored for over 4 hours.\n\nDetails:\nTitle: ${ticket.title}\nLocation: ${ticket.specific_location || 'Unknown'}\nPriority: ${ticket.priority}\nSubmitted: ${new Date(ticket.created_at).toLocaleString()}\n\nView Dashboard: https://mtusmms.me/dashboard`,
                         ticket_id: ticket.id
                     }
                 }

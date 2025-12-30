@@ -22,6 +22,7 @@ const STATUS_COLORS = {
     Assigned: '#F59E0B', // Amber-500
     'Pending Verification': '#8B5CF6', // Violet-500
     Open: '#6366F1',      // Indigo-500
+    Completed: '#10B981', // Emerald-500 (Same as Resolved)
     Unknown: '#94A3B8'    // Slate-400
 };
 

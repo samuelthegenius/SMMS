@@ -70,7 +70,7 @@ export const generateTicketReport = (tickets) => {
     const tableRows = tickets.map(ticket => [
         ticket.id.substring(0, 8) + '...', // Truncate UUID for readability
         ticket.title,
-        ticket.location,
+        `${ticket.facility_type} - ${ticket.specific_location}`, // Combine facility and specific location
         ticket.priority,
         ticket.status,
         ticket.assigned_to || 'Unassigned' // Handle null values

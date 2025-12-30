@@ -15,14 +15,25 @@ import {
 } from 'recharts';
 
 // Corporate Color Palette for Statuses
-const COLORS = {
+// Corporate Color Palette for Statuses
+const STATUS_COLORS = {
     Resolved: '#10B981', // Emerald-500
     'In Progress': '#3B82F6', // Blue-500
     Pending: '#EF4444', // Red-500
-    Assigned: '#F59E0B' // Amber-500
+    Assigned: '#F59E0B', // Amber-500
+    Open: '#6366F1',      // Indigo-500
+    Unknown: '#94A3B8'    // Slate-400
 };
 
-const BAR_COLOR = '#64748B'; // Slate-500 (Neutral)
+// Vibrant Palette for Categories
+const CATEGORY_COLORS = [
+    '#3B82F6', // Blue-500
+    '#8B5CF6', // Violet-500
+    '#EC4899', // Pink-500
+    '#10B981', // Emerald-500
+    '#F59E0B', // Amber-500
+    '#06B6D4', // Cyan-500
+];
 
 export default function AnalyticsSummary({ tickets = [] }) {
 
@@ -79,7 +90,7 @@ export default function AnalyticsSummary({ tickets = [] }) {
                                 {statusData.map((entry, index) => (
                                     <Cell
                                         key={`cell-${index}`}
-                                        fill={COLORS[entry.name] || '#94A3B8'}
+                                        fill={STATUS_COLORS[entry.name] || STATUS_COLORS.Unknown}
                                     />
                                 ))}
                             </Pie>
@@ -116,14 +127,20 @@ export default function AnalyticsSummary({ tickets = [] }) {
                             />
                             <Bar
                                 dataKey="count"
-                                fill={BAR_COLOR}
                                 radius={[0, 4, 4, 0]}
                                 barSize={20}
-                            />
+                            >
+                                {categoryData.map((entry, index) => (
+                                    <Cell
+                                        key={`cell-${index}`}
+                                        fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]}
+                                    />
+                                ))}
+                            </Bar>
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

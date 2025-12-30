@@ -32,13 +32,13 @@ export default function Layout() {
             <Sidebar isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
 
             {/* Main Content Area */}
-            <main className="flex-1 md:ml-0 pt-20 md:pt-0 h-screen overflow-y-auto overflow-x-hidden relative">
+            <main className="flex-1 md:ml-0 pt-20 md:pt-0 h-screen overflow-y-auto overflow-x-hidden relative flex flex-col">
                 {/* Desktop Notification Bell */}
-                <div className="hidden md:flex absolute top-6 right-8 z-30">
+                <div className="hidden md:flex justify-end px-8 pt-6 shrink-0 z-10">
                     <NotificationBell />
                 </div>
 
-                <div className="p-4 md:p-8 max-w-7xl mx-auto min-h-full">
+                <div className="p-4 md:p-8 max-w-7xl mx-auto min-h-full w-full">
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={location.pathname}

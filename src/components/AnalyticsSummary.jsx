@@ -15,14 +15,23 @@ import {
 } from 'recharts';
 
 // Corporate Color Palette for Statuses
-// Corporate Color Palette for Statuses
 const STATUS_COLORS = {
     Resolved: '#10B981', // Emerald-500
     'In Progress': '#3B82F6', // Blue-500
     Pending: '#EF4444', // Red-500
     Assigned: '#F59E0B', // Amber-500
+    'Pending Verification': '#8B5CF6', // Violet-500
     Open: '#6366F1',      // Indigo-500
     Unknown: '#94A3B8'    // Slate-400
+};
+
+// Helper to safely get color regardless of casing
+const getStatusColor = (status) => {
+    if (!status) return STATUS_COLORS.Unknown;
+    const key = Object.keys(STATUS_COLORS).find(
+        k => k.toLowerCase() === status.toLowerCase()
+    );
+    return STATUS_COLORS[key] || STATUS_COLORS.Unknown;
 };
 
 // Vibrant Palette for Categories
@@ -39,8 +48,6 @@ export default function AnalyticsSummary({ tickets = [] }) {
 
     // Memoized Data Processing:
     // Aggregates raw ticket data into chart-friendly formats.
-    // We use useMemo to prevent expensive recalculations on every render.
-
     const statusData = useMemo(() => {
         const counts = tickets.reduce((acc, ticket) => {
             const status = ticket.status || 'Pending';
@@ -90,7 +97,7 @@ export default function AnalyticsSummary({ tickets = [] }) {
                                 {statusData.map((entry, index) => (
                                     <Cell
                                         key={`cell-${index}`}
-                                        fill={STATUS_COLORS[entry.name] || STATUS_COLORS.Unknown}
+                                        fill={getStatusColor(entry.name)}
                                     />
                                 ))}
                             </Pie>

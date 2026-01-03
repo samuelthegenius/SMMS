@@ -7,9 +7,11 @@ export default function ReassignTechnician({ ticket, onReassign }) {
     const [technicians, setTechnicians] = useState([]);
     const [selectedTech, setSelectedTech] = useState(ticket.assigned_to || '');
     const [loading, setLoading] = useState(false);
+    const [loadingTechnicians, setLoadingTechnicians] = useState(true);
 
     useEffect(() => {
         const fetchTechnicians = async () => {
+            setLoadingTechnicians(true);
             const { data, error } = await supabase
                 .from('profiles')
                 .select('id, full_name, email')
@@ -20,6 +22,7 @@ export default function ReassignTechnician({ ticket, onReassign }) {
             } else {
                 setTechnicians(data || []);
             }
+            setLoadingTechnicians(false);
         };
 
         fetchTechnicians();
@@ -71,9 +74,9 @@ export default function ReassignTechnician({ ticket, onReassign }) {
                 className="border p-2 rounded-md bg-white dark:bg-slate-800 dark:text-gray-100"
                 value={selectedTech}
                 onChange={(e) => setSelectedTech(e.target.value)}
-                disabled={loading}
+                disabled={loading || loadingTechnicians}
             >
-                <option value="">Select Technician</option>
+                <option value="">{loadingTechnicians ? 'Loading technicians...' : 'Select Technician'}</option>
                 {technicians.map((tech) => (
                     <option key={tech.id} value={tech.id}>
                         {tech.full_name}

@@ -14,12 +14,6 @@ import Loader from './Loader';
 export default function ProtectedRoute({ children }) {
     const { user, profile, loading } = useAuth();
 
-    // Debugging Logs
-    console.log("ProtectedRoute: User state:", user);
-    console.log("ProtectedRoute: Profile state:", profile);
-    console.log("ProtectedRoute: Loading state:", loading);
-    console.log("ProtectedRoute: Checking role:", { required: 'Authenticated User', actual: profile?.role });
-
     // 1. Loading State:
     // We wait until we know who the user is (Auth) AND have their details (Profile).
     if (loading || (user && !profile)) {

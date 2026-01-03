@@ -32,7 +32,7 @@ export default function Layout() {
             <Sidebar isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
 
             {/* Main Content Area */}
-            <main className="flex-1 md:ml-0 pt-20 md:pt-0 h-screen overflow-y-auto overflow-x-hidden relative flex flex-col">
+            <main className="flex-1 md:ml-0 pt-24 md:pt-0 h-screen overflow-y-auto overflow-x-hidden relative flex flex-col">
                 {/* Desktop Notification Bell */}
                 <div className="hidden md:flex justify-end px-8 pt-6 shrink-0 z-10">
                     <NotificationBell />

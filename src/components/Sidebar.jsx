@@ -39,7 +39,7 @@ export default function Sidebar({ isOpen, onClose }) {
         <>
             {/* Sidebar Container */}
             <aside className={clsx(
-                "fixed inset-y-0 left-0 z-40 w-64 bg-gradient-to-b from-primary to-slate-900 text-white transform transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:flex flex-col shadow-2xl",
+                "fixed inset-y-0 left-0 z-40 w-64 bg-gradient-to-b from-primary to-slate-900 text-white transform transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:flex flex-col shadow-2xl pt-24 md:pt-0",
                 isOpen ? "translate-x-0" : "-translate-x-full"
             )}>
                 {/* Header */}

@@ -7,7 +7,7 @@
  * - Dependency Injection: Wraps the entire tree in context providers (AuthProvider) for global state access.
  * - Security Layer: Implements ProtectedRoute middleware to guard sensitive pages.
  */
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
@@ -15,15 +15,17 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Loader from './components/Loader';
 import { Toaster } from 'sonner';
 
-// Lazy Load Pages for Code Splitting
-const Login = lazy(() => import('./pages/Login'));
-const SignUp = lazy(() => import('./pages/SignUp'));
-const TicketForm = lazy(() => import('./pages/TicketForm'));
-const UserDashboard = lazy(() => import('./pages/dashboards/UserDashboard'));
-const TechnicianDashboard = lazy(() => import('./pages/dashboards/TechnicianDashboard'));
-const AdminDashboard = lazy(() => import('./pages/dashboards/AdminDashboard'));
-const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
-const LandingPage = lazy(() => import('./pages/LandingPage'));
+import { lazyWithRetry } from './utils/lazyWithRetry';
+
+// Lazy Load Pages for Code Splitting (with automatic retry on 404)
+const Login = lazyWithRetry(() => import('./pages/Login'), 'Login');
+const SignUp = lazyWithRetry(() => import('./pages/SignUp'), 'SignUp');
+const TicketForm = lazyWithRetry(() => import('./pages/TicketForm'), 'TicketForm');
+const UserDashboard = lazyWithRetry(() => import('./pages/dashboards/UserDashboard'), 'UserDashboard');
+const TechnicianDashboard = lazyWithRetry(() => import('./pages/dashboards/TechnicianDashboard'), 'TechnicianDashboard');
+const AdminDashboard = lazyWithRetry(() => import('./pages/dashboards/AdminDashboard'), 'AdminDashboard');
+const AnalyticsPage = lazyWithRetry(() => import('./pages/AnalyticsPage'), 'AnalyticsPage');
+const LandingPage = lazyWithRetry(() => import('./pages/LandingPage'), 'LandingPage');
 
 /**
  * @function DashboardRouter

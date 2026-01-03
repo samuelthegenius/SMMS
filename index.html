@@ -8,6 +8,32 @@
   <link rel="apple-touch-icon" href="/pwa-192x192.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SMMS | Mountain Top University</title>
+  <script>
+    // Global Safety Net: Catches ChunkLoadErrors that React boundaries might miss
+    // This often happens when a user is on an old version and tries to lazily load a deleted chunk.
+    window.addEventListener('error', (e) => handleChunkError(e));
+    window.addEventListener('unhandledrejection', (e) => handleChunkError(e.reason));
+
+    function handleChunkError(error) {
+      if (!error || !error.message) return;
+
+      const isChunkError = error.message.includes('Failed to fetch dynamically imported module') ||
+        error.message.includes('Importing a module script failed') ||
+        error.message.includes('error loading dynamically imported module');
+
+      if (isChunkError) {
+        const lastReload = localStorage.getItem('chunk-error-reload');
+        const now = Date.now();
+
+        // Limit reloads to once every 10 seconds to prevent loops
+        if (!lastReload || (now - parseInt(lastReload) > 10000)) {
+          console.warn('Chunk load error detected. Reloading page...');
+          localStorage.setItem('chunk-error-reload', now.toString());
+          window.location.reload(true);
+        }
+      }
+    }
+  </script>
 </head>
 
 <body>

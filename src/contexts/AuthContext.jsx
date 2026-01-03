@@ -33,9 +33,12 @@ export function AuthProvider({ children }) {
         // Subscribes to auth changes to handle dynamic logouts or token refreshes.
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             (_event, session) => {
-                setUser(session?.user ?? null);
-                if (session?.user) fetchProfile(session.user.id);
-                else {
+                if (session?.user) {
+                    setLoading(true); // Ensure we wait for profile fetch
+                    setUser(session.user);
+                    fetchProfile(session.user.id);
+                } else {
+                    setUser(null);
                     setProfile(null);
                     setLoading(false);
                 }
@@ -76,7 +79,13 @@ export function AuthProvider({ children }) {
 
     return (
         <AuthContext.Provider value={value}>
-            {!loading && children}
+            {loading ? (
+                <div className="flex items-center justify-center min-h-screen bg-slate-50">
+                    <Loader />
+                </div>
+            ) : (
+                children
+            )}
         </AuthContext.Provider>
     );
 };

@@ -146,7 +146,7 @@ export default function LandingPage() {
                             <span className="text-slate-500 font-medium">SMMS</span>
                         </div>
                         <p className="text-slate-400 text-sm">
-                            &copy; 2025 Mountain Top University. All rights reserved.
+                            &copy; {new Date().getFullYear()} Mountain Top University. All rights reserved.
                         </p>
                     </div>
                 </div>

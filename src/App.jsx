@@ -13,6 +13,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import Loader from './components/Loader';
+import InstallPrompt from './components/InstallPrompt';
 import { Toaster } from 'sonner';
 
 import { lazyWithRetry } from './utils/lazyWithRetry';
@@ -86,6 +87,7 @@ export default function App() {
           </Routes>
         </Suspense>
       </AuthProvider>
+      <InstallPrompt />
       <Toaster position="top-right" richColors closeButton />
     </BrowserRouter>
   );

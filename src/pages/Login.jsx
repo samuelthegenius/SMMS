@@ -55,7 +55,7 @@ export default function Login() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 py-10">
             {/* Decorative Background */}
             <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 pointer-events-none" />
 
@@ -121,7 +121,7 @@ export default function Login() {
                 </CardFooter>
             </Card>
 
-            <div className="absolute bottom-6 text-center text-xs text-slate-400">
+            <div className="mt-8 text-center text-xs text-slate-400">
                 &copy; {new Date().getFullYear()} Mountain Top University. All rights reserved.
             </div>
         </div>

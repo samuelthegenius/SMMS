@@ -120,7 +120,7 @@ export default function SignUp() {
     const inputClasses = "flex h-10 w-full rounded-md border-0 ring-1 ring-slate-200 bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200";
 
     return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 py-10">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 pointer-events-none" />
 
             <Card className="w-full max-w-md relative z-10 border-slate-200/60 shadow-xl">
@@ -311,7 +311,7 @@ export default function SignUp() {
                 </CardFooter>
             </Card>
 
-            <div className="absolute bottom-6 text-center text-xs text-slate-400">
+            <div className="mt-8 text-center text-xs text-slate-400">
                 &copy; {new Date().getFullYear()} Mountain Top University. All rights reserved.
             </div>
         </div>

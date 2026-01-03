@@ -22,7 +22,8 @@ export default function LandingPage() {
                                 <Wrench className="h-6 w-6 text-amber-500" />
                             </div>
                             <div>
-                                <h1 className="text-xl font-bold text-white tracking-tight">Smart Maintenance Management System</h1>
+                                <h1 className="text-xl font-bold text-white tracking-tight hidden md:block">Smart Maintenance Management System</h1>
+                                <h1 className="text-xl font-bold text-white tracking-tight md:hidden">SMMS</h1>
                                 <p className="text-xs text-slate-400 font-medium tracking-wide uppercase">Official Maintenance Portal</p>
                             </div>
                         </div>

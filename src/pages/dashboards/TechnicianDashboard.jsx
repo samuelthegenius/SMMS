@@ -8,14 +8,30 @@ import { toast } from 'sonner';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
 
+import useSWR from 'swr';
+
 export default function TechnicianDashboard() {
     const { user } = useAuth();
-    const [jobs, setJobs] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [aiSuggestion, setAiSuggestion] = useState({ ticketId: null, text: '', loading: false });
 
+    // SWR Fetcher
+    const fetchJobs = async () => {
+        const { data, error } = await supabase
+            .from('tickets')
+            .select('*, student:created_by(email)')
+            .eq('assigned_to', user.id)
+            .neq('status', 'Resolved')
+            .order('priority', { ascending: false });
+        if (error) throw error;
+        return data;
+    };
+
+    // Use SWR
+    const { data: jobs = [], mutate, isLoading } = useSWR(user ? ['technician_jobs', user.id] : null, fetchJobs);
+
     useEffect(() => {
-        fetchJobs();
+        if (!user) return;
+
         const subscription = supabase
             .channel('technician_jobs')
             .on('postgres_changes', {
@@ -24,7 +40,7 @@ export default function TechnicianDashboard() {
                 table: 'tickets',
                 filter: `assigned_to=eq.${user.id}`
             }, () => {
-                fetchJobs();
+                mutate();
                 toast.info('Job list updated');
             })
             .subscribe();
@@ -32,31 +48,14 @@ export default function TechnicianDashboard() {
         return () => {
             subscription.unsubscribe();
         };
-    }, [user.id]);
-
-    const fetchJobs = async () => {
-        try {
-            const { data, error } = await supabase
-                .from('tickets')
-                .select('*, student:created_by(email)')
-                .eq('assigned_to', user.id)
-                .neq('status', 'Resolved')
-                .order('priority', { ascending: false });
-
-            if (error) throw error;
-            setJobs(data);
-        } catch (error) {
-            console.error('Error fetching jobs:', error);
-            toast.error('Failed to load jobs');
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, [user, mutate]);
 
     const handleStatusUpdate = async (ticketId, newStatus) => {
         const previousJobs = [...jobs];
+        const updatedJobs = jobs.map(j => j.id === ticketId ? { ...j, status: newStatus } : j);
+
         // Optimistic update
-        setJobs(jobs.map(j => j.id === ticketId ? { ...j, status: newStatus } : j));
+        mutate(updatedJobs, false);
 
         try {
             const { error } = await supabase
@@ -69,9 +68,6 @@ export default function TechnicianDashboard() {
             // Trigger Email Notification on Completion
             if (newStatus === 'Resolved') {
                 const job = jobs.find(j => j.id === ticketId);
-                // Note: job.student might be nested objects depending on how Supabase returns it with !inner/!left.
-                // Based on query 'student:created_by(email)', it should be { email: '...' }
-
                 if (job?.student?.email) {
                     await supabase.functions.invoke('send-email', {
                         body: {
@@ -84,10 +80,11 @@ export default function TechnicianDashboard() {
             }
 
             toast.success(`Ticket marked as ${newStatus}`);
+            mutate(); // Revalidate to ensure consistency
         } catch (error) {
             console.error('Error updating status:', error);
             toast.error('Failed to update status');
-            setJobs(previousJobs); // Rollback
+            mutate(previousJobs, false); // Rollback
         }
     };
 
@@ -125,7 +122,7 @@ export default function TechnicianDashboard() {
         }
     };
 
-    if (loading) return <Loader />;
+    if (isLoading && !jobs.length) return <Loader />;
 
     return (
         <div className="space-y-8">

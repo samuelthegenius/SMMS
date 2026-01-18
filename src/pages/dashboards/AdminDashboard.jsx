@@ -15,24 +15,32 @@ const FACILITY_TYPES = [
     'Sports Complex', 'Chapel', 'Other'
 ];
 
+import useSWR from 'swr';
+import { useAuth } from '../../contexts/AuthContext';
+
 export default function AdminDashboard() {
-    const [tickets, setTickets] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const { profile } = useAuth();
     const [filter, setFilter] = useState('All');
-    const [profile, setProfile] = useState(null);
-
-
     const [selectedTicket, setSelectedTicket] = useState(null);
 
+    // SWR Fetcher
+    const fetchTickets = async () => {
+        const { data, error } = await supabase
+            .from('tickets')
+            .select(`*, creator:created_by (full_name, identification_number, role)`)
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data;
+    };
+
+    // Use SWR for caching (dedupingInterval: 5000 is default, we can keep it)
+    const { data: tickets = [], mutate, isLoading } = useSWR('admin_tickets', fetchTickets);
+
     useEffect(() => {
-        checkUser();
-
-        fetchTickets();
-
         const subscription = supabase
             .channel('admin_tickets')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
-                fetchTickets();
+                mutate();
                 toast.info('Dashboard updated');
             })
             .subscribe();
@@ -40,40 +48,7 @@ export default function AdminDashboard() {
         return () => {
             subscription.unsubscribe();
         };
-    }, []);
-
-    const checkUser = async () => {
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data: profileData } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', user.id)
-                    .single();
-                setProfile(profileData);
-            }
-        } catch (error) {
-            console.error("Error checking user:", error);
-        }
-    };
-
-    const fetchTickets = async () => {
-        try {
-            const { data, error } = await supabase
-                .from('tickets')
-                .select(`*, creator:created_by (full_name, identification_number, role)`)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-            setTickets(data || []);
-        } catch (error) {
-            console.error('Error fetching tickets:', error);
-            toast.error("Error loading tickets: " + error.message);
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, [mutate]);
 
 
 
@@ -88,7 +63,7 @@ export default function AdminDashboard() {
         inProgress: tickets.filter(t => t.status === 'In Progress').length,
     };
 
-    if (loading) return <Loader />;
+    if (isLoading && !tickets.length) return <Loader />;
 
     if (profile && profile.role !== 'admin') {
         return <div className="text-red-500 text-center mt-10">Access Denied: You are not an admin.</div>;
@@ -184,7 +159,7 @@ export default function AdminDashboard() {
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <ReassignTechnician
                                             ticket={ticket}
-                                            onReassign={fetchTickets}
+                                            onReassign={() => mutate()}
                                         />
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">

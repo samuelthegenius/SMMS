@@ -21,41 +21,37 @@ function WrenchIcon(props) {
     return <Activity {...props} />; // Fallback icon
 }
 
+import useSWR from 'swr';
+
 export default function UserDashboard() {
     const { user, profile } = useAuth();
-    const [tickets, setTickets] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [rejectingId, setRejectingId] = useState(null);
     const [rejectionReason, setRejectionReason] = useState('');
 
-    useEffect(() => {
-        const fetchTickets = async () => {
-            try {
-                const { data, error } = await supabase
-                    .from('tickets')
-                    .select('*')
-                    .eq('created_by', user.id)
-                    .order('created_at', { ascending: false });
+    const fetchTickets = async () => {
+        const { data, error } = await supabase
+            .from('tickets')
+            .select('*')
+            .eq('created_by', user.id)
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data;
+    };
 
-                if (error) throw error;
-                setTickets(data);
-            } catch (error) {
-                console.error('Error fetching tickets:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchTickets();
-    }, [user.id]);
+    const { data: tickets = [], mutate, isLoading } = useSWR(user ? ['user_tickets', user.id] : null, fetchTickets);
 
     const handleVerification = async (ticketId, isApproved, reason = null) => {
-        try {
-            const updates = {
-                status: isApproved ? 'Completed' : 'In Progress',
-                rejection_reason: reason
-            };
+        const previousTickets = [...tickets];
+        const updates = {
+            status: isApproved ? 'Completed' : 'In Progress',
+            rejection_reason: reason
+        };
+        const updatedTickets = tickets.map(t => t.id === ticketId ? { ...t, ...updates } : t);
 
+        // Optimistic update
+        mutate(updatedTickets, false);
+
+        try {
             const { error } = await supabase
                 .from('tickets')
                 .update(updates)
@@ -63,20 +59,21 @@ export default function UserDashboard() {
 
             if (error) throw error;
 
-            setTickets(tickets.map(t => t.id === ticketId ? { ...t, ...updates } : t));
             toast.success(isApproved ? 'Fix confirmed! Ticket completed.' : 'Issue reported. Technician notified.');
 
             if (!isApproved) {
                 setRejectingId(null);
                 setRejectionReason('');
             }
+            mutate(); // Revalidate
         } catch (error) {
             console.error('Error updating status:', error);
             toast.error('Failed to update status');
+            mutate(previousTickets, false); // Rollback
         }
     };
 
-    if (loading) return <Loader />;
+    if (isLoading && !tickets.length) return <Loader />;
 
     const displayRole = profile?.role === 'staff_member' ? 'Staff' : 'Student';
 

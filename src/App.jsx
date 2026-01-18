@@ -16,17 +16,14 @@ import Loader from './components/Loader';
 import InstallPrompt from './components/InstallPrompt';
 import { Toaster } from 'sonner';
 
-import { lazyWithRetry } from './utils/lazyWithRetry';
-
-// Lazy Load Pages for Code Splitting (with automatic retry on 404)
-const Login = lazyWithRetry(() => import('./pages/Login'), 'Login');
-const SignUp = lazyWithRetry(() => import('./pages/SignUp'), 'SignUp');
-const TicketForm = lazyWithRetry(() => import('./pages/TicketForm'), 'TicketForm');
-const UserDashboard = lazyWithRetry(() => import('./pages/dashboards/UserDashboard'), 'UserDashboard');
-const TechnicianDashboard = lazyWithRetry(() => import('./pages/dashboards/TechnicianDashboard'), 'TechnicianDashboard');
-const AdminDashboard = lazyWithRetry(() => import('./pages/dashboards/AdminDashboard'), 'AdminDashboard');
-const AnalyticsPage = lazyWithRetry(() => import('./pages/AnalyticsPage'), 'AnalyticsPage');
-const LandingPage = lazyWithRetry(() => import('./pages/LandingPage'), 'LandingPage');
+import Login from './pages/Login';
+import SignUp from './pages/SignUp';
+import TicketForm from './pages/TicketForm';
+import UserDashboard from './pages/dashboards/UserDashboard';
+import TechnicianDashboard from './pages/dashboards/TechnicianDashboard';
+import AdminDashboard from './pages/dashboards/AdminDashboard';
+import AnalyticsPage from './pages/AnalyticsPage';
+import LandingPage from './pages/LandingPage';
 
 /**
  * @function DashboardRouter

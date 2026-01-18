@@ -41,20 +41,27 @@ export function AuthProvider({ children }) {
                 const currentId = userIdRef.current;
                 const newId = session?.user?.id;
 
+                // Priority Check: If it's just a token refresh, NEVER show loader.
+                if (event === 'TOKEN_REFRESHED' && session?.user) {
+                    setUser(session.user);
+                    setLoading(false);
+                    return;
+                }
+
                 if (session?.user) {
-                    // Only trigger global loading if we are essentially logging in (ID changed)
+                    // For SIGNED_IN or other events, verify if ID actually changed
                     if (currentId !== newId) {
                         setLoading(true);
                         userIdRef.current = newId;
                         setUser(session.user);
                         fetchProfile(newId);
                     } else {
-                        // Silent update (token refresh) - no loader
+                        // Same user, different event (e.g. recovered session)
                         setUser(session.user);
                         setLoading(false);
                     }
                 } else {
-                    // Logout
+                    // Logic for SIGNED_OUT
                     userIdRef.current = null;
                     setUser(null);
                     setProfile(null);

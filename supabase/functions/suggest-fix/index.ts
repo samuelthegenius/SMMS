@@ -1,5 +1,5 @@
 
-import { serve } from "std/http/server.ts"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -66,11 +66,19 @@ serve(async (req: Request) => {
         }
 
         // Step B: Add Text Prompts
-        const role = "You are an expert facility maintenance technician at Mountain Top University."
-        const task = `Analyze the uploaded image (if present) and the description: '${ticketDescription}'. Provide a Preliminary Diagnosis, a Recommended Tool List, and a Safety Warning.`
+        const role = "You are a senior maintenance supervisor advising a junior technician."
+        const task = `
+            Category: ${ticketCategory || 'General'}
+            Issue: ${ticketDescription}
+            
+            Return a STRICT JSON object (no markdown formatting, no code blocks) with these fields:
+            - technical_diagnosis: (A concise technical explanation of the fault)
+            - tools_required: (Array of strings)
+            - safety_precaution: (One critical safety warning starting with "WARNING:")
+        `
 
         parts.push({
-            text: `${role}\n\nCategory: ${ticketCategory}\nTask: ${task}`
+            text: `${role}\n${task}`
         })
 
         // 4. Call Gemini API (gemini-flash-latest)
@@ -98,13 +106,25 @@ serve(async (req: Request) => {
             throw new Error("AI Request was blocked by safety filters.")
         }
 
-        const suggestion = candidate?.content?.parts?.[0]?.text
-        if (!suggestion) {
+        let suggestionText = candidate?.content?.parts?.[0]?.text
+        if (!suggestionText) {
             throw new Error("AI returned no suggestion content.")
         }
 
+        // Clean up markdown code blocks if Gemini adds them
+        suggestionText = suggestionText.replace(/```json/g, '').replace(/```/g, '').trim();
+
+        // Parse JSON
+        let jsonResponse;
+        try {
+            jsonResponse = JSON.parse(suggestionText);
+        } catch (e) {
+            console.error("Failed to parse AI JSON:", suggestionText);
+            throw new Error("AI Response was not valid JSON");
+        }
+
         // 5. Return Success Response
-        return new Response(JSON.stringify({ suggestion }), {
+        return new Response(JSON.stringify(jsonResponse), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 200,
         })

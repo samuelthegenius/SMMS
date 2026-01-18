@@ -65,13 +65,7 @@ export default defineConfig({
     // Proxy Configuration: Acts as a middleware during development.
     // It forwards requests starting with /api to the backend server (Vercel functions or local server),
     // effectively bypassing Cross-Origin Resource Sharing (CORS) restrictions that browsers enforce.
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
-      }
-    }
+
   }
   ,
 

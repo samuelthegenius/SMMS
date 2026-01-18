@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Sparkles, Wrench, AlertTriangle, Loader2, ClipboardList } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from './ui/Button';
 
@@ -15,18 +16,21 @@ export default function TicketDetails({ ticket, onClose }) {
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch('/api/suggest-fix', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+            // Using Supabase Edge Function directly
+            const { data, error } = await supabase.functions.invoke('suggest-fix', {
+                body: {
                     ticketDescription: ticket.description,
-                    category: ticket.category,
-                }),
+                    ticketCategory: ticket.category,
+                }
             });
 
-            if (!response.ok) throw new Error('Failed to get AI suggestion');
+            if (error) throw error;
+            // The updated edge function now returns { suggestion: ... } or the raw JSON directly depending on implementation.
+            // Based on my edit, it returns the JSON object directly (technical_diagnosis, etc)
+            // or wrapped in suggestion key if I followed the plan strictly.
+            // Let's check my previous edit: I returned `JSON.stringify(jsonResponse)` 
+            // So `data` will be the actual JSON object.
 
-            const data = await response.json();
             setAiSuggestion(data);
         } catch (err) {
             console.error(err);

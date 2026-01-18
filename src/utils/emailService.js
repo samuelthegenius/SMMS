@@ -1,3 +1,5 @@
+import { supabase } from "../lib/supabase";
+
 /**
  * @file src/utils/emailService.js
  * @description Frontend Utility for Email Notification System.
@@ -8,18 +10,13 @@
  */
 export const sendEmailNotification = async ({ to, subject, html }) => {
     try {
-        // Securely Proxying the request through the /api endpoint
-        const response = await fetch('/api/send-email', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ to, subject, html }),
+        // Securely invoking the Supabase Edge Function
+        const { error } = await supabase.functions.invoke('send-email', {
+            body: { to, subject, html }
         });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            console.error('Email API Error:', errorData);
+        if (error) {
+            console.error('Email Edge Function Error:', error);
             return false;
         }
 

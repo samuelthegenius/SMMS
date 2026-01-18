@@ -32,12 +32,24 @@ export function AuthProvider({ children }) {
         // 2. Auth State Listener:
         // Subscribes to auth changes to handle dynamic logouts or token refreshes.
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            (_event, session) => {
+            (event, session) => {
+                // Only trigger global loading if we are essentially logging in from a logged-out state.
+                // If we already have a user and get a TOKEN_REFRESHED, we don't want to show the spinner.
+
                 if (session?.user) {
-                    setLoading(true); // Ensure we wait for profile fetch
-                    setUser(session.user);
-                    fetchProfile(session.user.id);
+                    // If the user ID has changed (login) OR we don't have a profile yet, fetch it.
+                    if (user?.id !== session.user.id || !profile) {
+                        // Only show spinner if completely switching users
+                        if (user?.id !== session.user.id) setLoading(true);
+
+                        setUser(session.user);
+                        fetchProfile(session.user.id);
+                    } else {
+                        // Silent update (e.g. access token refresh) - Do NOT set loading=true
+                        setUser(session.user);
+                    }
                 } else {
+                    // Logic for SIGNED_OUT
                     setUser(null);
                     setProfile(null);
                     setLoading(false);

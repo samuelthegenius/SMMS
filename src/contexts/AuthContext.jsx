@@ -7,7 +7,7 @@
  * - RBAC (Role-Based Access Control): Fetches and exposes user roles to protected routes.
  * - Real-time Sync: Listens for Supabase Auth events (LOGIN, SIGNOUT).
  */
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import Loader from '../components/Loader';
 
@@ -20,36 +20,42 @@ export function AuthProvider({ children }) {
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    // Use a ref to track the current ID to avoid stale closure issues
+    const userIdRef = useRef(null);
+
     useEffect(() => {
         // 1. Initial Session Check:
-        // Retrieves the current active session from local storage (if any).
         supabase.auth.getSession().then(({ data: { session } }) => {
-            setUser(session?.user ?? null);
-            if (session?.user) fetchProfile(session.user.id);
-            else setLoading(false);
+            if (session?.user) {
+                userIdRef.current = session.user.id;
+                setUser(session.user);
+                fetchProfile(session.user.id);
+            } else {
+                setLoading(false);
+            }
         });
 
         // 2. Auth State Listener:
-        // Subscribes to auth changes to handle dynamic logouts or token refreshes.
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             (event, session) => {
-                // Only trigger global loading if we are essentially logging in from a logged-out state.
-                // If we already have a user and get a TOKEN_REFRESHED, we don't want to show the spinner.
+                const currentId = userIdRef.current;
+                const newId = session?.user?.id;
 
                 if (session?.user) {
-                    // If the user ID has changed (login) OR we don't have a profile yet, fetch it.
-                    if (user?.id !== session.user.id || !profile) {
-                        // Only show spinner if completely switching users
-                        if (user?.id !== session.user.id) setLoading(true);
-
+                    // Only trigger global loading if we are essentially logging in (ID changed)
+                    if (currentId !== newId) {
+                        setLoading(true);
+                        userIdRef.current = newId;
                         setUser(session.user);
-                        fetchProfile(session.user.id);
+                        fetchProfile(newId);
                     } else {
-                        // Silent update (e.g. access token refresh) - Do NOT set loading=true
+                        // Silent update (token refresh) - no loader
                         setUser(session.user);
+                        setLoading(false);
                     }
                 } else {
-                    // Logic for SIGNED_OUT
+                    // Logout
+                    userIdRef.current = null;
                     setUser(null);
                     setProfile(null);
                     setLoading(false);

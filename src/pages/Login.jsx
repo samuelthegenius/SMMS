@@ -168,7 +168,7 @@ export default function Login() {
                                 <Input
                                     id="identifier"
                                     type="text"
-                                    placeholder="student@mtu.edu.ng or U/2021/004"
+                                    placeholder="student@university.edu or U/2021/004"
                                     value={identifier}
                                     onChange={(e) => setIdentifier(e.target.value)}
                                     required

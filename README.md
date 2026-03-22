@@ -1,16 +1,54 @@
-# React + Vite
+# 🏗️ Smart Maintenance Management System (SMMS)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> The official maintenance portal for Mountain Top University
 
-Currently, two official plugins are available:
+![Status](https://img.shields.io/badge/status-production--ready-success)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## 🚀 Quick Start
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. **Database**: Run `supabase_schema.sql` in Supabase SQL Editor
+2. **Environment**: Copy `.env.example` → `.env` and fill credentials
+3. **Install**: `npm install && npm run dev`
 
-## Expanding the ESLint configuration
+📖 **Full setup guide: [SECURITY.md](./SECURITY.md)**
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## ✨ Features
+
+**Users**: Report issues, track status, verify fixes  
+**Technicians**: AI-powered repair guides, smart job assignment  
+**Admins**: Analytics, user management, oversight
+
+---
+
+## 🛠️ Stack
+
+React 19 • Vite • Supabase • Tailwind • Gemini AI • EmailJS
+
+---
+
+## 📚 Docs
+
+- **[SECURITY.md](./SECURITY.md)** - Setup & security guide
+- **[DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md)** - Production deployment
+
+---
+
+## 🔐 Security
+
+✅ RLS • Rate limiting • PKCE • Input validation • Error boundaries
+
+See [SECURITY.md](./SECURITY.md)
+
+---
+
+## 📄 License
+
+Proprietary - Mountain Top University
+
+---
+
+**Built with ❤️ | Last Updated: March 2026**

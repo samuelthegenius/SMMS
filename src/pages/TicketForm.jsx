@@ -29,17 +29,35 @@ export default function TicketForm() {
     const [imageFile, setImageFile] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
 
+    // Image upload constants
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
     const handleImageChange = (e) => {
         const file = e.target.files[0];
-        if (file) {
-            setImageFile(file);
-            const objectUrl = URL.createObjectURL(file);
-            setImagePreview(objectUrl);
+        if (!file) return;
+
+        // Validate file size
+        if (file.size > MAX_FILE_SIZE) {
+            toast.error('File size must be less than 5MB');
+            e.target.value = '';
+            return;
         }
+
+        // Validate MIME type
+        if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+            toast.error('Only JPEG, PNG, WEBP, and GIF images are allowed');
+            e.target.value = '';
+            return;
+        }
+
+        setImageFile(file);
+        const objectUrl = URL.createObjectURL(file);
+        setImagePreview(objectUrl);
     };
 
     const removeImage = () => {
@@ -294,13 +312,13 @@ export default function TicketForm() {
                                                             name="file-upload"
                                                             type="file"
                                                             className="sr-only"
-                                                            accept="image/*"
+                                                            accept="image/jpeg,image/png,image/webp,image/gif"
                                                             onChange={handleImageChange}
                                                         />
                                                     </label>
                                                     <p className="pl-1">or drag and drop</p>
                                                 </div>
-                                                <p className="text-xs text-slate-500">PNG, JPG up to 5MB</p>
+                                                <p className="text-xs text-slate-500">PNG, JPG, WEBP, GIF up to 5MB</p>
                                             </>
                                         )}
                                     </div>

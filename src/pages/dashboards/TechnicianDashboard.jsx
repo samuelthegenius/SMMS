@@ -14,11 +14,24 @@ export default function TechnicianDashboard() {
     const { user } = useAuth();
     const [aiSuggestion, setAiSuggestion] = useState({ ticketId: null, text: '', loading: false });
 
-    // SWR Fetcher
+    // SWR Fetcher - Only fetch necessary fields
     const fetchJobs = async () => {
         const { data, error } = await supabase
             .from('tickets')
-            .select('*, student:created_by(email)')
+            .select(`
+                id,
+                title,
+                description,
+                category,
+                facility_type,
+                specific_location,
+                status,
+                priority,
+                created_at,
+                assigned_to,
+                image_url,
+                student:created_by(email)
+            `)
             .eq('assigned_to', user.id)
             .neq('status', 'Resolved')
             .order('priority', { ascending: false });

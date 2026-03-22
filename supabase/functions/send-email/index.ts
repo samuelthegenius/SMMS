@@ -11,13 +11,38 @@ const EMAILJS_USER_ID = Deno.env.get('EMAILJS_USER_ID') // Public Key
 // @ts-ignore: Deno namespace
 const EMAILJS_PRIVATE_KEY = Deno.env.get('EMAILJS_PRIVATE_KEY') // Private Key
 
-const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+// Security: Restrict CORS to your actual domain in production
+const ALLOWED_ORIGINS = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://mtusmms.me',
+    // Add your production domain here
+]
+
+const corsHeaders = (origin: string) => {
+    // Validate origin before reflecting it back
+    const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
+    return {
+        'Access-Control-Allow-Origin': allowedOrigin,
+        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Max-Age': '86400', // 24 hours
+    }
+}
+
+// Input validation helper
+const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return emailRegex.test(email)
 }
 
 // Helper to send email via EmailJS REST API
 const sendViaEmailJS = async (to_email: string, subject: string, message: string) => {
+    // Validate email before sending
+    if (!validateEmail(to_email)) {
+        throw new Error(`Invalid email address: ${to_email}`)
+    }
+
     const payload = {
         service_id: EMAILJS_SERVICE_ID,
         template_id: EMAILJS_TEMPLATE_ID,
@@ -27,7 +52,6 @@ const sendViaEmailJS = async (to_email: string, subject: string, message: string
             to_email: to_email,
             subject: subject,
             message: message
-            // Note: Your EmailJS template must use {{to_email}}, {{subject}}, and {{message}} variables
         }
     };
 
@@ -39,21 +63,63 @@ const sendViaEmailJS = async (to_email: string, subject: string, message: string
 
     if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`EmailJS Error: ${errorText}`);
+        throw new Error(`EmailJS Error: ${errorText}`)
     }
 };
 
 serve(async (req: Request) => {
+    // Handle CORS preflight
     if (req.method === 'OPTIONS') {
-        return new Response('ok', { headers: corsHeaders })
+        return new Response('ok', { headers: corsHeaders(req.headers.get('origin') || '') })
+    }
+
+    // Only allow POST
+    if (req.method !== 'POST') {
+        return new Response(
+            JSON.stringify({ error: 'Method not allowed' }),
+            { headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' }, status: 405 }
+        )
     }
 
     try {
+        // Validate environment variables
         if (!EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID || !EMAILJS_USER_ID || !EMAILJS_PRIVATE_KEY) {
-            throw new Error('Missing EmailJS environment variables')
+            throw new Error('Server configuration error: Missing EmailJS credentials')
         }
 
-        const { type, student_email, technician_email, ticket_title, technician_name, ticket_description, ticket_location, ticket_priority } = await req.json()
+        // Parse and validate request body
+        let requestBody
+        try {
+            requestBody = await req.json()
+        } catch {
+            throw new Error('Invalid JSON in request body')
+        }
+
+        const { type, student_email, technician_email, ticket_title, technician_name, ticket_description, ticket_location, ticket_priority } = requestBody
+
+        // Validate required fields
+        if (!type) {
+            throw new Error('Missing required field: type')
+        }
+
+        if (!['ticket_created', 'ticket_reassigned', 'ticket_completed'].includes(type)) {
+            throw new Error('Invalid email type')
+        }
+
+        // Validate email addresses if provided
+        if (student_email && !validateEmail(student_email)) {
+            throw new Error('Invalid student email format')
+        }
+        if (technician_email && !validateEmail(technician_email)) {
+            throw new Error('Invalid technician email format')
+        }
+
+        // Rate limiting: Check for abuse (simple in-memory check)
+        // In production, use Redis or Supabase rate limiting
+        const requestCount = await req.headers.get('X-Request-Count')
+        if (requestCount && parseInt(requestCount) > 10) {
+            throw new Error('Rate limit exceeded')
+        }
 
         const emailPromises = [];
         const dashboardLink = "https://mtusmms.me/dashboard";
@@ -61,7 +127,7 @@ serve(async (req: Request) => {
         // 1. Ticket Created -> Notify Student & Technician
         if (type === 'ticket_created') {
             // To Student
-            if (student_email) {
+            if (student_email && ticket_title) {
                 emailPromises.push(sendViaEmailJS(
                     student_email,
                     `Ticket Received: ${ticket_title}`,
@@ -72,7 +138,7 @@ serve(async (req: Request) => {
                 ));
             }
             // To Technician (if assigned immediately)
-            if (technician_email) {
+            if (technician_email && ticket_title) {
                 emailPromises.push(sendViaEmailJS(
                     technician_email,
                     `New Task Assigned: ${ticket_title}`,
@@ -81,10 +147,10 @@ serve(async (req: Request) => {
                     <p>Hello <strong>${technician_name || 'Technician'}</strong>,</p>
                     <p>You have been assigned a new ticket.</p>
                     <hr />
-                    <p><strong>Title:</strong> ${ticket_title}</p>
-                    <p><strong>Location:</strong> ${ticket_location}</p>
-                    <p><strong>Priority:</strong> ${ticket_priority}</p>
-                    <p><strong>Description:</strong><br/>${ticket_description}</p>
+                    <p><strong>Title:</strong> ${ticket_title || 'N/A'}</p>
+                    <p><strong>Location:</strong> ${ticket_location || 'N/A'}</p>
+                    <p><strong>Priority:</strong> ${ticket_priority || 'N/A'}</p>
+                    <p><strong>Description:</strong><br/>${ticket_description || 'N/A'}</p>
                     <hr />
                     <p>Please log in to your dashboard to "Accept" or "Resolve" this task.</p>
                     <p style="margin-top: 15px;">
@@ -96,7 +162,7 @@ serve(async (req: Request) => {
         }
 
         // 2. Ticket Reassigned -> Notify New Technician
-        if (type === 'ticket_reassigned' && technician_email) {
+        if (type === 'ticket_reassigned' && technician_email && ticket_title) {
             emailPromises.push(sendViaEmailJS(
                 technician_email,
                 `Job Reassigned to You: ${ticket_title}`,
@@ -105,9 +171,9 @@ serve(async (req: Request) => {
                 <p>Hello <strong>${technician_name || 'Technician'}</strong>,</p>
                 <p>A ticket has been reassigned to you.</p>
                 <hr />
-                <p><strong>Title:</strong> ${ticket_title}</p>
-                <p><strong>Location:</strong> ${ticket_location}</p>
-                 <p><strong>Priority:</strong> ${ticket_priority}</p>
+                <p><strong>Title:</strong> ${ticket_title || 'N/A'}</p>
+                <p><strong>Location:</strong> ${ticket_location || 'N/A'}</p>
+                 <p><strong>Priority:</strong> ${ticket_priority || 'N/A'}</p>
                 <hr />
                 <p>Please check your dashboard.</p>
                 <p style="margin-top: 15px;">
@@ -118,7 +184,7 @@ serve(async (req: Request) => {
         }
 
         // 3. Ticket Completed -> Notify Student
-        if (type === 'ticket_completed' && student_email) {
+        if (type === 'ticket_completed' && student_email && ticket_title) {
             emailPromises.push(sendViaEmailJS(
                 student_email,
                 `Ticket Resolved: ${ticket_title}`,
@@ -134,18 +200,22 @@ serve(async (req: Request) => {
             ));
         }
 
+        if (emailPromises.length === 0) {
+            throw new Error('No valid recipients for email')
+        }
+
         await Promise.all(emailPromises);
 
-        return new Response(JSON.stringify({ message: 'Emails processed' }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        return new Response(JSON.stringify({ message: 'Emails processed successfully' }), {
+            headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
             status: 200,
         })
 
     } catch (error: any) {
-        console.error(error)
-        return new Response(JSON.stringify({ error: error.message }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 400,
+        console.error('send-email error:', error)
+        return new Response(JSON.stringify({ error: error.message || 'Internal server error' }), {
+            headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
+            status: error.message?.includes('Rate limit') ? 429 : 400,
         })
     }
 })

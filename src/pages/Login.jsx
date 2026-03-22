@@ -7,14 +7,81 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/Card';
 
+// Rate limiting constants
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+const STORAGE_KEY = 'login_attempts';
+
 export default function Login() {
-    const [identifier, setIdentifier] = useState(''); // Can be email or ID number
+    const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
+    // Check rate limit before allowing login attempt
+    const checkRateLimit = () => {
+        const now = Date.now();
+        const stored = localStorage.getItem(STORAGE_KEY);
+        
+        if (stored) {
+            const { attempts, lockoutTime } = JSON.parse(stored);
+            
+            // If in lockout period
+            if (lockoutTime && now < lockoutTime) {
+                const minutesLeft = Math.ceil((lockoutTime - now) / 60000);
+                throw new Error(`Too many failed attempts. Please try again in ${minutesLeft} minute(s).`);
+            }
+            
+            // If lockout expired, reset
+            if (lockoutTime && now >= lockoutTime) {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({ attempts: 0, lockoutTime: null }));
+                return true;
+            }
+            
+            // Check if max attempts reached
+            if (attempts >= MAX_LOGIN_ATTEMPTS) {
+                const lockoutTime = now + LOCKOUT_DURATION_MS;
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({ attempts, lockoutTime }));
+                throw new Error(`Too many failed attempts. Account locked for 5 minutes.`);
+            }
+        }
+        return true;
+    };
+
+    // Record failed login attempt
+    const recordFailedAttempt = () => {
+        const now = Date.now();
+        const stored = localStorage.getItem(STORAGE_KEY);
+        const { attempts = 0 } = stored ? JSON.parse(stored) : { attempts: 0 };
+        
+        const newAttempts = attempts + 1;
+        localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify({
+                attempts: newAttempts,
+                lockoutTime: newAttempts >= MAX_LOGIN_ATTEMPTS ? now + LOCKOUT_DURATION_MS : null
+            })
+        );
+        
+        return MAX_LOGIN_ATTEMPTS - newAttempts;
+    };
+
+    // Reset on successful login
+    const resetRateLimit = () => {
+        localStorage.removeItem(STORAGE_KEY);
+    };
+
     const handleLogin = async (e) => {
         e.preventDefault();
+        
+        // Client-side rate limit check
+        try {
+            checkRateLimit();
+        } catch (error) {
+            toast.error(error.message);
+            return;
+        }
+
         setLoading(true);
 
         try {
@@ -25,13 +92,18 @@ export default function Login() {
 
             // Step C: If ID Number (no @), look it up
             if (!isEmail) {
+                // Validate ID format (basic validation)
+                if (identifier.length < 5) {
+                    throw new Error('Invalid ID Number format');
+                }
+
                 // Use the secure RPC function to look up the email
-                // This bypasses the RLS issue where an unauthenticated user can't search the profiles table
                 const { data: resolvedEmail, error } = await supabase
                     .rpc('get_email_by_id', { lookup_id: identifier });
 
                 if (error || !resolvedEmail) {
-                    throw new Error('Invalid ID Number');
+                    recordFailedAttempt();
+                    throw new Error('Invalid ID Number or password');
                 }
 
                 emailToUse = resolvedEmail;
@@ -43,12 +115,29 @@ export default function Login() {
                 password,
             });
 
-            if (authError) throw authError;
+            if (authError) {
+                recordFailedAttempt();
+                
+                // Generic error message to prevent user enumeration
+                if (authError.message.includes('Invalid login credentials')) {
+                    throw new Error('Invalid ID Number or password');
+                }
+                throw authError;
+            }
 
+            // Success - reset rate limit
+            resetRateLimit();
             toast.success('Welcome back!');
             navigate('/dashboard');
         } catch (error) {
-            toast.error(error.message || 'Failed to sign in');
+            console.error('Login error:', error);
+            // Don't expose specific errors to prevent user enumeration
+            const remaining = MAX_LOGIN_ATTEMPTS - (JSON.parse(localStorage.getItem(STORAGE_KEY) || '{"attempts":0}').attempts);
+            if (remaining <= 0) {
+                toast.error('Account locked. Please try again later.');
+            } else {
+                toast.error('Invalid ID Number or password');
+            }
         } finally {
             setLoading(false);
         }
@@ -84,6 +173,7 @@ export default function Login() {
                                     onChange={(e) => setIdentifier(e.target.value)}
                                     required
                                     className="bg-slate-50/50"
+                                    autoComplete="username"
                                 />
                             </div>
                             <div className="space-y-2">
@@ -97,9 +187,10 @@ export default function Login() {
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
                                     className="bg-slate-50/50"
+                                    autoComplete="current-password"
                                 />
                             </div>
-                            <Button className="w-full mt-4" type="submit" isLoading={loading}>
+                            <Button className="w-full mt-4" type="submit" isLoading={loading} disabled={loading}>
                                 Sign In
                             </Button>
                         </form>

@@ -31,7 +31,21 @@ export default function UserDashboard() {
     const fetchTickets = async () => {
         const { data, error } = await supabase
             .from('tickets')
-            .select('*')
+            .select(`
+                id,
+                title,
+                description,
+                category,
+                facility_type,
+                specific_location,
+                status,
+                priority,
+                created_at,
+                updated_at,
+                assigned_to,
+                rejection_reason,
+                image_url
+            `)
             .eq('created_by', user.id)
             .order('created_at', { ascending: false });
         if (error) throw error;
@@ -75,7 +89,7 @@ export default function UserDashboard() {
 
     if (isLoading && !tickets.length) return <Loader />;
 
-    const displayRole = profile?.role === 'staff_member' ? 'Staff' : 'Student';
+    const displayRole = profile?.role === 'staff' ? 'Staff' : 'Student';
 
     return (
         <div className="space-y-8">

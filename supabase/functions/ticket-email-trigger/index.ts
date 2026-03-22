@@ -1,6 +1,22 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
-import { serve } from "std/http/server.ts"
-import { createClient } from '@supabase/supabase-js'
+// Security: Restrict CORS to allowed origins only
+const ALLOWED_ORIGINS = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://mtusmms.me',
+]
+
+const corsHeaders = (origin: string) => {
+    const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
+    return {
+        'Access-Control-Allow-Origin': allowedOrigin,
+        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Max-Age': '86400',
+    }
+}
 
 const EMAILJS_SERVICE_ID = Deno.env.get('EMAILJS_SERVICE_ID')
 const EMAILJS_TEMPLATE_ID = Deno.env.get('EMAILJS_TEMPLATE_ID')
@@ -9,12 +25,18 @@ const EMAILJS_PRIVATE_KEY = Deno.env.get('EMAILJS_PRIVATE_KEY')
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
-const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+// Email validation
+const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return emailRegex.test(email)
 }
 
 const sendViaEmailJS = async (to_email: string, subject: string, message: string) => {
+    // Validate email before sending
+    if (!validateEmail(to_email)) {
+        throw new Error(`Invalid email address: ${to_email}`)
+    }
+
     const payload = {
         service_id: EMAILJS_SERVICE_ID,
         template_id: EMAILJS_TEMPLATE_ID,
@@ -39,11 +61,21 @@ const sendViaEmailJS = async (to_email: string, subject: string, message: string
 };
 
 serve(async (req: Request) => {
+    // Handle CORS preflight
     if (req.method === 'OPTIONS') {
-        return new Response('ok', { headers: corsHeaders })
+        return new Response('ok', { headers: corsHeaders(req.headers.get('origin') || '') })
+    }
+
+    // Only allow POST
+    if (req.method !== 'POST') {
+        return new Response(
+            JSON.stringify({ error: 'Method not allowed' }),
+            { headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' }, status: 405 }
+        )
     }
 
     try {
+        // Validate configuration
         if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !EMAILJS_SERVICE_ID) {
             throw new Error('Missing configuration')
         }
@@ -55,13 +87,13 @@ serve(async (req: Request) => {
         console.log("Webhook Payload:", JSON.stringify(payload))
 
         // 2. Robust Payload Extraction
-        const record = payload.record || payload // Handle both { record: ... } and direct object
+        const record = payload.record || payload
         const oldRecord = payload.old_record
 
         if (!record) {
-            console.error("Invalid Payload Structure: Missing 'record'");
+            console.error("Invalid Payload Structure: Missing 'record'")
             return new Response(JSON.stringify({ error: 'Invalid Payload Structure' }), {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
                 status: 400,
             })
         }
@@ -70,14 +102,13 @@ serve(async (req: Request) => {
 
         // --- Scenario A: Status is 'Pending Verification' (Notify Reporter) ---
         if (record.status === 'Pending Verification') {
-
             // 3. Robust ID Detection
             const reporterId = record.created_by || record.user_id
 
             if (reporterId) {
                 console.log(`Processing 'Pending Verification' for Reporter ID: ${reporterId}`);
 
-                // Fetch Reporter Profile
+                // Fetch Reporter Profile (only fetch needed fields)
                 const { data: profile, error: profileError } = await supabase
                     .from('profiles')
                     .select('email, full_name')
@@ -112,14 +143,12 @@ serve(async (req: Request) => {
         }
 
         // --- Scenario B: Rejection Reason Present (Notify Admin) ---
-        // Check if rejection_reason is present AND it's a new rejection (compared to oldRecord)
         const isNewRejection = record.rejection_reason && (!oldRecord || record.rejection_reason !== oldRecord.rejection_reason);
 
         if (isNewRejection) {
             console.log(`Processing 'Rejection' for Ticket #${record.id}`);
 
             // Fetch Admin Email
-            // Function to get admin email (inline to avoid global scope issues if simple)
             const getAdminEmail = async () => {
                 const { data, error } = await supabase
                     .from('profiles')
@@ -131,6 +160,12 @@ serve(async (req: Request) => {
             };
 
             const adminEmail = await getAdminEmail();
+            
+            // Validate admin email
+            if (!validateEmail(adminEmail)) {
+                throw new Error('Invalid admin email address')
+            }
+            
             const emailSubject = `ALERT: Repair Rejected for Ticket #${record.id}`;
             const dashboardLink = "https://mtusmms.me/dashboard";
 
@@ -157,20 +192,20 @@ serve(async (req: Request) => {
 
         if (emailsSent.length === 0) {
             return new Response(JSON.stringify({ message: 'No email conditions met' }), {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
                 status: 200,
             })
         }
 
         return new Response(JSON.stringify({ message: `Emails sent to: ${emailsSent.join(', ')}` }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
             status: 200,
         })
 
     } catch (error: any) {
         console.error("Edge Function Error:", error)
-        return new Response(JSON.stringify({ error: error.message }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        return new Response(JSON.stringify({ error: error.message || 'Internal server error' }), {
+            headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
             status: 400,
         })
     }

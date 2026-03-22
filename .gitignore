@@ -11,6 +11,21 @@ node_modules
 dist
 dist-ssr
 *.local
+
+# Environment variables - NEVER COMMIT
+.env
+.env.local
+.env.production
+.env.*.local
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+
+# Supabase
+.supabase
 dev-dist
 
 # Editor directories and files

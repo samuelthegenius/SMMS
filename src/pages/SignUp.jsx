@@ -111,7 +111,42 @@ export default function SignUp() {
         setLoading(true);
 
         try {
-            // 1. Sign Up the User
+            // 1. Check if email already exists (check profiles table first)
+            const { data: existingProfile } = await supabase
+                .from('profiles')
+                .select('email')
+                .eq('email', formData.email)
+                .maybeSingle();
+
+            if (existingProfile) {
+                throw new Error('An account with this email already exists. Please sign in instead.');
+            }
+
+            // 2. Check if ID number already exists
+            const { data: existingID } = await supabase
+                .from('profiles')
+                .select('identification_number')
+                .eq('identification_number', formData.idNumber)
+                .maybeSingle();
+
+            if (existingID) {
+                throw new Error('This ID number is already registered. Please sign in or contact support.');
+            }
+
+            // 3. Validate access code BEFORE creating auth user (for staff/technician)
+            if (formData.role === 'staff' || formData.role === 'technician') {
+                const { data: accessCodeData } = await supabase
+                    .from('role_access_codes')
+                    .select('code')
+                    .eq('role', formData.role)
+                    .single();
+
+                if (!accessCodeData || formData.accessCode !== accessCodeData.code) {
+                    throw new Error('Invalid access code. Please contact administration.');
+                }
+            }
+
+            // 4. Now create the auth user (all validations passed)
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email: formData.email,
                 password: formData.password,
@@ -125,23 +160,12 @@ export default function SignUp() {
                 },
             });
 
-            if (authError) {
-                recordFailedAttempt();
-                
-                // Handle specific errors
-                if (authError.message.includes('User already registered')) {
-                    throw new Error('An account with this email already exists');
-                }
-                if (authError.message.includes('Weak password')) {
-                    throw new Error('Password is too weak');
-                }
-                throw authError;
-            }
+            if (authError) throw authError;
 
-            // 2. Insert into Profiles Table
+            // 5. Create profile (should succeed since we validated everything)
             if (authData?.user) {
-                const skillsPayload = formData.role === 'technician' && formData.specialization 
-                    ? [formData.specialization] 
+                const skillsPayload = formData.role === 'technician' && formData.specialization
+                    ? [formData.specialization]
                     : null;
 
                 const { error: profileError } = await supabase.rpc('register_secure_user', {
@@ -157,18 +181,8 @@ export default function SignUp() {
 
                 if (profileError) {
                     console.error('Profile creation error:', profileError);
-                    recordFailedAttempt();
-                    
-                    // Delete the auth user if profile creation fails (cleanup)
-                    await supabase.auth.admin.deleteUser(authData.user.id);
-                    
-                    if (profileError.message.includes('access code')) {
-                        throw new Error('Invalid access code. Please contact administration.');
-                    }
-                    if (profileError.message.includes('already registered')) {
-                        throw new Error('ID number already registered. Please contact support.');
-                    }
-                    throw new Error('Profile setup failed. Please try again.');
+                    // Don't try to delete auth user - just let them try again
+                    throw new Error('Account created but profile setup failed. Please contact support with your email: ' + formData.email);
                 }
             }
 

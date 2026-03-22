@@ -32,7 +32,18 @@ export default function AnalyticsPage() {
         try {
             const { data, error } = await supabase
                 .from('tickets')
-                .select('*'); // We only need ticket data for charts, not full profile joins
+                .select(`
+                    id,
+                    title,
+                    category,
+                    facility_type,
+                    specific_location,
+                    status,
+                    priority,
+                    created_at,
+                    updated_at,
+                    resolved_at
+                `);
 
             if (error) {
                 console.error("Error fetching analytics data:", error);

@@ -23,11 +23,28 @@ export default function AdminDashboard() {
     const [filter, setFilter] = useState('All');
     const [selectedTicket, setSelectedTicket] = useState(null);
 
-    // SWR Fetcher
+    // SWR Fetcher - Only fetch necessary fields for privacy
     const fetchTickets = async () => {
         const { data, error } = await supabase
             .from('tickets')
-            .select(`*, creator:created_by (full_name, identification_number, role)`)
+            .select(`
+                id,
+                title,
+                description,
+                category,
+                facility_type,
+                specific_location,
+                status,
+                priority,
+                created_at,
+                updated_at,
+                assigned_to,
+                created_by,
+                creator:created_by (
+                    full_name,
+                    role
+                )
+            `)
             .order('created_at', { ascending: false });
         if (error) throw error;
         return data;

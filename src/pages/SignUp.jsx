@@ -1,13 +1,24 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Wrench, Loader2, HardHat, Building, IdCard } from 'lucide-react';
+import { Wrench, Loader2, HardHat, Building, IdCard, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/Card';
 import { cn } from '../lib/utils';
 import { MAINTENANCE_CATEGORIES } from '../utils/constants';
+
+// Rate limiting for signup
+const SIGNUP_STORAGE_KEY = 'signup_attempts';
+const MAX_SIGNUP_ATTEMPTS = 3;
+const SIGNUP_LOCKOUT_MS = 10 * 60 * 1000; // 10 minutes
+
+// Password validation regex (min 8 chars, 1 uppercase, 1 lowercase, 1 number)
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+
+// Email validation for institutional emails
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function SignUp() {
     const [formData, setFormData] = useState({
@@ -17,36 +28,78 @@ export default function SignUp() {
         role: 'student',
         accessCode: '',
         specialization: '',
-        idNumber: '', // identification_number
-        department: '' // department
+        idNumber: '',
+        department: ''
     });
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
+    // Check rate limit
+    const checkRateLimit = () => {
+        const now = Date.now();
+        const stored = localStorage.getItem(SIGNUP_STORAGE_KEY);
+        
+        if (stored) {
+            const { attempts, lockoutTime } = JSON.parse(stored);
+            
+            if (lockoutTime && now < lockoutTime) {
+                const minutesLeft = Math.ceil((lockoutTime - now) / 60000);
+                throw new Error(`Too many signup attempts. Try again in ${minutesLeft} minute(s).`);
+            }
+            
+            if (attempts >= MAX_SIGNUP_ATTEMPTS && lockoutTime && now < lockoutTime) {
+                throw new Error('Signup temporarily disabled. Please try again later.');
+            }
+        }
+        return true;
+    };
+
+    const recordFailedAttempt = () => {
+        const now = Date.now();
+        const stored = localStorage.getItem(SIGNUP_STORAGE_KEY);
+        const { attempts = 0 } = stored ? JSON.parse(stored) : { attempts: 0 };
+        const newAttempts = attempts + 1;
+        
+        localStorage.setItem(
+            SIGNUP_STORAGE_KEY,
+            JSON.stringify({
+                attempts: newAttempts,
+                lockoutTime: newAttempts >= MAX_SIGNUP_ATTEMPTS ? now + SIGNUP_LOCKOUT_MS : null
+            })
+        );
+    };
+
+    const resetRateLimit = () => {
+        localStorage.removeItem(SIGNUP_STORAGE_KEY);
+    };
+
     const handleSignUp = async (e) => {
         e.preventDefault();
-        console.log("DEBUG: handleSignUp called - v3 (Array Fix)"); // Debug log to confirm new code
 
-        // Security Verification Logic
-        if (formData.role !== 'student') {
-            let expectedSecret = '';
+        // Validate password strength
+        if (!PASSWORD_REGEX.test(formData.password)) {
+            toast.error('Password must be at least 8 characters with uppercase, lowercase, and number');
+            return;
+        }
 
-            switch (formData.role) {
-                case 'staff':
-                    expectedSecret = import.meta.env.VITE_STAFF_SECRET;
-                    break;
-                case 'technician':
-                    expectedSecret = import.meta.env.VITE_TECH_SECRET;
-                    break;
-                default:
-                    break;
-            }
+        // Validate email format
+        if (!EMAIL_REGEX.test(formData.email)) {
+            toast.error('Please enter a valid email address');
+            return;
+        }
 
-            // Only validate if a secret is expected (i.e. not student)
-            if (expectedSecret && formData.accessCode !== expectedSecret) {
-                toast.error(`Invalid Access Code for ${formData.role.replace('_', ' ')}`);
-                return;
-            }
+        // Validate ID number format
+        if (formData.idNumber.length < 5) {
+            toast.error('Invalid ID number format');
+            return;
+        }
+
+        // Check rate limit
+        try {
+            checkRateLimit();
+        } catch (error) {
+            toast.error(error.message);
+            return;
         }
 
         // Validate Specialization for Technician
@@ -68,45 +121,62 @@ export default function SignUp() {
                         role: formData.role,
                         department: formData.role === 'technician' ? 'Works Department' : formData.department,
                     },
+                    emailRedirectTo: `${window.location.origin}/dashboard`,
                 },
             });
 
-            if (authError) throw authError;
+            if (authError) {
+                recordFailedAttempt();
+                
+                // Handle specific errors
+                if (authError.message.includes('User already registered')) {
+                    throw new Error('An account with this email already exists');
+                }
+                if (authError.message.includes('Weak password')) {
+                    throw new Error('Password is too weak');
+                }
+                throw authError;
+            }
 
-            // 2. Insert into Profiles Table manually matching the schema
-            // Use upsert to handle cases where a trigger might have already created the row
+            // 2. Insert into Profiles Table
             if (authData?.user) {
-                const skillsPayload = formData.role === 'technician' && formData.specialization ? [formData.specialization] : null;
-                console.log("DEBUG: Inserting Profile with skills:", skillsPayload); // Log payload
+                const skillsPayload = formData.role === 'technician' && formData.specialization 
+                    ? [formData.specialization] 
+                    : null;
 
-                const { error: profileError } = await supabase
-                    .from('profiles')
-                    .upsert([
-                        {
-                            id: authData.user.id,
-                            full_name: formData.fullName,
-                            email: formData.email,
-                            role: formData.role,
-                            identification_number: formData.idNumber,
-                            department: formData.role === 'technician' ? 'Works Department' : formData.department,
-                            skills: formData.role === 'technician' ?
-                                (Array.isArray(formData.specialization) ? formData.specialization[0] : formData.specialization)
-                                : null,
-                        },
-                    ], { onConflict: 'id' });
+                const { error: profileError } = await supabase.rpc('register_secure_user', {
+                    p_id: authData.user.id,
+                    p_email: formData.email,
+                    p_full_name: formData.fullName,
+                    p_role: formData.role,
+                    p_id_number: formData.idNumber,
+                    p_department: formData.role === 'technician' ? 'Works Department' : formData.department,
+                    p_skills: skillsPayload,
+                    p_access_code: formData.accessCode
+                });
 
                 if (profileError) {
-                    console.error('Profile creation error object:', profileError);
-                    console.error('Profile creation error message:', profileError.message);
-                    console.error('Profile creation error details:', profileError.details);
-                    throw new Error(`Profile setup failed (DB): ${profileError.message}`);
+                    console.error('Profile creation error:', profileError);
+                    recordFailedAttempt();
+                    
+                    // Delete the auth user if profile creation fails (cleanup)
+                    await supabase.auth.admin.deleteUser(authData.user.id);
+                    
+                    if (profileError.message.includes('access code')) {
+                        throw new Error('Invalid access code. Please contact administration.');
+                    }
+                    if (profileError.message.includes('already registered')) {
+                        throw new Error('ID number already registered. Please contact support.');
+                    }
+                    throw new Error('Profile setup failed. Please try again.');
                 }
             }
 
-            toast.success('Account created successfully! Please sign in.');
+            resetRateLimit();
+            toast.success('Account created successfully! Please check your email to verify your account.');
             navigate('/login');
         } catch (error) {
-            console.error("SignUp Catch Error:", error);
+            console.error("SignUp Error:", error);
             toast.error(error.message || 'Failed to create account');
         } finally {
             setLoading(false);

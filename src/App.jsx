@@ -43,7 +43,7 @@ function DashboardRouter() {
     // ROUTING SECURITY: Staff and Students share the "Reporter" view.
     // Technicians and Admins get the "Resolver" view.
     case 'student':
-    case 'staff_member':
+    case 'staff':
     default:
       return <UserDashboard />;
   }

@@ -225,7 +225,7 @@ export default function SignUp() {
                                     id="email"
                                     name="email"
                                     type="email"
-                                    placeholder="user@mtu.edu.ng"
+                                    placeholder="user@university.edu"
                                     value={formData.email}
                                     onChange={handleChange}
                                     required

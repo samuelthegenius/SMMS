@@ -111,7 +111,8 @@ export default function SignUp() {
         setLoading(true);
 
         try {
-            // 1. Check if email already exists (check profiles table first)
+            // 1. Check if email already exists (check both auth.users and profiles table)
+            // First check profiles table
             const { data: existingProfile } = await supabase
                 .from('profiles')
                 .select('email')
@@ -119,6 +120,15 @@ export default function SignUp() {
                 .maybeSingle();
 
             if (existingProfile) {
+                throw new Error('An account with this email already exists. Please sign in instead.');
+            }
+
+            // Check if auth user exists using database function
+            const { data: authUserExists } = await supabase.rpc('check_auth_user_exists', {
+                p_email: formData.email
+            });
+
+            if (authUserExists) {
                 throw new Error('An account with this email already exists. Please sign in instead.');
             }
 
@@ -181,6 +191,16 @@ export default function SignUp() {
 
                 if (profileError) {
                     console.error('Profile creation error:', profileError);
+                    
+                    // Log the orphaned auth user for cleanup
+                    try {
+                        await supabase.rpc('cleanup_orphaned_auth_user', {
+                            p_email: formData.email
+                        });
+                    } catch (cleanupError) {
+                        console.error('Failed to log orphaned auth user:', cleanupError);
+                    }
+                    
                     throw new Error('Profile setup failed. Please try again.');
                 }
             }

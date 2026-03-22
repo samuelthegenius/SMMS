@@ -89,7 +89,7 @@ export default function UserDashboard() {
 
     if (isLoading && !tickets.length) return <Loader />;
 
-    const displayRole = profile?.role === 'staff' ? 'Staff' : 'Student';
+    const displayRole = profile?.role === 'staff_member' ? 'Staff' : 'Student';
 
     return (
         <div className="space-y-8">

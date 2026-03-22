@@ -6,6 +6,59 @@ This document outlines the security architecture, policies, and best practices f
 
 ---
 
+## 🔐 Environment Variables Setup
+
+### Client-Side Variables (`.env` file)
+
+These are **safe** to keep in `.env` (used by browser code):
+
+```env
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your_anon_key
+```
+
+### Server-Side Secrets (Supabase Secrets)
+
+These **MUST** be set in Supabase Dashboard, NOT in `.env`:
+
+| Secret | Purpose | Where to Get |
+|--------|---------|--------------|
+| `GEMINI_API_KEY` | AI repair suggestions | [Google AI Studio](https://aistudio.google.com/app/apikey) |
+| `EMAILJS_SERVICE_ID` | Email service identifier | [EmailJS Dashboard](https://dashboard.emailjs.com/) |
+| `EMAILJS_TEMPLATE_ID` | Email template ID | EmailJS > Templates |
+| `EMAILJS_USER_ID` | EmailJS public key | EmailJS > Account > API Keys |
+| `EMAILJS_PRIVATE_KEY` | EmailJS private key | EmailJS > Account > API Keys |
+
+### How to Set Supabase Secrets
+
+**Option 1: Via Dashboard**
+1. Go to [Supabase Dashboard](https://supabase.com/dashboard)
+2. Select your project
+3. Navigate to **Edge Functions** > **Secrets**
+4. Click **"New Secret"** for each variable
+5. Enter name and value, click **Save**
+
+**Option 2: Via CLI**
+```bash
+supabase login
+supabase link --project-ref ntayjobqhpbozamoxgad
+supabase secrets set GEMINI_API_KEY=your_key_here
+supabase secrets set EMAILJS_SERVICE_ID=your_id_here
+supabase secrets set EMAILJS_TEMPLATE_ID=your_id_here
+supabase secrets set EMAILJS_USER_ID=your_id_here
+supabase secrets set EMAILJS_PRIVATE_KEY=your_key_here
+```
+
+### ⚠️ Security Rules
+
+1. **NEVER** commit `.env` to Git (it's in `.gitignore`)
+2. **NEVER** put server-side secrets in `.env`
+3. **ALWAYS** use Supabase Secrets for Edge Function credentials
+4. **ROTATE** keys every 90 days
+5. **USE** different keys for development and production
+
+---
+
 ## 🔐 Security Architecture
 
 ### Authentication & Authorization

@@ -98,7 +98,7 @@ export function AuthProvider({ children }) {
         loading,
         isAdmin: profile?.role === 'admin',
         isTechnician: profile?.role === 'technician',
-        isStaff: profile?.role === 'staff',
+        isStaff: profile?.role === 'staff_member',
         isStudent: profile?.role === 'student',
     };
 

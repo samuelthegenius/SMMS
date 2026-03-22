@@ -133,8 +133,8 @@ export default function SignUp() {
                 throw new Error('This ID number is already registered. Please sign in or contact support.');
             }
 
-            // 3. Validate access code BEFORE creating auth user (for staff/technician)
-            if (formData.role === 'staff' || formData.role === 'technician') {
+            // 3. Validate access code BEFORE creating auth user (for staff_member/technician)
+            if (formData.role === 'staff_member' || formData.role === 'technician') {
                 const { data: accessCodeData } = await supabase
                     .from('role_access_codes')
                     .select('code')
@@ -181,8 +181,7 @@ export default function SignUp() {
 
                 if (profileError) {
                     console.error('Profile creation error:', profileError);
-                    // Don't try to delete auth user - just let them try again
-                    throw new Error('Account created but profile setup failed. Please contact support with your email: ' + formData.email);
+                    throw new Error('Profile setup failed. Please try again.');
                 }
             }
 
@@ -257,7 +256,7 @@ export default function SignUp() {
                                 >
                                     {[
                                         { label: 'Student', value: 'student' },
-                                        { label: 'Staff', value: 'staff' },
+                                        { label: 'Staff', value: 'staff_member' },
                                         { label: 'Technician', value: 'technician' }
                                     ].map(role => (
                                         <option key={role.value} value={role.value}>
@@ -346,7 +345,7 @@ export default function SignUp() {
                             {formData.role !== 'student' && (
                                 <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
                                     <label className="text-sm font-medium leading-none text-indigo-600" htmlFor="accessCode">
-                                        Access Code (Required for {formData.role.replace('_', ' ')})
+                                        Access Code (Required for {formData.role === 'staff_member' ? 'Staff' : formData.role.replace('_', ' ')})
                                     </label>
                                     <Input
                                         id="accessCode"

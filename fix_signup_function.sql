@@ -24,12 +24,12 @@ BEGIN
     END IF;
 
     -- Validate role
-    IF p_role NOT IN ('student', 'staff', 'technician', 'admin') THEN
+    IF p_role NOT IN ('student', 'staff_member', 'technician', 'admin') THEN
         RAISE EXCEPTION 'Invalid role specified';
     END IF;
 
-    -- Check access code for staff/technician
-    IF p_role IN ('staff', 'staff_member', 'technician') THEN
+    -- Check access code for staff_member/technician
+    IF p_role IN ('staff_member', 'technician') THEN
         SELECT code INTO expected_code
         FROM role_access_codes
         WHERE role = p_role;

@@ -225,7 +225,7 @@ export default function SignUp() {
                                     id="email"
                                     name="email"
                                     type="email"
-                                    placeholder="user@university.edu"
+                                    placeholder="your@email.com"
                                     value={formData.email}
                                     onChange={handleChange}
                                     required

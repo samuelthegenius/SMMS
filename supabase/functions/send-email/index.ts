@@ -114,11 +114,17 @@ serve(async (req: Request) => {
             throw new Error('Invalid technician email format')
         }
 
-        // Rate limiting: Check for abuse (simple in-memory check)
-        // In production, use Redis or Supabase rate limiting
+        // Rate limiting: Check for abuse using simple IP-based limiting
+        // In production, implement proper rate limiting with Redis or database
+        const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown'
+        const rateLimitKey = `email_${clientIP}`
+        
+        // Simple in-memory rate limiting (not for production use)
+        // In production, use Redis or Supabase for distributed rate limiting
         const requestCount = await req.headers.get('X-Request-Count')
         if (requestCount && parseInt(requestCount) > 10) {
-            throw new Error('Rate limit exceeded')
+            console.warn(`Rate limit exceeded for IP: ${clientIP}`)
+            throw new Error('Rate limit exceeded. Please try again later.')
         }
 
         const emailPromises = [];

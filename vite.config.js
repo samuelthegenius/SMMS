@@ -62,10 +62,15 @@ export default defineConfig({
 
   // Development Server Configuration
   server: {
-    // Proxy Configuration: Acts as a middleware during development.
-    // It forwards requests starting with /api to the backend server (Vercel functions or local server),
-    // effectively bypassing Cross-Origin Resource Sharing (CORS) restrictions that browsers enforce.
-
+    // Security Headers for Development
+    headers: {
+      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.supabase.co https://mtusmms.me https://api.emailjs.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';",
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY',
+      'X-XSS-Protection': '1; mode=block',
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()'
+    }
   }
   ,
 

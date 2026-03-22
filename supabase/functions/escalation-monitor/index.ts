@@ -31,13 +31,16 @@ async function getAdminEmail(supabase: any) {
 
         if (error || !data?.email) {
             console.warn('[Escalation Monitor] Could not fetch admin email from DB. Using fallback.')
-            return 'admin@mtu.edu.ng'
+            // Use environment variable fallback instead of hardcoded email
+            const fallbackEmail = Deno.env.get('ADMIN_EMAIL') || 'admin@mtu.edu.ng'
+            return fallbackEmail
         }
 
         return data.email
     } catch (err) {
         console.error('[Escalation Monitor] Error in getAdminEmail:', err)
-        return 'admin@mtu.edu.ng'
+        const fallbackEmail = Deno.env.get('ADMIN_EMAIL') || 'admin@mtu.edu.ng'
+        return fallbackEmail
     }
 }
 

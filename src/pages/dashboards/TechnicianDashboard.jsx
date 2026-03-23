@@ -109,6 +109,9 @@ export default function TechnicianDashboard() {
 
         setAiSuggestion({ ticketId: ticket.id, text: '', loading: true });
         try {
+            console.log('[AI Debug] Calling suggest-fix for ticket:', ticket.id);
+            console.log('[AI Debug] Ticket data:', { description: ticket.description, category: ticket.category });
+            
             // Securely Call Supabase Edge Function
             const { data, error } = await supabase.functions.invoke('suggest-fix', {
                 body: {
@@ -116,6 +119,9 @@ export default function TechnicianDashboard() {
                     ticketCategory: ticket.category
                 }
             });
+
+            console.log('[AI Debug] Response data:', data);
+            console.log('[AI Debug] Response error:', error);
 
             if (error) throw error;
 
@@ -137,10 +143,11 @@ ${data.safety_precaution}
             });
         } catch (error) {
             console.error('AI Error:', error);
+            console.error('Full error details:', JSON.stringify(error, null, 2));
             toast.error('Could not get AI suggestion');
             setAiSuggestion({
                 ticketId: ticket.id,
-                text: 'Failed to access AI service. ' + (error.message || ''),
+                text: `Failed to access AI service. Error: ${error.message || 'Unknown error'}`,
                 loading: false
             });
         }

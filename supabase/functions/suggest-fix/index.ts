@@ -8,7 +8,9 @@ const ALLOWED_ORIGINS = [
 ]
 
 const corsHeaders = (origin: string) => {
+    console.log(`[suggest-fix] CORS request from origin: ${origin}`)
     const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
+    console.log(`[suggest-fix] Allowed origin set to: ${allowedOrigin}`)
     return {
         'Access-Control-Allow-Origin': allowedOrigin,
         'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -27,6 +29,9 @@ const sanitizeInput = (input: string): string => {
 }
 
 serve(async (req: Request) => {
+    console.log(`[suggest-fix] Request received: ${req.method} ${req.url}`)
+    console.log(`[suggest-fix] Headers:`, Object.fromEntries(req.headers.entries()))
+    
     // Handle CORS preflight
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders(req.headers.get('origin') || '') })
@@ -34,6 +39,7 @@ serve(async (req: Request) => {
 
     // Only allow POST
     if (req.method !== 'POST') {
+        console.log(`[suggest-fix] Method not allowed: ${req.method}`)
         return new Response(
             JSON.stringify({ error: 'Method not allowed' }),
             { headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' }, status: 405 }
@@ -43,22 +49,29 @@ serve(async (req: Request) => {
     try {
         // @ts-ignore: Deno namespace
         const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
+        console.log(`[suggest-fix] GEMINI_API_KEY exists: ${!!GEMINI_API_KEY}`)
         if (!GEMINI_API_KEY) {
-            throw new Error('Server Config Error: Missing GEMINI_API_KEY')
+            throw new Error('Server Config Error: Missing GEMINI_API_KEY. Please configure this secret in Supabase Dashboard > Edge Functions > Secrets.')
         }
 
         // Parse and validate request body
         let requestBody
         try {
-            requestBody = await req.json()
-        } catch {
+            const bodyText = await req.text()
+            console.log(`[suggest-fix] Request body:`, bodyText)
+            requestBody = JSON.parse(bodyText)
+        } catch (parseError) {
+            console.error(`[suggest-fix] JSON parse error:`, parseError)
             throw new Error('Invalid JSON in request body')
         }
+
+        console.log(`[suggest-fix] Parsed request body:`, requestBody)
 
         const { ticketDescription, ticketCategory, image_url } = requestBody
 
         // Validate required fields
         if (!ticketDescription || typeof ticketDescription !== 'string') {
+            console.error(`[suggest-fix] Missing or invalid ticketDescription:`, ticketDescription)
             throw new Error('Missing or invalid ticketDescription')
         }
 

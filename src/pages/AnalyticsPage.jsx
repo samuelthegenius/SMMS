@@ -8,56 +8,123 @@
  * - Separation of Concerns: keeps operational dashboard focused on ticket management.
  * - Access Control: Restricted to Administrators only.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import Loader from '../components/Loader';
 import AnalyticsSummary from '../components/AnalyticsSummary';
 import { generateTicketReport } from '../utils/generateReport';
 import { BarChart, PieChart } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function AnalyticsPage() {
+    const { profile, loading: authLoading } = useAuth();
     // State Management:
     // 'tickets': Holds the raw data for visualization.
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const hasFetched = useRef(false);
+    const ticketsRef = useRef([]);
+    const fetchedProfileId = useRef(null);
+    const lastProfileRef = useRef(null);
 
-    useEffect(() => {
-        fetchTickets();
-    }, []);
+    // Memoize tickets to prevent unnecessary re-renders
+    const memoizedTickets = useMemo(() => tickets, [tickets]);
 
     // Data Fetching:
     // Pulls all tickets to generate comprehensive statistics.
     // Similar query to AdminDashboard but focused purely on data aggregation.
-    const fetchTickets = async () => {
+    const fetchTickets = useCallback(async () => {
         try {
-            const { data, error } = await supabase
-                .from('tickets')
-                .select(`
-                    id,
-                    title,
-                    category,
-                    facility_type,
-                    specific_location,
-                    status,
-                    priority,
-                    created_at,
-                    updated_at,
-                    resolved_at
-                `);
-
+            // Use the same RPC function as AdminDashboard for consistency
+            const { data, error } = await supabase.rpc('get_admin_tickets');
+            
             if (error) {
-                console.error("Error fetching analytics data:", error);
+                console.error('RPC function failed, using fallback query:', error);
+                // Fallback to direct query with proper joins
+                const { data: fallbackData, error: fallbackError } = await supabase
+                    .from('tickets')
+                    .select(`
+                        id,
+                        title,
+                        category,
+                        facility_type,
+                        specific_location,
+                        status,
+                        priority,
+                        created_at,
+                        updated_at,
+                        resolved_at,
+                        profiles!tickets_creator_id_fkey (
+                            full_name,
+                            role
+                        )
+                    `)
+                    .order('created_at', { ascending: false });
+                
+                if (fallbackError) {
+                    console.error("Error fetching analytics data (fallback):", fallbackError);
+                    setError(fallbackError.message);
+                } else {
+                    const newTickets = fallbackData || [];
+                    if (JSON.stringify(newTickets) !== JSON.stringify(ticketsRef.current)) {
+                        ticketsRef.current = newTickets;
+                        setTickets(newTickets);
+                    }
+                }
             } else {
-                setTickets(data || []);
+                // RPC data already has the correct structure, no transformation needed
+                const newTickets = data || [];
+                if (JSON.stringify(newTickets) !== JSON.stringify(ticketsRef.current)) {
+                    ticketsRef.current = newTickets;
+                    setTickets(newTickets);
+                }
             }
         } catch (error) {
             console.error('Error fetching analytics data:', error);
+            setError(error.message);
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    if (loading) return <Loader />;
+    useEffect(() => {
+        // Only fetch data if user is admin and we haven't fetched for this profile yet
+        if (profile?.role === 'admin' && profile.id !== fetchedProfileId.current) {
+            fetchedProfileId.current = profile.id;
+            hasFetched.current = true;
+            fetchTickets();
+        } else if (profile && profile.role !== 'admin' && !loading) {
+            setError('Access denied: Admin role required');
+            setLoading(false);
+        } else if (!authLoading && !profile && !loading) {
+            setError('Please log in to access analytics');
+            setLoading(false);
+        }
+    }, [profile, authLoading]);
+
+    // Show loader during authentication or data loading
+    if (authLoading || loading) return <Loader />;
+
+    // Handle access denied
+    if (error) {
+        return (
+            <div className="text-red-500 text-center mt-10">
+                <p className="text-lg font-medium">Error loading analytics</p>
+                <p className="text-sm mt-2">{error}</p>
+            </div>
+        );
+    }
+
+    // Handle non-admin users
+    if (profile && profile.role !== 'admin') {
+        return (
+            <div className="text-red-500 text-center mt-10">
+                <p className="text-lg font-medium">Access Denied</p>
+                <p className="text-sm mt-2">You need admin privileges to view analytics.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -85,14 +152,7 @@ export default function AnalyticsPage() {
                     System Overview
                 </h2>
 
-                {tickets.length > 0 ? (
-                    <AnalyticsSummary tickets={tickets} />
-                ) : (
-                    <div className="text-center py-12 text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-200">
-                        <PieChart className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                        <p>No data available for analysis yet.</p>
-                    </div>
-                )}
+                <AnalyticsSummary key="analytics-summary" tickets={memoizedTickets} />
             </div>
         </div>
     );

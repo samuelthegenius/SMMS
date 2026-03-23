@@ -8,7 +8,7 @@
  * - Fault Hotspots: Bar chart highlighting the most common maintenance categories.
  * - Responsive Design: Adapts chart size and layout for mobile and desktop screens.
  */
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import {
     PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
     BarChart, Bar, XAxis, YAxis, CartesianGrid
@@ -45,7 +45,7 @@ const CATEGORY_COLORS = [
     '#06B6D4', // Cyan-500
 ];
 
-export default function AnalyticsSummary({ tickets = [] }) {
+function AnalyticsSummary({ tickets = [] }) {
 
     // Memoized Data Processing:
     // Aggregates raw ticket data into chart-friendly formats.
@@ -56,10 +56,12 @@ export default function AnalyticsSummary({ tickets = [] }) {
             return acc;
         }, {});
 
-        return Object.keys(counts).map(key => ({
+        const result = Object.keys(counts).map(key => ({
             name: key,
             value: counts[key]
         }));
+        
+        return result;
     }, [tickets]);
 
     const categoryData = useMemo(() => {
@@ -70,21 +72,30 @@ export default function AnalyticsSummary({ tickets = [] }) {
         }, {});
 
         // Sort by frequency to show "Hotspots" first
-        return Object.keys(counts)
+        const result = Object.keys(counts)
             .map(key => ({ name: key, count: counts[key] }))
             .sort((a, b) => b.count - a.count)
             .slice(0, 5); // Top 5 categories
+            
+        return result;
     }, [tickets]);
 
-    if (tickets.length === 0) return null;
+    if (tickets.length === 0) {
+        return (
+            <div className="bg-amber-50 border border-amber-200 p-6 rounded-xl">
+                <p className="text-amber-800 text-center">No ticket data available for analytics.</p>
+                <p className="text-amber-600 text-sm text-center mt-2">Create some tickets to see analytics charts here.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             {/* 1. Resolution Status Chart (Doughnut) */}
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col">
                 <h3 className="text-lg font-bold text-slate-900 mb-4">Resolution Status</h3>
-                <div className="flex-1 w-full min-h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
+                <div className="flex-1 w-full" style={{ minHeight: '300px', width: '100%', height: '100%' }}>
+                    <ResponsiveContainer width="100%" height={300}>
                         <PieChart>
                             <Pie
                                 data={statusData}
@@ -114,8 +125,8 @@ export default function AnalyticsSummary({ tickets = [] }) {
             {/* 2. Fault Hotspots Chart (Vertical Bar) */}
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col">
                 <h3 className="text-lg font-bold text-slate-900 mb-4">Common Faults</h3>
-                <div className="flex-1 w-full min-h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
+                <div className="flex-1 w-full" style={{ minHeight: '300px', width: '100%', height: '100%' }}>
+                    <ResponsiveContainer width="100%" height={300}>
                         <BarChart
                             layout="vertical" // Better for reading long category names
                             data={categoryData}
@@ -152,3 +163,7 @@ export default function AnalyticsSummary({ tickets = [] }) {
         </div >
     );
 }
+
+const AnalyticsSummaryWithMemo = memo(AnalyticsSummary);
+
+export default AnalyticsSummaryWithMemo;

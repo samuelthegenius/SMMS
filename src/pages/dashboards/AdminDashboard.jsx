@@ -37,7 +37,28 @@ export default function AdminDashboard() {
             
             console.log('Total tickets count:', count, 'Error:', countError);
             
-            // Then try the full query
+            // Try query WITHOUT creator join first
+            const { data: dataWithoutCreator, error: errorWithoutCreator } = await supabase
+                .from('tickets')
+                .select(`
+                    id,
+                    title,
+                    description,
+                    category,
+                    facility_type,
+                    specific_location,
+                    status,
+                    priority,
+                    created_at,
+                    updated_at,
+                    assigned_to,
+                    created_by
+                `)
+                .order('created_at', { ascending: false });
+            
+            console.log('Tickets without creator:', { dataWithoutCreator, error: errorWithoutCreator });
+            
+            // Then try WITH creator join
             const { data, error } = await supabase
                 .from('tickets')
                 .select(`
@@ -60,12 +81,15 @@ export default function AdminDashboard() {
                 `)
                 .order('created_at', { ascending: false });
             
-            console.log('Tickets query result:', { data, error });
-            console.log('Data length:', data?.length);
-            console.log('Data sample:', data?.[0]);
+            console.log('Tickets with creator:', { data, error });
             
             if (error) {
                 console.error('Tickets fetch error:', error);
+                // Fall back to data without creator if join fails
+                if (dataWithoutCreator && !errorWithoutCreator) {
+                    console.log('Using fallback data without creator join');
+                    return dataWithoutCreator;
+                }
                 throw error;
             }
             return data;

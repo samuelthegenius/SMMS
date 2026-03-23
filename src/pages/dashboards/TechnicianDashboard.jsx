@@ -40,7 +40,19 @@ export default function TechnicianDashboard() {
     };
 
     // Use SWR
-    const { data: jobs = [], mutate, isLoading } = useSWR(user ? ['technician_jobs', user.id] : null, fetchJobs);
+    const { data: jobs = [], mutate, isLoading } = useSWR(
+        user ? ['technician_jobs', user.id] : null, 
+        fetchJobs,
+        {
+            revalidateOnFocus: false,
+            revalidateOnReconnect: true,
+            dedupingInterval: 30000, // 30 seconds for better performance
+            errorRetryCount: 2,
+            errorRetryInterval: 5000,
+            refreshInterval: 0,
+            suspense: false
+        }
+    );
 
     useEffect(() => {
         if (!user) return;
@@ -53,8 +65,13 @@ export default function TechnicianDashboard() {
                 table: 'tickets',
                 filter: `assigned_to=eq.${user.id}`
             }, () => {
-                mutate();
-                toast.info('Job list updated');
+                // Debounce rapid mutations
+                const timeoutId = setTimeout(() => {
+                    mutate();
+                    toast.info('Job list updated');
+                }, 1000);
+                
+                return () => clearTimeout(timeoutId);
             })
             .subscribe();
 
@@ -109,9 +126,6 @@ export default function TechnicianDashboard() {
 
         setAiSuggestion({ ticketId: ticket.id, text: '', loading: true });
         try {
-            console.log('[AI Debug] Calling suggest-fix for ticket:', ticket.id);
-            console.log('[AI Debug] Ticket data:', { description: ticket.description, category: ticket.category });
-            
             // Securely Call Supabase Edge Function
             const { data, error } = await supabase.functions.invoke('suggest-fix', {
                 body: {
@@ -179,8 +193,6 @@ export default function TechnicianDashboard() {
                 loading: false
             });
         } catch (error) {
-            console.error('AI Error:', error);
-            console.error('Full error details:', JSON.stringify(error, null, 2));
             toast.error('Could not get AI suggestion');
             setAiSuggestion({
                 ticketId: ticket.id,

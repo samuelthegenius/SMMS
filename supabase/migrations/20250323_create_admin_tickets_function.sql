@@ -1,5 +1,5 @@
--- Fix admin tickets view with proper creator join
--- Creates a SECURITY DEFINER function that bypasses RLS for admin access
+-- Create admin tickets function with proper creator join
+-- This migration creates a SECURITY DEFINER function that bypasses RLS for admin access
 
 -- Drop existing function if it exists
 DROP FUNCTION IF EXISTS get_admin_tickets() CASCADE;

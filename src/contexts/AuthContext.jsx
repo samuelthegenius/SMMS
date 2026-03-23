@@ -22,6 +22,8 @@ export function AuthProvider({ children }) {
 
     // Use a ref to track the current ID to avoid stale closure issues
     const userIdRef = useRef(null);
+    // Cache profile to avoid unnecessary refetches
+    const profileCacheRef = useRef(new Map());
 
     useEffect(() => {
         // 1. Initial Session Check:
@@ -77,6 +79,17 @@ export function AuthProvider({ children }) {
     // This separation of 'auth.users' (credentials) and 'public.profiles' (metadata) 
     // is a standard security practice in Supabase.
     const fetchProfile = async (userId) => {
+        // Check cache first
+        const cache = profileCacheRef.current;
+        const cached = cache.get(userId);
+        
+        // Use cached data if it's less than 5 minutes old
+        if (cached && (Date.now() - cached.timestamp) < 300000) {
+            setProfile(cached.data);
+            setLoading(false);
+            return;
+        }
+
         try {
             const { data, error } = await supabase
                 .from('profiles')
@@ -84,7 +97,11 @@ export function AuthProvider({ children }) {
                 .eq('id', userId)
                 .maybeSingle();
 
-            if (!error && data) setProfile(data);
+            if (!error && data) {
+                setProfile(data);
+                // Cache the result with timestamp
+                cache.set(userId, { data, timestamp: Date.now() });
+            }
         } catch (error) {
             console.error('Error fetching profile:', error);
         } finally {

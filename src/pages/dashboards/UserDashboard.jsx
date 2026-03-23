@@ -52,7 +52,19 @@ export default function UserDashboard() {
         return data;
     };
 
-    const { data: tickets = [], mutate, isLoading } = useSWR(user ? ['user_tickets', user.id] : null, fetchTickets);
+    const { data: tickets = [], mutate, isLoading } = useSWR(
+        user ? ['user_tickets', user.id] : null, 
+        fetchTickets,
+        {
+            revalidateOnFocus: false,
+            revalidateOnReconnect: true,
+            dedupingInterval: 30000, // 30 seconds for better performance
+            errorRetryCount: 2,
+            errorRetryInterval: 5000,
+            refreshInterval: 0,
+            suspense: false
+        }
+    );
 
     const handleVerification = async (ticketId, isApproved, reason = null) => {
         const previousTickets = [...tickets];

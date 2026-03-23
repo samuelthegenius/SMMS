@@ -19,20 +19,30 @@ import useSWR from 'swr';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function AdminDashboard() {
-    const { profile } = useAuth();
+    const { profile, loading } = useAuth();
     const [filter, setFilter] = useState('All');
     const [selectedTicket, setSelectedTicket] = useState(null);
 
-    // SWR Fetcher - Use SECURITY DEFINER function for proper admin access
+    // SWR Fetcher - Use RPC function to get all admin tickets
     const fetchTickets = async () => {
-        const { data, error } = await supabase
-            .rpc('get_admin_tickets');
+        const { data, error } = await supabase.rpc('get_admin_tickets');
         
-        if (error) throw error;
+        if (error) {
+            console.error('RPC function failed, using fallback query:', error);
+            // Fallback to direct query
+            const { data: fallbackData, error: fallbackError } = await supabase
+                .from('tickets')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (fallbackError) throw fallbackError;
+            return fallbackData || [];
+        }
         
-        // Transform the data to match expected structure
+        // Transform RPC data to match expected structure
         return data.map(ticket => ({
             ...ticket,
+            id: ticket.ticket_id, // Map ticket_id back to id
             creator: ticket.creator_full_name ? {
                 full_name: ticket.creator_full_name,
                 role: ticket.creator_role
@@ -40,25 +50,49 @@ export default function AdminDashboard() {
         }));
     };
 
-    // Use SWR for caching (dedupingInterval: 5000 is default, we can keep it)
-    const { data: tickets = [], mutate, isLoading } = useSWR(
+    // Use SWR for caching with proper loading state handling
+    const { data: tickets = [], mutate, isLoading: swrLoading, error } = useSWR(
         profile?.role === 'admin' ? 'admin_tickets' : null, 
-        fetchTickets
+        fetchTickets,
+        {
+            revalidateOnFocus: false,
+            revalidateOnReconnect: true,
+            dedupingInterval: 30000, // 30 seconds - increased for better performance
+            errorRetryCount: 2, // Reduced retry attempts
+            errorRetryInterval: 5000, // 5 seconds between retries
+            refreshInterval: 0, // Disable auto-refresh for better performance
+            suspense: false // Disable suspense to prevent waterfall loading
+        }
     );
 
+
     useEffect(() => {
+        if (!profile || profile.role !== 'admin') return;
+        
         const subscription = supabase
-            .channel('admin_tickets')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
-                mutate();
-                toast.info('Dashboard updated');
-            })
+            .channel(`admin_tickets_${profile.id}`)
+            .on('postgres_changes', 
+                { 
+                    event: '*', 
+                    schema: 'public', 
+                    table: 'tickets',
+                    filter: `created_at=gt.${new Date(Date.now() - 60000).toISOString()}` // Only listen for recent changes
+                }, 
+                () => {
+                    // Debounce rapid mutations
+                    const timeoutId = setTimeout(() => {
+                        mutate();
+                    }, 1000);
+                    
+                    return () => clearTimeout(timeoutId);
+                }
+            )
             .subscribe();
 
         return () => {
             subscription.unsubscribe();
         };
-    }, [mutate]);
+    }, [mutate, profile?.id]);
 
     const filteredTickets = filter === 'All'
         ? tickets
@@ -71,7 +105,19 @@ export default function AdminDashboard() {
         inProgress: tickets.filter(t => t.status === 'In Progress').length,
     };
 
-    if (isLoading && !tickets.length) return <Loader />;
+    // Show loader only during initial auth loading or SWR loading with no data
+    if (loading || (swrLoading && !tickets.length && !error)) return <Loader />;
+
+    // Handle SWR errors gracefully
+    if (error) {
+        console.error('Failed to fetch tickets:', error);
+        return (
+            <div className="text-red-500 text-center mt-10">
+                <p className="text-lg font-medium">Error loading tickets</p>
+                <p className="text-sm mt-2">Please try refreshing the page</p>
+            </div>
+        );
+    }
 
     if (profile && profile.role !== 'admin') {
         return <div className="text-red-500 text-center mt-10">Access Denied: You are not an admin.</div>;
@@ -167,10 +213,10 @@ export default function AdminDashboard() {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="text-sm text-slate-900">
-                                            {ticket.creator?.full_name || 'Unknown User'}
+                                            {ticket.profiles?.full_name || ticket.creator?.full_name || ticket.creator_full_name || 'Unknown User'}
                                         </div>
                                         <div className="text-xs text-slate-500 capitalize">
-                                            {ticket.creator?.role?.replace('_', ' ') || 'User'}
+                                            {ticket.profiles?.role?.replace('_', ' ') || ticket.creator?.role?.replace('_', ' ') || ticket.creator_role?.replace('_', ' ') || 'User'}
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">

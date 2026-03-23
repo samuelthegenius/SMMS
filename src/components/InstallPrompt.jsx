@@ -17,8 +17,15 @@ export default function InstallPrompt() {
 
         window.addEventListener('beforeinstallprompt', handler);
 
-        return () => window.removeEventListener('beforeinstallprompt', handler);
-    }, []);
+        return () => {
+            window.removeEventListener('beforeinstallprompt', handler);
+            // Clean up any pending prompt
+            if (deferredPrompt) {
+                setDeferredPrompt(null);
+                setIsVisible(false);
+            }
+        };
+    }, [deferredPrompt]);
 
     const handleInstall = async () => {
         if (!deferredPrompt) return;

@@ -119,9 +119,20 @@ export default function TechnicianDashboard() {
 
             if (error) throw error;
 
+            // Format the AI response for display
+            const formattedSuggestion = `
+Technical Diagnosis: ${data.technical_diagnosis}
+
+Tools Required:
+${data.tools_required.map(tool => `• ${tool}`).join('\n')}
+
+Safety Precaution:
+${data.safety_precaution}
+            `.trim();
+
             setAiSuggestion({
                 ticketId: ticket.id,
-                text: data.suggestion,
+                text: formattedSuggestion,
                 loading: false
             });
         } catch (error) {

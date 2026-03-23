@@ -133,15 +133,48 @@ export default function TechnicianDashboard() {
                 // Debug mode - show raw AI response
                 formattedSuggestion = `DEBUG - Raw AI Response:\n${data.raw_response}`;
             } else if (data.technical_diagnosis && data.tools_required && data.safety_precaution) {
-                // Normal mode - format the structured response
+                // Normal mode - format structured response with proper styling
                 formattedSuggestion = `
-Technical Diagnosis: ${data.technical_diagnosis}
-
-Tools Required:
-${data.tools_required.map(tool => `• ${tool}`).join('\n')}
-
-Safety Precaution:
-${data.safety_precaution}
+<div class="space-y-4">
+    <div>
+        <h3 class="font-semibold text-slate-900 mb-2 flex items-center gap-2">
+            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1v-7.686a3 3 0 1 0-5.828 0M4.75 12a3.25 3.25 0 1 0 6.5 0 3.25 3.25 0 0 0-6.5 0M12 17.25h.008"></path>
+            </svg>
+            Technical Diagnosis
+        </h3>
+        <p class="text-slate-700 leading-relaxed bg-blue-50 p-3 rounded-lg border border-blue-100">${data.technical_diagnosis}</p>
+    </div>
+    
+    <div>
+        <h3 class="font-semibold text-slate-900 mb-2 flex items-center gap-2">
+            <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.121 14.121L19 19m-7-7l-7 7m-7-7l7 7m6.5-3.5a2.121 2.121 0 0 1 3 3L12 15l3-3m6.5-3.5a2.121 2.121 0 0 1 3 3L12 15l3-3"></path>
+            </svg>
+            Tools Required
+        </h3>
+        <ul class="space-y-1 bg-green-50 p-3 rounded-lg border border-green-100">
+            ${(data.tools_required || []).map(tool => `
+                <li class="flex items-center gap-2 text-slate-700">
+                    <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                    ${tool}
+                </li>
+            `).join('')}
+        </ul>
+    </div>
+    
+    <div>
+        <h3 class="font-semibold text-slate-900 mb-2 flex items-center gap-2">
+            <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 2.502-3.181V8c0-1.51-1.963-2.58-3.181-2.581A2.25 2.25 0 0 0 11.938 6H8.062a2.25 2.25 0 0 0-2.181 2.419C5.62 8.62 4 9.629 4 11v2.5c0 1.514 1.962 2.58 3.181 2.581h5.876c1.54 0 2.502-1.667 2.502-3.181Z"></path>
+            </svg>
+            Safety Precaution
+        </h3>
+        <div class="bg-red-50 border border-red-200 text-red-800 p-3 rounded-lg font-medium">
+            ${data.safety_precaution}
+        </div>
+    </div>
+</div>
                 `.trim();
             } else if (data.error) {
                 formattedSuggestion = `Error: ${data.error}`;
@@ -266,9 +299,10 @@ ${data.safety_precaution}
                                                 <span className="font-medium">Analyzing ticket details...</span>
                                             </div>
                                         ) : (
-                                            <div className="prose prose-sm prose-indigo max-w-none">
-                                                <div className="whitespace-pre-wrap leading-relaxed">{aiSuggestion.text}</div>
-                                            </div>
+                                            <div 
+                                                className="prose prose-sm prose-indigo max-w-none"
+                                                dangerouslySetInnerHTML={{ __html: aiSuggestion.text }}
+                                            />
                                         )}
                                     </div>
                                 )}

@@ -51,67 +51,7 @@ serve(async (req: Request) => {
         const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
         console.log(`[suggest-fix] GEMINI_API_KEY exists: ${!!GEMINI_API_KEY}`)
         
-        // TEMPORARY: Show raw AI response to debug format
-        if (true) { // Set to false to use real AI
-            // First, let's see what the AI actually returns
-            try {
-                const response = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            contents: [{
-                                parts: [{
-                                    text: `Analyze this maintenance issue:
-Category: Electrical
-Description: The fan in my room, Room B101 at New Daniel Hall is broken.
-
-Provide a response in this exact format:
-
-Technical Diagnosis: [your technical explanation here]
-
-Tools Required: 
-• [tool 1]
-• [tool 2]
-• [tool 3]
-
-Safety Precaution: WARNING: [your safety warning here]
-
-Keep responses concise and professional.`
-                                }]
-                            }],
-                            generationConfig: {
-                                temperature: 0.3,
-                                maxOutputTokens: 500,
-                            }
-                        })
-                    }
-                )
-                
-                const data = await response.json()
-                const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text
-                console.log(`[suggest-fix] RAW AI RESPONSE: "${aiResponse}"`)
-                
-                // Return the raw response to see what we're working with
-                return new Response(JSON.stringify({ 
-                    raw_response: aiResponse,
-                    debug: true 
-                }), {
-                    headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
-                    status: 200,
-                })
-                
-            } catch (e) {
-                console.error(`[suggest-fix] AI test error:`, e)
-                return new Response(JSON.stringify({ error: e.message }), {
-                    headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
-                    status: 500,
-                })
-            }
-        }
+        // TEMPORARY: Removed - now using real AI with proper parsing
         
         if (!GEMINI_API_KEY) {
             throw new Error('Server Config Error: Missing GEMINI_API_KEY. Please configure this secret in Supabase Dashboard > Edge Functions > Secrets.')
@@ -241,7 +181,6 @@ Keep responses concise and professional.
                         generationConfig: {
                             temperature: 0.3, // Lower temperature for more consistent outputs
                             maxOutputTokens: 500,
-                            responseMimeType: 'application/json', // Force JSON response
                         }
                     }),
                     signal: controller.signal

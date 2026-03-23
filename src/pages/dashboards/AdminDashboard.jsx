@@ -75,7 +75,7 @@ export default function AdminDashboard() {
 
     const stats = {
         total: tickets.length,
-        pending: tickets.filter(t => t.status === 'Pending').length,
+        pending: tickets.filter(t => t.status === 'Open').length,
         resolved: tickets.filter(t => t.status === 'Resolved').length,
         inProgress: tickets.filter(t => t.status === 'In Progress').length,
     };
@@ -164,7 +164,8 @@ export default function AdminDashboard() {
                                             ticket.status === 'Resolved' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
                                                 ticket.status === 'In Progress' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' :
                                                     ticket.status === 'Assigned' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                                                        'bg-amber-50 text-amber-700 border-amber-100'
+                                                        ticket.status === 'Open' ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                                                            'bg-slate-50 text-slate-700 border-slate-100'
                                         )}>
                                             {ticket.status}
                                         </span>

@@ -135,21 +135,26 @@ serve(async (req: Request) => {
         }
 
         // Add Text Prompts with strict output formatting
-        const systemPrompt = "You are a senior maintenance supervisor advising a junior technician."
+        const systemPrompt = "You are a senior maintenance supervisor advising a junior technician. ALWAYS respond with valid JSON only."
         const taskPrompt = `
             Category: ${sanitizedCategory}
             Issue: ${sanitizedDescription}
 
-            Return a STRICT JSON object (no markdown formatting, no code blocks) with these fields:
-            - technical_diagnosis: (A concise technical explanation of the fault, max 200 characters)
-            - tools_required: (Array of exactly 3-5 essential tools)
-            - safety_precaution: (One critical safety warning starting with "WARNING:")
+            Return ONLY a JSON object with these exact fields:
+            {
+                "technical_diagnosis": "A concise technical explanation of the fault, max 200 characters",
+                "tools_required": ["tool1", "tool2", "tool3"],
+                "safety_precaution": "One critical safety warning starting with WARNING:"
+            }
 
-            Rules:
-            - Response must be valid JSON only
-            - No explanations outside the JSON
-            - Keep diagnosis professional and technical
-            - Tools must be specific to the issue
+            CRITICAL RULES:
+            - Response must be valid JSON ONLY
+            - No markdown formatting
+            - No code blocks
+            - No explanations outside JSON
+            - technical_diagnosis must be a string
+            - tools_required must be an array of 3-5 strings
+            - safety_precaution must be a string starting with WARNING:
         `
 
         parts.push({
@@ -200,13 +205,26 @@ serve(async (req: Request) => {
                 throw new Error("AI returned no suggestion content.")
             }
 
+            console.log(`[suggest-fix] Raw AI response:`, suggestionText)
+
+            // Clean up the response - remove any markdown code blocks
+            suggestionText = suggestionText
+                .replace(/```json\n?/g, '')
+                .replace(/```\n?/g, '')
+                .trim()
+
+            console.log(`[suggest-fix] Cleaned AI response:`, suggestionText)
+
             // Parse JSON response
             let jsonResponse;
             try {
                 jsonResponse = JSON.parse(suggestionText);
                 
+                console.log(`[suggest-fix] Parsed JSON:`, jsonResponse)
+                
                 // Validate response structure
                 if (!jsonResponse.technical_diagnosis || !Array.isArray(jsonResponse.tools_required) || !jsonResponse.safety_precaution) {
+                    console.error(`[suggest-fix] Invalid response structure:`, jsonResponse)
                     throw new Error("AI response missing required fields")
                 }
                 
@@ -217,7 +235,14 @@ serve(async (req: Request) => {
                 
             } catch (e) {
                 console.error("Failed to parse AI JSON:", suggestionText);
-                throw new Error("AI Response was not valid JSON");
+                console.error("Parse error:", e);
+                
+                // Fallback response if JSON parsing fails
+                jsonResponse = {
+                    technical_diagnosis: "Unable to parse AI response. Please try again.",
+                    tools_required: ["Basic tools"],
+                    safety_precaution: "WARNING: Always follow proper safety procedures."
+                }
             }
 
             return new Response(JSON.stringify(jsonResponse), {

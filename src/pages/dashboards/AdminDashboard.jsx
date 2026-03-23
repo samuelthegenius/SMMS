@@ -19,6 +19,7 @@ import useSWR from 'swr';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function AdminDashboard() {
+    console.log('AdminDashboard component rendering');
     const { profile } = useAuth();
     const [filter, setFilter] = useState('All');
     const [selectedTicket, setSelectedTicket] = useState(null);
@@ -26,6 +27,8 @@ export default function AdminDashboard() {
     // SWR Fetcher - Only fetch necessary fields for privacy
     const fetchTickets = async () => {
         console.log('Fetching tickets...');
+        console.log('Current user profile:', profile);
+        
         const { data, error } = await supabase
             .from('tickets')
             .select(`
@@ -58,7 +61,10 @@ export default function AdminDashboard() {
     };
 
     // Use SWR for caching (dedupingInterval: 5000 is default, we can keep it)
-    const { data: tickets = [], mutate, isLoading } = useSWR('admin_tickets', fetchTickets);
+    const { data: tickets = [], mutate, isLoading } = useSWR(
+        profile?.role === 'admin' ? 'admin_tickets' : null, 
+        fetchTickets
+    );
 
     useEffect(() => {
         console.log('Current auth state:', { profile, isLoading, ticketsCount: tickets.length });
@@ -94,7 +100,13 @@ export default function AdminDashboard() {
     if (isLoading && !tickets.length) return <Loader />;
 
     if (profile && profile.role !== 'admin') {
-        return <div className="text-red-500 text-center mt-10">Access Denied: You are not an admin.</div>;
+        console.log('Access denied - user role:', profile.role);
+        return <div className="text-red-500 text-center mt-10">Access Denied: You are not an admin. Current role: {profile.role}</div>;
+    }
+
+    if (!profile) {
+        console.log('No profile found, user might not be logged in');
+        return <div className="text-red-500 text-center mt-10">No user profile found. Please log in.</div>;
     }
 
     return (

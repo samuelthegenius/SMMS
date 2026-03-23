@@ -90,8 +90,8 @@ export default function TicketForm() {
                 imageUrl = publicUrl;
             }
 
-            // Step A: Insert Ticket & Immediately Fetch Assigned Tech Details
-            // We use a Resource Embedding (Join) to get the Tech's email in one shot.
+            // Step A: Insert Ticket & Handle Assignment Gracefully
+            // First insert without the join to avoid 409 errors when assigned_to is NULL
             const { data, error } = await supabase
                 .from('tickets')
                 .insert([
@@ -106,12 +106,23 @@ export default function TicketForm() {
                         image_url: imageUrl,
                     }
                 ])
-                .select('*, assigned_to(email, full_name)')
+                .select()
                 .single();
 
             if (error) throw error;
 
-            // Step B: Trigger Email Notification via Edge Function
+            // Step B: Fetch assigned technician details if assignment occurred
+            let technicianDetails = null;
+            if (data.assigned_to) {
+                const { data: techData } = await supabase
+                    .from('profiles')
+                    .select('email, full_name')
+                    .eq('id', data.assigned_to)
+                    .single();
+                technicianDetails = techData;
+            }
+
+            // Step C: Trigger Email Notification via Edge Function
             // This handles both the Student Confirmation and Technician Assignment securely
             try {
                 await supabase.functions.invoke('send-email', {
@@ -123,8 +134,8 @@ export default function TicketForm() {
                         ticket_location: formData.specificLocation,
                         ticket_priority: formData.priority,
                         // Technician details (if auto-assigned)
-                        technician_email: data?.assigned_to?.email,
-                        technician_name: data?.assigned_to?.full_name
+                        technician_email: technicianDetails?.email,
+                        technician_name: technicianDetails?.full_name
                     }
                 });
             } catch (emailError) {

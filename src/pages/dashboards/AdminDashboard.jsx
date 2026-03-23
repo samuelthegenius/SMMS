@@ -25,6 +25,7 @@ export default function AdminDashboard() {
 
     // SWR Fetcher - Only fetch necessary fields for privacy
     const fetchTickets = async () => {
+        console.log('Fetching tickets...');
         const { data, error } = await supabase
             .from('tickets')
             .select(`
@@ -46,12 +47,22 @@ export default function AdminDashboard() {
                 )
             `)
             .order('created_at', { ascending: false });
-        if (error) throw error;
+        
+        console.log('Tickets query result:', { data, error });
+        if (error) {
+            console.error('Tickets fetch error:', error);
+            throw error;
+        }
+        console.log('Fetched tickets count:', data?.length || 0);
         return data;
     };
 
     // Use SWR for caching (dedupingInterval: 5000 is default, we can keep it)
     const { data: tickets = [], mutate, isLoading } = useSWR('admin_tickets', fetchTickets);
+
+    useEffect(() => {
+        console.log('Current auth state:', { profile, isLoading, ticketsCount: tickets.length });
+    }, [profile, isLoading, tickets]);
 
     useEffect(() => {
         const subscription = supabase

@@ -29,35 +29,50 @@ export default function AdminDashboard() {
         console.log('Fetching tickets...');
         console.log('Current user profile:', profile);
         
-        const { data, error } = await supabase
-            .from('tickets')
-            .select(`
-                id,
-                title,
-                description,
-                category,
-                facility_type,
-                specific_location,
-                status,
-                priority,
-                created_at,
-                updated_at,
-                assigned_to,
-                created_by,
-                creator:created_by (
-                    full_name,
-                    role
-                )
-            `)
-            .order('created_at', { ascending: false });
-        
-        console.log('Tickets query result:', { data, error });
-        if (error) {
-            console.error('Tickets fetch error:', error);
-            throw error;
+        try {
+            // First try a simple count query
+            const { count, error: countError } = await supabase
+                .from('tickets')
+                .select('*', { count: 'exact', head: true });
+            
+            console.log('Total tickets count:', count, 'Error:', countError);
+            
+            // Then try the full query
+            const { data, error } = await supabase
+                .from('tickets')
+                .select(`
+                    id,
+                    title,
+                    description,
+                    category,
+                    facility_type,
+                    specific_location,
+                    status,
+                    priority,
+                    created_at,
+                    updated_at,
+                    assigned_to,
+                    created_by,
+                    creator:created_by (
+                        full_name,
+                        role
+                    )
+                `)
+                .order('created_at', { ascending: false });
+            
+            console.log('Tickets query result:', { data, error });
+            console.log('Data length:', data?.length);
+            console.log('Data sample:', data?.[0]);
+            
+            if (error) {
+                console.error('Tickets fetch error:', error);
+                throw error;
+            }
+            return data;
+        } catch (err) {
+            console.error('Fetch tickets error:', err);
+            throw err;
         }
-        console.log('Fetched tickets count:', data?.length || 0);
-        return data;
     };
 
     // Use SWR for caching (dedupingInterval: 5000 is default, we can keep it)
@@ -68,6 +83,7 @@ export default function AdminDashboard() {
 
     useEffect(() => {
         console.log('Current auth state:', { profile, isLoading, ticketsCount: tickets.length });
+        console.log('Profile details:', profile);
     }, [profile, isLoading, tickets]);
 
     useEffect(() => {
@@ -86,6 +102,7 @@ export default function AdminDashboard() {
 
 
 
+    
     const filteredTickets = filter === 'All'
         ? tickets
         : tickets.filter(t => t.facility_type === filter);

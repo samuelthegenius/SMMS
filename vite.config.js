@@ -22,7 +22,7 @@ export default defineConfig({
     // Strategies like 'autoUpdate' ensure the user always has the latest service worker.
     VitePWA({
       devOptions: {
-        enabled: true,
+        enabled: false, // Disable PWA in development to prevent message channel errors
         type: 'module',
       },
       registerType: 'autoUpdate',
@@ -55,7 +55,9 @@ export default defineConfig({
       workbox: {
         cleanupOutdatedCaches: true,
         clientsClaim: true,
-        skipWaiting: true
+        skipWaiting: true,
+        // Disable message channel handling in development to prevent errors
+        disableDevLogs: true
       }
     })
   ],

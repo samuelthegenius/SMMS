@@ -122,19 +122,33 @@ export default function TechnicianDashboard() {
 
             console.log('[AI Debug] Response data:', data);
             console.log('[AI Debug] Response error:', error);
+            console.log('[AI Debug] Full response:', JSON.stringify(data, null, 2));
 
             if (error) throw error;
 
             // Format the AI response for display
-            const formattedSuggestion = `
+            let formattedSuggestion;
+            
+            if (data.debug && data.raw_response) {
+                // Debug mode - show raw AI response
+                formattedSuggestion = `DEBUG - Raw AI Response:\n${data.raw_response}`;
+            } else {
+                // Normal mode - format the structured response
+                if (!data.technical_diagnosis || !data.tools_required || !data.safety_precaution) {
+                    console.error('[AI Debug] Invalid response structure:', data);
+                    formattedSuggestion = 'AI response format error. Please try again.';
+                } else {
+                    formattedSuggestion = `
 Technical Diagnosis: ${data.technical_diagnosis}
 
 Tools Required:
-${data.tools_required.map(tool => `• ${tool}`).join('\n')}
+${(data.tools_required || []).map(tool => `• ${tool}`).join('\n')}
 
 Safety Precaution:
 ${data.safety_precaution}
-            `.trim();
+                    `.trim();
+                }
+            }
 
             setAiSuggestion({
                 ticketId: ticket.id,

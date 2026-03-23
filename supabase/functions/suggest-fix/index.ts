@@ -50,6 +50,69 @@ serve(async (req: Request) => {
         // @ts-ignore: Deno namespace
         const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
         console.log(`[suggest-fix] GEMINI_API_KEY exists: ${!!GEMINI_API_KEY}`)
+        
+        // TEMPORARY: Show raw AI response to debug format
+        if (true) { // Set to false to use real AI
+            // First, let's see what the AI actually returns
+            try {
+                const response = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [{
+                                    text: `Analyze this maintenance issue:
+Category: Electrical
+Description: The fan in my room, Room B101 at New Daniel Hall is broken.
+
+Provide a response in this exact format:
+
+Technical Diagnosis: [your technical explanation here]
+
+Tools Required: 
+• [tool 1]
+• [tool 2]
+• [tool 3]
+
+Safety Precaution: WARNING: [your safety warning here]
+
+Keep responses concise and professional.`
+                                }]
+                            }],
+                            generationConfig: {
+                                temperature: 0.3,
+                                maxOutputTokens: 500,
+                            }
+                        })
+                    }
+                )
+                
+                const data = await response.json()
+                const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text
+                console.log(`[suggest-fix] RAW AI RESPONSE: "${aiResponse}"`)
+                
+                // Return the raw response to see what we're working with
+                return new Response(JSON.stringify({ 
+                    raw_response: aiResponse,
+                    debug: true 
+                }), {
+                    headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
+                    status: 200,
+                })
+                
+            } catch (e) {
+                console.error(`[suggest-fix] AI test error:`, e)
+                return new Response(JSON.stringify({ error: e.message }), {
+                    headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
+                    status: 500,
+                })
+            }
+        }
+        
         if (!GEMINI_API_KEY) {
             throw new Error('Server Config Error: Missing GEMINI_API_KEY. Please configure this secret in Supabase Dashboard > Edge Functions > Secrets.')
         }
@@ -134,27 +197,25 @@ serve(async (req: Request) => {
             }
         }
 
-        // Add Text Prompts with strict output formatting
-        const systemPrompt = "You are a senior maintenance supervisor advising a junior technician. ALWAYS respond with valid JSON only."
+        // Add Text Prompts with clear structure
+        const systemPrompt = "You are a senior maintenance supervisor advising a junior technician."
         const taskPrompt = `
-            Category: ${sanitizedCategory}
-            Issue: ${sanitizedDescription}
+Analyze this maintenance issue:
+Category: ${sanitizedCategory}
+Description: ${sanitizedDescription}
 
-            Return ONLY a JSON object with these exact fields:
-            {
-                "technical_diagnosis": "A concise technical explanation of the fault, max 200 characters",
-                "tools_required": ["tool1", "tool2", "tool3"],
-                "safety_precaution": "One critical safety warning starting with WARNING:"
-            }
+Provide a response in this exact format:
 
-            CRITICAL RULES:
-            - Response must be valid JSON ONLY
-            - No markdown formatting
-            - No code blocks
-            - No explanations outside JSON
-            - technical_diagnosis must be a string
-            - tools_required must be an array of 3-5 strings
-            - safety_precaution must be a string starting with WARNING:
+Technical Diagnosis: [your technical explanation here]
+
+Tools Required: 
+• [tool 1]
+• [tool 2]
+• [tool 3]
+
+Safety Precaution: WARNING: [your safety warning here]
+
+Keep responses concise and professional.
         `
 
         parts.push({
@@ -206,41 +267,78 @@ serve(async (req: Request) => {
             }
 
             console.log(`[suggest-fix] Raw AI response:`, suggestionText)
+            console.log(`[suggest-fix] Response length:`, suggestionText.length)
+            console.log(`[suggest-fix] Response type:`, typeof suggestionText)
 
-            // Clean up the response - remove any markdown code blocks
-            suggestionText = suggestionText
-                .replace(/```json\n?/g, '')
-                .replace(/```\n?/g, '')
-                .trim()
+            // Parse the structured text response
+            let jsonResponse = {
+                technical_diagnosis: "",
+                tools_required: [],
+                safety_precaution: ""
+            }
 
-            console.log(`[suggest-fix] Cleaned AI response:`, suggestionText)
-
-            // Parse JSON response
-            let jsonResponse;
             try {
-                jsonResponse = JSON.parse(suggestionText);
+                // Split by lines and parse each section
+                const lines = suggestionText.split('\n').map(line => line.trim())
+                console.log(`[suggest-fix] Split lines:`, lines)
                 
-                console.log(`[suggest-fix] Parsed JSON:`, jsonResponse)
+                let currentSection = ""
+                let toolsList = []
                 
-                // Validate response structure
-                if (!jsonResponse.technical_diagnosis || !Array.isArray(jsonResponse.tools_required) || !jsonResponse.safety_precaution) {
-                    console.error(`[suggest-fix] Invalid response structure:`, jsonResponse)
-                    throw new Error("AI response missing required fields")
+                for (const line of lines) {
+                    console.log(`[suggest-fix] Processing line: "${line}"`)
+                    
+                    if (line.toLowerCase().includes('technical diagnosis') || line.toLowerCase().includes('diagnosis:')) {
+                        jsonResponse.technical_diagnosis = line.replace(/technical diagnosis:?/gi, '').replace(/diagnosis:?/gi, '').trim()
+                        console.log(`[suggest-fix] Found diagnosis: "${jsonResponse.technical_diagnosis}"`)
+                    } else if (line.toLowerCase().includes('tools required') || line.toLowerCase().includes('tools:')) {
+                        currentSection = 'tools'
+                        console.log(`[suggest-fix] Switched to tools section`)
+                    } else if (line.toLowerCase().includes('safety precaution') || line.toLowerCase().includes('safety:')) {
+                        jsonResponse.safety_precaution = line.replace(/safety precaution:?/gi, '').replace(/safety:?/gi, '').trim()
+                        currentSection = 'safety'
+                        console.log(`[suggest-fix] Found safety: "${jsonResponse.safety_precaution}"`)
+                    } else if ((line.startsWith('•') || line.startsWith('-') || line.startsWith('*')) && currentSection === 'tools') {
+                        const tool = line.replace(/^[•\-\*]\s*/, '').trim()
+                        toolsList.push(tool)
+                        console.log(`[suggest-fix] Found tool: "${tool}"`)
+                    }
                 }
                 
-                // Sanitize response
+                jsonResponse.tools_required = toolsList
+                console.log(`[suggest-fix] Final parsed response:`, jsonResponse)
+                
+                // Validation and fallbacks
+                if (!jsonResponse.technical_diagnosis) {
+                    jsonResponse.technical_diagnosis = "Technical issue identified - analysis in progress."
+                }
+                if (jsonResponse.tools_required.length === 0) {
+                    jsonResponse.tools_required = ["Basic toolkit", "Safety equipment", "Testing devices"]
+                }
+                if (!jsonResponse.safety_precaution) {
+                    jsonResponse.safety_precaution = "WARNING: Always follow proper safety procedures."
+                }
+                
+                // Ensure safety precaution starts with WARNING
+                if (!jsonResponse.safety_precaution.startsWith('WARNING:')) {
+                    jsonResponse.safety_precaution = `WARNING: ${jsonResponse.safety_precaution}`;
+                }
+                
+                // Clean up lengths
                 jsonResponse.technical_diagnosis = jsonResponse.technical_diagnosis.substring(0, 500)
                 jsonResponse.tools_required = jsonResponse.tools_required.slice(0, 10)
                 jsonResponse.safety_precaution = jsonResponse.safety_precaution.substring(0, 200)
                 
+                console.log(`[suggest-fix] Parsed response:`, jsonResponse)
+                
             } catch (e) {
-                console.error("Failed to parse AI JSON:", suggestionText);
+                console.error("Failed to parse structured response:", suggestionText);
                 console.error("Parse error:", e);
                 
-                // Fallback response if JSON parsing fails
+                // Fallback response
                 jsonResponse = {
-                    technical_diagnosis: "Unable to parse AI response. Please try again.",
-                    tools_required: ["Basic tools"],
+                    technical_diagnosis: "Maintenance issue detected. Professional assessment required.",
+                    tools_required: ["Basic tools", "Safety equipment", "Testing devices"],
                     safety_precaution: "WARNING: Always follow proper safety procedures."
                 }
             }

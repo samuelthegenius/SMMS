@@ -51,8 +51,6 @@ serve(async (req: Request) => {
         const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
         console.log(`[suggest-fix] GEMINI_API_KEY exists: ${!!GEMINI_API_KEY}`)
         
-        // TEMPORARY: Removed - now using real AI with proper parsing
-        
         if (!GEMINI_API_KEY) {
             throw new Error('Server Config Error: Missing GEMINI_API_KEY. Please configure this secret in Supabase Dashboard > Edge Functions > Secrets.')
         }
@@ -166,6 +164,8 @@ Keep responses concise and professional.
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 30000) // 30s timeout
 
+        console.log(`[suggest-fix] About to call Gemini API...`)
+
         try {
             const response = await fetch(
                 `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
@@ -223,24 +223,37 @@ Keep responses concise and professional.
                 
                 let currentSection = ""
                 let toolsList = []
+                let diagnosisText = ""
                 
-                for (const line of lines) {
-                    console.log(`[suggest-fix] Processing line: "${line}"`)
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i]
+                    console.log(`[suggest-fix] Processing line ${i}: "${line}"`)
                     
-                    if (line.toLowerCase().includes('technical diagnosis') || line.toLowerCase().includes('diagnosis:')) {
-                        jsonResponse.technical_diagnosis = line.replace(/technical diagnosis:?/gi, '').replace(/diagnosis:?/gi, '').trim()
+                    // Handle multi-line diagnosis
+                    if (line.toLowerCase().includes('technical diagnosis:')) {
+                        diagnosisText = line.replace(/technical diagnosis:/gi, '').trim()
+                        // Check if next lines continue the diagnosis
+                        let j = i + 1
+                        while (j < lines.length && !lines[j].toLowerCase().includes('tools required:') && !lines[j].toLowerCase().includes('safety precaution:')) {
+                            diagnosisText += ' ' + lines[j].trim()
+                            j++
+                        }
+                        jsonResponse.technical_diagnosis = diagnosisText.trim()
                         console.log(`[suggest-fix] Found diagnosis: "${jsonResponse.technical_diagnosis}"`)
-                    } else if (line.toLowerCase().includes('tools required') || line.toLowerCase().includes('tools:')) {
+                        i = j - 1 // Skip the processed lines
+                    } else if (line.toLowerCase().includes('tools required:')) {
                         currentSection = 'tools'
                         console.log(`[suggest-fix] Switched to tools section`)
-                    } else if (line.toLowerCase().includes('safety precaution') || line.toLowerCase().includes('safety:')) {
-                        jsonResponse.safety_precaution = line.replace(/safety precaution:?/gi, '').replace(/safety:?/gi, '').trim()
+                    } else if (line.toLowerCase().includes('safety precaution:')) {
+                        jsonResponse.safety_precaution = line.replace(/safety precaution:/gi, '').trim()
                         currentSection = 'safety'
                         console.log(`[suggest-fix] Found safety: "${jsonResponse.safety_precaution}"`)
                     } else if ((line.startsWith('•') || line.startsWith('-') || line.startsWith('*')) && currentSection === 'tools') {
                         const tool = line.replace(/^[•\-\*]\s*/, '').trim()
-                        toolsList.push(tool)
-                        console.log(`[suggest-fix] Found tool: "${tool}"`)
+                        if (tool) {
+                            toolsList.push(tool)
+                            console.log(`[suggest-fix] Found tool: "${tool}"`)
+                        }
                     }
                 }
                 
@@ -267,8 +280,6 @@ Keep responses concise and professional.
                 jsonResponse.technical_diagnosis = jsonResponse.technical_diagnosis.substring(0, 500)
                 jsonResponse.tools_required = jsonResponse.tools_required.slice(0, 10)
                 jsonResponse.safety_precaution = jsonResponse.safety_precaution.substring(0, 200)
-                
-                console.log(`[suggest-fix] Parsed response:`, jsonResponse)
                 
             } catch (e) {
                 console.error("Failed to parse structured response:", suggestionText);

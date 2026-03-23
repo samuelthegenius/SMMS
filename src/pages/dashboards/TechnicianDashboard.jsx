@@ -120,19 +120,10 @@ export default function TechnicianDashboard() {
                 }
             });
 
-            console.log('[AI Debug] Response data:', data);
-            console.log('[AI Debug] Response error:', error);
-            console.log('[AI Debug] Full response:', JSON.stringify(data, null, 2));
-
             if (error) throw error;
 
             // Format the AI response for display
-            let formattedSuggestion;
-            
-            if (data.debug && data.raw_response) {
-                // Debug mode - show raw AI response
-                formattedSuggestion = `DEBUG - Raw AI Response:\n${data.raw_response}`;
-            } else if (data.technical_diagnosis && data.tools_required && data.safety_precaution) {
+            if (data.technical_diagnosis && data.tools_required && data.safety_precaution) {
                 // Normal mode - format structured response with proper styling
                 formattedSuggestion = `
 <div class="space-y-4">

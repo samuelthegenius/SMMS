@@ -132,22 +132,21 @@ export default function TechnicianDashboard() {
             if (data.debug && data.raw_response) {
                 // Debug mode - show raw AI response
                 formattedSuggestion = `DEBUG - Raw AI Response:\n${data.raw_response}`;
-            } else {
+            } else if (data.technical_diagnosis && data.tools_required && data.safety_precaution) {
                 // Normal mode - format the structured response
-                if (!data.technical_diagnosis || !data.tools_required || !data.safety_precaution) {
-                    console.error('[AI Debug] Invalid response structure:', data);
-                    formattedSuggestion = 'AI response format error. Please try again.';
-                } else {
-                    formattedSuggestion = `
+                formattedSuggestion = `
 Technical Diagnosis: ${data.technical_diagnosis}
 
 Tools Required:
-${(data.tools_required || []).map(tool => `• ${tool}`).join('\n')}
+${data.tools_required.map(tool => `• ${tool}`).join('\n')}
 
 Safety Precaution:
 ${data.safety_precaution}
-                    `.trim();
-                }
+                `.trim();
+            } else if (data.error) {
+                formattedSuggestion = `Error: ${data.error}`;
+            } else {
+                formattedSuggestion = 'AI response format error. Please try again.';
             }
 
             setAiSuggestion({

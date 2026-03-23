@@ -19,84 +19,25 @@ import useSWR from 'swr';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function AdminDashboard() {
-    console.log('AdminDashboard component rendering');
     const { profile } = useAuth();
     const [filter, setFilter] = useState('All');
     const [selectedTicket, setSelectedTicket] = useState(null);
 
-    // SWR Fetcher - Only fetch necessary fields for privacy
+    // SWR Fetcher - Use SECURITY DEFINER function for proper admin access
     const fetchTickets = async () => {
-        console.log('Fetching tickets...');
-        console.log('Current user profile:', profile);
+        const { data, error } = await supabase
+            .rpc('get_admin_tickets');
         
-        try {
-            // First try a simple count query
-            const { count, error: countError } = await supabase
-                .from('tickets')
-                .select('*', { count: 'exact', head: true });
-            
-            console.log('Total tickets count:', count, 'Error:', countError);
-            
-            // Try query WITHOUT creator join first
-            const { data: dataWithoutCreator, error: errorWithoutCreator } = await supabase
-                .from('tickets')
-                .select(`
-                    id,
-                    title,
-                    description,
-                    category,
-                    facility_type,
-                    specific_location,
-                    status,
-                    priority,
-                    created_at,
-                    updated_at,
-                    assigned_to,
-                    created_by
-                `)
-                .order('created_at', { ascending: false });
-            
-            console.log('Tickets without creator:', { dataWithoutCreator, error: errorWithoutCreator });
-            
-            // Then try WITH creator join
-            const { data, error } = await supabase
-                .from('tickets')
-                .select(`
-                    id,
-                    title,
-                    description,
-                    category,
-                    facility_type,
-                    specific_location,
-                    status,
-                    priority,
-                    created_at,
-                    updated_at,
-                    assigned_to,
-                    created_by,
-                    creator:created_by (
-                        full_name,
-                        role
-                    )
-                `)
-                .order('created_at', { ascending: false });
-            
-            console.log('Tickets with creator:', { data, error });
-            
-            if (error) {
-                console.error('Tickets fetch error:', error);
-                // Fall back to data without creator if join fails
-                if (dataWithoutCreator && !errorWithoutCreator) {
-                    console.log('Using fallback data without creator join');
-                    return dataWithoutCreator;
-                }
-                throw error;
-            }
-            return data;
-        } catch (err) {
-            console.error('Fetch tickets error:', err);
-            throw err;
-        }
+        if (error) throw error;
+        
+        // Transform the data to match expected structure
+        return data.map(ticket => ({
+            ...ticket,
+            creator: ticket.creator_full_name ? {
+                full_name: ticket.creator_full_name,
+                role: ticket.creator_role
+            } : null
+        }));
     };
 
     // Use SWR for caching (dedupingInterval: 5000 is default, we can keep it)
@@ -104,11 +45,6 @@ export default function AdminDashboard() {
         profile?.role === 'admin' ? 'admin_tickets' : null, 
         fetchTickets
     );
-
-    useEffect(() => {
-        console.log('Current auth state:', { profile, isLoading, ticketsCount: tickets.length });
-        console.log('Profile details:', profile);
-    }, [profile, isLoading, tickets]);
 
     useEffect(() => {
         const subscription = supabase
@@ -124,9 +60,6 @@ export default function AdminDashboard() {
         };
     }, [mutate]);
 
-
-
-    
     const filteredTickets = filter === 'All'
         ? tickets
         : tickets.filter(t => t.facility_type === filter);
@@ -141,12 +74,10 @@ export default function AdminDashboard() {
     if (isLoading && !tickets.length) return <Loader />;
 
     if (profile && profile.role !== 'admin') {
-        console.log('Access denied - user role:', profile.role);
-        return <div className="text-red-500 text-center mt-10">Access Denied: You are not an admin. Current role: {profile.role}</div>;
+        return <div className="text-red-500 text-center mt-10">Access Denied: You are not an admin.</div>;
     }
 
     if (!profile) {
-        console.log('No profile found, user might not be logged in');
         return <div className="text-red-500 text-center mt-10">No user profile found. Please log in.</div>;
     }
 
@@ -235,8 +166,12 @@ export default function AdminDashboard() {
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm text-slate-900">{ticket.creator?.full_name}</div>
-                                        <div className="text-xs text-slate-500 capitalize">{ticket.creator?.role?.replace('_', ' ')}</div>
+                                        <div className="text-sm text-slate-900">
+                                            {ticket.creator?.full_name || 'Unknown User'}
+                                        </div>
+                                        <div className="text-xs text-slate-500 capitalize">
+                                            {ticket.creator?.role?.replace('_', ' ') || 'User'}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <ReassignTechnician

@@ -302,10 +302,9 @@ export default function TechnicianDashboard() {
                                                 <span className="font-medium">Analyzing ticket details...</span>
                                             </div>
                                         ) : (
-                                            <div 
-                                                className="prose prose-sm prose-indigo max-w-none"
-                                                dangerouslySetInnerHTML={{ __html: aiSuggestion.text }}
-                                            />
+                                            <div className="prose prose-sm prose-indigo max-w-none whitespace-pre-wrap">
+                                                {aiSuggestion.text}
+                                            </div>
                                         )}
                                     </div>
                                 )}

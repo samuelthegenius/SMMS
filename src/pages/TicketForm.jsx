@@ -33,8 +33,41 @@ export default function TicketForm() {
     const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
     const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
+    // Input validation and sanitization
+    const validateAndSanitizeInput = (name, value) => {
+        const sanitized = value.trim().replace(/[<>]/g, ''); // Remove potential XSS
+        
+        switch (name) {
+            case 'title':
+                if (sanitized.length < 3 || sanitized.length > 100) {
+                    throw new Error('Title must be between 3 and 100 characters');
+                }
+                break;
+            case 'description':
+                if (sanitized.length < 10 || sanitized.length > 2000) {
+                    throw new Error('Description must be between 10 and 2000 characters');
+                }
+                break;
+            case 'specificLocation':
+                if (sanitized.length > 200) {
+                    throw new Error('Location must be less than 200 characters');
+                }
+                break;
+        }
+        
+        return sanitized;
+    };
+
     const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        try {
+            const sanitized = validateAndSanitizeInput(name, value);
+            setFormData({ ...formData, [name]: sanitized });
+        } catch (error) {
+            // Reset field to previous valid value
+            e.target.value = formData[name] || '';
+            toast.error(error.message);
+        }
     };
 
     const handleImageChange = (e) => {

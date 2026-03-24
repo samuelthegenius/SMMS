@@ -13,6 +13,7 @@ import { createRoot } from 'react-dom/client'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import './index.css'
 import App from './App.jsx'
+import './utils/registerSW.js' // Register PWA service worker
 
 // React 18 Concurrency Model Initialization
 createRoot(document.getElementById('root')).render(

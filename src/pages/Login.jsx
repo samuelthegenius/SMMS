@@ -99,9 +99,18 @@ export default function Login() {
 
                 // Use the secure RPC function to look up the email
                 const { data: resolvedEmail, error } = await supabase
-                    .rpc('get_email_by_id', { lookup_id: identifier });
+                    .rpc('get_email_by_id', { lookup_id: identifier.trim() });
 
-                if (error || !resolvedEmail) {
+                if (error) {
+                    // Handle rate limit errors from server
+                    if (error.message?.includes('Too many attempts')) {
+                        throw new Error(error.message);
+                    }
+                    recordFailedAttempt();
+                    throw new Error('Invalid ID Number or password');
+                }
+
+                if (!resolvedEmail) {
                     recordFailedAttempt();
                     throw new Error('Invalid ID Number or password');
                 }

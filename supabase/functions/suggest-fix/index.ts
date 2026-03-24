@@ -25,7 +25,21 @@ const sanitizeInput = (input: string): string => {
     // Remove potential prompt injection attempts
     return input
         .replace(/ignore previous|system prompt|you are/gi, '')
+        .replace(/[<>]/g, '') // Remove potential XSS
         .substring(0, 2000) // Limit input length
+}
+
+// Validate URL to prevent SSRF attacks
+const validateImageUrl = (url: string): boolean => {
+    try {
+        const urlObj = new URL(url)
+        // Only allow HTTPS and specific domains
+        return urlObj.protocol === 'https:' && 
+               (urlObj.hostname.includes('supabase.co') || 
+                urlObj.hostname.includes('mtusmms.me'))
+    } catch {
+        return false
+    }
 }
 
 serve(async (req: Request) => {
@@ -93,10 +107,11 @@ serve(async (req: Request) => {
         if (image_url) {
             console.log(`[suggest-fix] Fetching image from: ${image_url}`)
             try {
-                // Validate URL format
-                if (!image_url.startsWith('https://')) {
-                    console.warn('[suggest-fix] Invalid image URL scheme')
-                } else {
+                // Validate URL to prevent SSRF
+                if (!validateImageUrl(image_url)) {
+                    console.warn('[suggest-fix] Invalid or unauthorized image URL')
+                    throw new Error('Invalid image URL')
+                }
                     const imageResponse = await fetch(image_url, {
                         headers: { 'Accept': 'image/*' },
                     })

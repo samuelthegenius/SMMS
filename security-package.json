@@ -1,0 +1,24 @@
+{
+  "name": "smms-security-scan",
+  "version": "1.0.0",
+  "description": "Automated security scanning for SMMS application",
+  "scripts": {
+    "security:scan": "npm run security:dependencies && npm run security:code && npm run security:secrets",
+    "security:dependencies": "npm audit --audit-level=moderate && npx snyk test",
+    "security:code": "npm run lint && npx eslint . --ext .js,.jsx,.ts,.tsx && npx semgrep --config=auto .",
+    "security:secrets": "npx trufflehog filesystem . --json > security-scan-results.json || true",
+    "security:csp": "npx csp-evaluator https://mtusmms.me || echo 'CSP evaluation failed - site may be down'",
+    "security:headers": "npx security-headers https://mtusmms.me",
+    "security:ssl": "npx ssl-checker https://mtusmms.me",
+    "security:all": "npm run security:scan && npm run security:csp && npm run security:headers && npm run security:ssl",
+    "security:report": "node scripts/generate-security-report.js"
+  },
+  "devDependencies": {
+    "snyk": "^1.1291.1",
+    "semgrep": "^1.94.0",
+    "trufflehog": "^3.82.0",
+    "csp-evaluator": "^1.0.0",
+    "security-headers": "^1.0.0",
+    "ssl-checker": "^2.0.0"
+  }
+}

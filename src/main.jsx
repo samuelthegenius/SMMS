@@ -14,6 +14,10 @@ import ErrorBoundary from './components/ErrorBoundary.jsx'
 import './index.css'
 import App from './App.jsx'
 import './utils/registerSW.js' // Register PWA service worker
+import { initializeSecurityMonitoring } from './utils/securityMonitoring.js' // Initialize security monitoring
+
+// Initialize security monitoring
+initializeSecurityMonitoring();
 
 // React 18 Concurrency Model Initialization
 createRoot(document.getElementById('root')).render(

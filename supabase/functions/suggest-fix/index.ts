@@ -112,37 +112,37 @@ serve(async (req: Request) => {
                     console.warn('[suggest-fix] Invalid or unauthorized image URL')
                     throw new Error('Invalid image URL')
                 }
-                    const imageResponse = await fetch(image_url, {
-                        headers: { 'Accept': 'image/*' },
-                    })
-                    if (!imageResponse.ok) {
-                        console.warn(`[suggest-fix] Failed to fetch image: ${imageResponse.statusText}`)
+
+                const imageResponse = await fetch(image_url, {
+                    headers: { 'Accept': 'image/*' },
+                })
+                if (!imageResponse.ok) {
+                    console.warn(`[suggest-fix] Failed to fetch image: ${imageResponse.statusText}`)
+                } else {
+                    const blob = await imageResponse.blob()
+                    
+                    // Validate image size (max 10MB)
+                    if (blob.size > 10 * 1024 * 1024) {
+                        console.warn('[suggest-fix] Image too large, skipping')
                     } else {
-                        const blob = await imageResponse.blob()
-                        
-                        // Validate image size (max 10MB)
-                        if (blob.size > 10 * 1024 * 1024) {
-                            console.warn('[suggest-fix] Image too large, skipping')
-                        } else {
-                            const arrayBuffer = await blob.arrayBuffer()
+                        const arrayBuffer = await blob.arrayBuffer()
 
-                            // Convert ArrayBuffer to Base64
-                            let binary = '';
-                            const bytes = new Uint8Array(arrayBuffer);
-                            const len = bytes.byteLength;
-                            for (let i = 0; i < len; i++) {
-                                binary += String.fromCharCode(bytes[i]);
-                            }
-                            const base64String = btoa(binary);
-
-                            parts.push({
-                                inline_data: {
-                                    mime_type: blob.type || 'image/jpeg',
-                                    data: base64String
-                                }
-                            })
-                            console.log("[suggest-fix] Image attached to payload.")
+                        // Convert ArrayBuffer to Base64
+                        let binary = '';
+                        const bytes = new Uint8Array(arrayBuffer);
+                        const len = bytes.byteLength;
+                        for (let i = 0; i < len; i++) {
+                            binary += String.fromCharCode(bytes[i]);
                         }
+                        const base64String = btoa(binary);
+
+                        parts.push({
+                            inline_data: {
+                                mime_type: blob.type || 'image/jpeg',
+                                data: base64String
+                            }
+                        })
+                        console.log("[suggest-fix] Image attached to payload.")
                     }
                 }
             } catch (imgError) {

@@ -317,7 +317,7 @@ export const initializeSecurityMonitoring = () => {
     if (message.includes('login') || message.includes('auth')) {
       securityLogger.logEvent(
         SECURITY_EVENTS.LOGIN_FAILURE,
-        { error: message },
+        { error: message.substring(0, 200) }, // Limit length
         SEVERITY_LEVELS.MEDIUM
       );
     }
@@ -330,8 +330,55 @@ export const initializeSecurityMonitoring = () => {
     if (event.reason?.message?.includes('403') || event.reason?.message?.includes('unauthorized')) {
       securityLogger.logEvent(
         SECURITY_EVENTS.UNAUTHORIZED_ACCESS,
-        { error: event.reason.message },
+        { error: event.reason.message.substring(0, 200) },
         SEVERITY_LEVELS.HIGH
+      );
+    }
+  });
+
+  // Monitor for suspicious DOM manipulation
+  const observer = new MutationObserver((mutations) => {
+    const suspiciousChanges = mutations.filter(mutation => 
+      mutation.type === 'childList' && 
+      mutation.addedNodes.length > 10 // Rapid DOM additions
+    );
+    
+    if (suspiciousChanges.length > 0) {
+      securityLogger.logEvent(
+        SECURITY_EVENTS.ANOMALOUS_BEHAVIOR,
+        { 
+          type: 'rapid_dom_manipulation',
+          mutations: suspiciousChanges.length 
+        },
+        SEVERITY_LEVELS.HIGH
+      );
+    }
+  });
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+
+  // Monitor for XSS attempts in URL
+  const urlParams = new URLSearchParams(window.location.search);
+  urlParams.forEach((value, key) => {
+    const suspiciousPatterns = [
+      /<script/i,
+      /javascript:/i,
+      /on\w+\s*=/i,
+      /expression\(/i
+    ];
+    
+    if (suspiciousPatterns.some(pattern => pattern.test(value))) {
+      securityLogger.logEvent(
+        SECURITY_EVENTS.XSS_ATTEMPT,
+        { 
+          type: 'url_parameter',
+          parameter: key,
+          value: value.substring(0, 100)
+        },
+        SEVERITY_LEVELS.CRITICAL
       );
     }
   });

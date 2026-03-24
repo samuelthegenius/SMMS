@@ -1,6 +1,7 @@
 
 // @ts-ignore: Deno URL imports are not resolved by standard VS Code extension
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 // @ts-ignore: Deno namespace
 const EMAILJS_SERVICE_ID = Deno.env.get('EMAILJS_SERVICE_ID')
@@ -10,6 +11,12 @@ const EMAILJS_TEMPLATE_ID = Deno.env.get('EMAILJS_TEMPLATE_ID')
 const EMAILJS_USER_ID = Deno.env.get('EMAILJS_USER_ID') // Public Key
 // @ts-ignore: Deno namespace
 const EMAILJS_PRIVATE_KEY = Deno.env.get('EMAILJS_PRIVATE_KEY') // Private Key
+
+// Initialize Supabase client
+const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+)
 
 // Security: Restrict CORS to your actual domain in production
 const ALLOWED_ORIGINS = [
@@ -24,11 +31,36 @@ const corsHeaders = (origin: string) => {
     const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
     return {
         'Access-Control-Allow-Origin': allowedOrigin,
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, X-CSRF-Token',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
         'Access-Control-Max-Age': '86400', // 24 hours
     }
 }
+
+// CSRF validation helper
+const validateCSRFToken = (req: Request): boolean => {
+    const method = req.method;
+    
+    // Skip validation for safe methods
+    if (['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+        return true;
+    }
+
+    // Get token from header or body
+    let token = req.headers.get('X-CSRF-Token');
+    
+    if (!token) {
+        try {
+            const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+            token = body._csrf;
+        } catch {
+            return false;
+        }
+    }
+
+    // Basic validation - token should be 64 characters (32 bytes hex)
+    return token && typeof token === 'string' && token.length === 64 && /^[a-f0-9]{64}$/i.test(token);
+};
 
 // Input validation helper
 const validateEmail = (email: string): boolean => {
@@ -82,6 +114,11 @@ serve(async (req: Request) => {
     }
 
     try {
+        // Validate CSRF token for security
+        if (!validateCSRFToken(req)) {
+            throw new Error('Invalid or missing CSRF token')
+        }
+
         // Validate environment variables
         if (!EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID || !EMAILJS_USER_ID || !EMAILJS_PRIVATE_KEY) {
             throw new Error('Server configuration error: Missing EmailJS credentials')
@@ -114,15 +151,23 @@ serve(async (req: Request) => {
             throw new Error('Invalid technician email format')
         }
 
-        // Rate limiting: Check for abuse using simple IP-based limiting
-        // In production, implement proper rate limiting with Redis or database
+        // Rate limiting: Check for abuse using database-based rate limiting
         const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown'
-        const rateLimitKey = `email_${clientIP}`
         
-        // Simple in-memory rate limiting (not for production use)
-        // In production, use Redis or Supabase for distributed rate limiting
-        const requestCount = await req.headers.get('X-Request-Count')
-        if (requestCount && parseInt(requestCount) > 10) {
+        // Implement proper rate limiting using Supabase rate_limits table
+        const { data: rateLimitData, error: rateLimitError } = await supabase.rpc('check_rate_limit', {
+            p_identifier: `email_${clientIP}`,
+            p_action: 'send_email',
+            p_max_attempts: 10,
+            p_window_seconds: 300 // 5 minutes
+        })
+        
+        if (rateLimitError || !rateLimitData) {
+            console.error('Rate limit check failed:', rateLimitError)
+            throw new Error('Rate limit check failed')
+        }
+        
+        if (!rateLimitData) {
             console.warn(`Rate limit exceeded for IP: ${clientIP}`)
             throw new Error('Rate limit exceeded. Please try again later.')
         }

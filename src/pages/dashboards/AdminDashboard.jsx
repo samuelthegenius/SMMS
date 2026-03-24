@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 // import { sendEmailNotification } from '../../utils/emailService'; // Deprecated in favor of Edge Function
-import { Filter, AlertCircle, Clock, Wrench, CheckCircle, Eye } from 'lucide-react';
+import { Filter, AlertCircle, Clock, Wrench, CheckCircle, Eye, Shield, BarChart3, Users } from 'lucide-react';
 import clsx from 'clsx';
 import Loader from '../../components/Loader';
 import TicketDetails from '../../components/TicketDetails';
@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import ReassignTechnician from '../../components/ReassignTechnician';
+import SecurityDashboard from './SecurityDashboard';
 
 const FACILITY_TYPES = [
     'All', 'Hostel', 'Lecture Hall', 'Laboratory', 'Office',
@@ -22,6 +23,7 @@ export default function AdminDashboard() {
     const { profile, loading } = useAuth();
     const [filter, setFilter] = useState('All');
     const [selectedTicket, setSelectedTicket] = useState(null);
+    const [activeTab, setActiveTab] = useState('tickets'); // 'tickets' or 'security'
 
     // SWR Fetcher - Use RPC function to get all admin tickets
     const fetchTickets = async () => {
@@ -64,7 +66,6 @@ export default function AdminDashboard() {
             suspense: false // Disable suspense to prevent waterfall loading
         }
     );
-
 
     useEffect(() => {
         if (!profile || profile.role !== 'admin') return;
@@ -129,139 +130,140 @@ export default function AdminDashboard() {
 
     return (
         <div className="space-y-8">
+            {/* Header with Tabs */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Facility Manager Dashboard</h1>
-                    <p className="text-slate-500 mt-2 text-lg">Overview of all maintenance requests</p>
+                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Admin Dashboard</h1>
+                    <p className="text-slate-500 mt-2 text-lg">Manage maintenance and security</p>
                 </div>
 
-                <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
-                    <Filter className="w-5 h-5 text-slate-400 ml-2" />
-                    <select
-                        value={filter}
-                        onChange={(e) => setFilter(e.target.value)}
-                        className="border-none focus:ring-0 text-sm text-slate-700 bg-transparent font-medium cursor-pointer outline-none min-w-[150px]"
+                {/* Tab Navigation */}
+                <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
+                    <button
+                        onClick={() => setActiveTab('tickets')}
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                            activeTab === 'tickets'
+                                ? 'bg-indigo-600 text-white'
+                                : 'text-slate-600 hover:bg-slate-100'
+                        }`}
                     >
-                        {FACILITY_TYPES.map(type => (
-                            <option key={type} value={type}>{type === 'All' ? 'All Facilities' : type}</option>
-                        ))}
-                    </select>
+                        <div className="flex items-center gap-2">
+                            <BarChart3 className="w-4 h-4" />
+                            Tickets
+                        </div>
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('security')}
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                            activeTab === 'security'
+                                ? 'bg-indigo-600 text-white'
+                                : 'text-slate-600 hover:bg-slate-100'
+                        }`}
+                    >
+                        <div className="flex items-center gap-2">
+                            <Shield className="w-4 h-4" />
+                            Security
+                        </div>
+                    </button>
                 </div>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                {[
-                    { label: 'Total Tickets', value: stats.total, icon: AlertCircle, color: 'text-blue-600', bg: 'bg-blue-50' },
-                    { label: 'Pending', value: stats.pending, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
-                    { label: 'In Progress', value: stats.inProgress, icon: Wrench, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-                    { label: 'Resolved', value: stats.resolved, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                ].map((stat, idx) => (
-                    <Card key={idx} className="hover:shadow-md transition-shadow">
-                        <CardContent className="p-6 flex justify-between items-start">
-                            <div>
-                                <p className="text-sm font-medium text-slate-500">{stat.label}</p>
-                                <p className="text-3xl font-bold text-slate-900 mt-2">{stat.value}</p>
-                            </div>
-                            <div className={clsx("p-3 rounded-xl", stat.bg)}>
-                                <stat.icon className={clsx("w-6 h-6", stat.color)} />
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
-
-            {/* Ticket Table */}
-            <Card className="overflow-hidden border-slate-200 shadow-sm">
-                <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-4">
-                    <CardTitle className="text-base font-semibold text-slate-700">Recent Requests</CardTitle>
-                </CardHeader>
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-slate-200">
-                        <thead className="bg-slate-50/50">
-                            <tr>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Ticket Details</th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Location</th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Reported By</th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Assigned To</th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-slate-200">
-                            {filteredTickets.map((ticket) => (
-                                <tr key={ticket.id} className="hover:bg-slate-50/50 transition-colors">
-                                    <td className="px-6 py-4">
-                                        <div className="text-sm font-medium text-slate-900 line-clamp-1">{ticket.title}</div>
-                                        <div className="text-xs text-slate-500 mt-0.5 line-clamp-1">{ticket.description}</div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm text-slate-900">{ticket.facility_type}</div>
-                                        <div className="text-xs text-slate-500">{ticket.specific_location}</div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={clsx(
-                                            'px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border',
-                                            ticket.status === 'Resolved' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                                                ticket.status === 'In Progress' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' :
-                                                    ticket.status === 'Assigned' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                                                        ticket.status === 'Open' ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                                                            'bg-slate-50 text-slate-700 border-slate-100'
-                                        )}>
-                                            {ticket.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm text-slate-900">
-                                            {ticket.profiles?.full_name || ticket.creator?.full_name || ticket.creator_full_name || 'Unknown User'}
-                                        </div>
-                                        <div className="text-xs text-slate-500 capitalize">
-                                            {ticket.profiles?.role?.replace('_', ' ') || ticket.creator?.role?.replace('_', ' ') || ticket.creator_role?.replace('_', ' ') || 'User'}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <ReassignTechnician
-                                            ticket={ticket}
-                                            onReassign={() => mutate()}
-                                        />
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => setSelectedTicket(ticket)}
-                                            className="text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50"
-                                        >
-                                            <Eye className="w-4 h-4 mr-1" />
-                                            View
-                                        </Button>
-                                    </td>
-                                </tr>
+            {/* Tab Content */}
+            {activeTab === 'tickets' ? (
+                <>
+                    {/* Filter for tickets tab */}
+                    <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
+                        <Filter className="w-5 h-5 text-slate-400 ml-2" />
+                        <select
+                            value={filter}
+                            onChange={(e) => setFilter(e.target.value)}
+                            className="border-none focus:ring-0 text-sm text-slate-700 bg-transparent font-medium cursor-pointer outline-none min-w-[150px]"
+                        >
+                            {FACILITY_TYPES.map(type => (
+                                <option key={type} value={type}>{type === 'All' ? 'All Facilities' : type}</option>
                             ))}
-                            {filteredTickets.length === 0 && (
-                                <tr>
-                                    <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
-                                        <div className="flex flex-col items-center justify-center">
-                                            <p className="text-lg font-medium text-slate-900 mb-2">No pending tickets</p>
-                                            <p className="text-slate-500 mb-6">Waiting for reports from Students, Staff, or Operations.</p>
-                                            <Button
-                                                onClick={() => window.location.href = '/new-ticket'}
-                                            >
-                                                Log a New Fault
-                                            </Button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </Card>
+                        </select>
+                    </div>
 
+                    {/* Stats Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        {[
+                            { label: 'Total Tickets', value: stats.total, icon: AlertCircle, color: 'text-blue-600', bg: 'bg-blue-50' },
+                            { label: 'Pending', value: stats.pending, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
+                            { label: 'In Progress', value: stats.inProgress, icon: Wrench, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+                            { label: 'Resolved', value: stats.resolved, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                        ].map((stat, idx) => (
+                            <Card key={idx} className="hover:shadow-md transition-shadow">
+                                <CardContent className="p-6 flex justify-between items-start">
+                                    <div>
+                                        <p className="text-sm font-medium text-slate-500">{stat.label}</p>
+                                        <p className="text-3xl font-bold text-slate-900 mt-2">{stat.value}</p>
+                                    </div>
+                                    <div className={clsx("p-3 rounded-xl", stat.bg)}>
+                                        <stat.icon className={clsx("w-6 h-6", stat.color)} />
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+
+                    {/* Tickets Grid */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {filteredTickets.map((ticket) => (
+                            <Card key={ticket.id} className="hover:shadow-md transition-all cursor-pointer" onClick={() => setSelectedTicket(ticket)}>
+                                <CardContent className="p-6">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div>
+                                            <h3 className="font-semibold text-slate-900 text-lg">{ticket.title}</h3>
+                                            <p className="text-slate-500 text-sm">{ticket.facility_type} • {ticket.specific_location}</p>
+                                        </div>
+                                        <span className={clsx(
+                                            "px-3 py-1 rounded-full text-xs font-medium",
+                                            ticket.priority === 'high' ? "bg-red-100 text-red-700" :
+                                            ticket.priority === 'medium' ? "bg-amber-100 text-amber-700" :
+                                            ticket.priority === 'low' ? "bg-green-100 text-green-700" :
+                                            "bg-slate-100 text-slate-700"
+                                        )}>
+                                            {ticket.priority?.toUpperCase()}
+                                        </span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-4 text-sm text-slate-500">
+                                            <span className="flex items-center gap-1">
+                                                <Users className="w-4 h-4" />
+                                                {ticket.creator?.full_name || 'Unknown'}
+                                            </span>
+                                            <span className="flex items-center gap-1">
+                                                <Clock className="w-4 h-4" />
+                                                {new Date(ticket.created_at).toLocaleDateString()}
+                                            </span>
+                                        </div>
+                                        <Eye className="w-5 h-5 text-slate-400" />
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                </>
+            ) : (
+                <SecurityDashboard />
+            )}
+
+            {/* Ticket Details Modal */}
             {selectedTicket && (
                 <TicketDetails
                     ticket={selectedTicket}
                     onClose={() => setSelectedTicket(null)}
+                    onUpdate={() => {
+                        setSelectedTicket(null);
+                        mutate();
+                    }}
+                    onReassign={(technicianId) => {
+                        setSelectedTicket(null);
+                        mutate();
+                        toast.success('Ticket reassigned successfully');
+                    }}
                 />
             )}
         </div>

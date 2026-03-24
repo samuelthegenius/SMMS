@@ -78,10 +78,22 @@ export default function UserDashboard() {
         mutate(updatedTickets, false);
 
         try {
+            // Authorization check: ensure user owns this ticket
+            const { data: ticketCheck } = await supabase
+                .from('tickets')
+                .select('created_by')
+                .eq('id', ticketId)
+                .single();
+
+            if (!ticketCheck || ticketCheck.created_by !== user.id) {
+                throw new Error('Unauthorized: You can only modify your own tickets');
+            }
+
             const { error } = await supabase
                 .from('tickets')
                 .update(updates)
-                .eq('id', ticketId);
+                .eq('id', ticketId)
+                .eq('created_by', user.id); // Double-ensure ownership
 
             if (error) throw error;
 

@@ -90,16 +90,26 @@ export default function Login() {
             // Step A: Check if input is Email or ID
             const isEmail = identifier.includes('@');
 
-            // Step C: If ID Number (no @), look it up
+            // Step C: If ID Number (no @), look it up with timing protection
             if (!isEmail) {
                 // Validate ID format (basic validation)
                 if (identifier.length < 5) {
-                    throw new Error('Invalid ID Number format');
+                    // Add artificial delay to prevent timing attacks
+                    await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 100));
+                    throw new Error('Invalid ID Number or password');
                 }
 
-                // Use the secure RPC function to look up the email
+                // Use secure RPC function to look up email
+                const startTime = Date.now();
                 const { data: resolvedEmail, error } = await supabase
                     .rpc('get_email_by_id', { lookup_id: identifier.trim() });
+                
+                // Add constant-time delay to prevent timing attacks
+                const elapsed = Date.now() - startTime;
+                const minDelay = 300; // Minimum 300ms
+                if (elapsed < minDelay) {
+                    await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
+                }
 
                 if (error) {
                     // Handle rate limit errors from server

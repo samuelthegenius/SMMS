@@ -27,13 +27,15 @@ const ALLOWED_ORIGINS = [
 ]
 
 const corsHeaders = (origin: string) => {
-    // Validate origin before reflecting it back
+    // Strict origin validation
     const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
     return {
         'Access-Control-Allow-Origin': allowedOrigin,
         'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, X-CSRF-Token',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
         'Access-Control-Max-Age': '86400', // 24 hours
+        'Access-Control-Allow-Credentials': 'false', // No credentials allowed
+        'Vary': 'Origin' // Important for caching
     }
 }
 

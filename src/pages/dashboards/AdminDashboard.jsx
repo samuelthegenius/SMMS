@@ -30,7 +30,8 @@ export default function AdminDashboard() {
         const { data, error } = await supabase.rpc('get_admin_tickets');
         
         if (error) {
-            console.error('RPC function failed, using fallback query:', error);
+            // Log error without sensitive details
+            console.error('Admin tickets fetch failed:', error.message);
             // Fallback to direct query
             const { data: fallbackData, error: fallbackError } = await supabase
                 .from('tickets')

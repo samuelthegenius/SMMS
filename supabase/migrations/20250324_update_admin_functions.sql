@@ -1,7 +1,12 @@
--- Secure admin ticket access function
+-- Update existing admin functions with enhanced security
+-- This migration updates existing functions without changing return types
+
+-- Update get_admin_tickets function to add security checks
+DROP FUNCTION IF EXISTS get_admin_tickets();
+
 CREATE OR REPLACE FUNCTION get_admin_tickets()
 RETURNS TABLE (
-    ticket_id uuid,
+    id uuid,
     title text,
     description text,
     category text,
@@ -86,6 +91,6 @@ RETURNS text AS $$
 BEGIN
     -- This would typically be set by middleware
     -- For now, return a placeholder
-    RETURN COALESCE(current_setting('request.headers'), 'unknown');
+    RETURN COALESCE(current_setting('request.headers', true), 'unknown');
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

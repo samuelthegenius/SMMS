@@ -112,6 +112,7 @@ export default function Login() {
                 }
 
                 if (error) {
+                    console.error('RPC error:', error);
                     // Handle rate limit errors from server
                     if (error.message?.includes('Too many attempts')) {
                         throw new Error(error.message);
@@ -136,6 +137,7 @@ export default function Login() {
 
             if (authError) {
                 recordFailedAttempt();
+                console.error('Supabase auth error:', authError);
                 
                 // Generic error message to prevent user enumeration
                 if (authError.message.includes('Invalid login credentials')) {

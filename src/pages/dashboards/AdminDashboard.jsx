@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 // import { sendEmailNotification } from '../../utils/emailService'; // Deprecated in favor of Edge Function
-import { Filter, AlertCircle, Clock, Wrench, CheckCircle, Eye, Shield, BarChart3, Users } from 'lucide-react';
+import { Filter, AlertCircle, Clock, Wrench, CheckCircle, Eye, Shield, BarChart3, Users, User, Wrench as WrenchIcon } from 'lucide-react';
 import clsx from 'clsx';
 import Loader from '../../components/Loader';
 import TicketDetails from '../../components/TicketDetails';
@@ -32,10 +32,14 @@ export default function AdminDashboard() {
         if (error) {
             // Log error without sensitive details
             console.error('Admin tickets fetch failed:', error.message);
-            // Fallback to direct query
+            // Fallback to direct query with joins
             const { data: fallbackData, error: fallbackError } = await supabase
                 .from('tickets')
-                .select('*')
+                .select(`
+                    *,
+                    reporter:created_by(full_name, email, department),
+                    technician:assigned_to(full_name, email, department)
+                `)
                 .order('created_at', { ascending: false });
             
             if (fallbackError) throw fallbackError;
@@ -46,9 +50,15 @@ export default function AdminDashboard() {
         return data.map(ticket => ({
             ...ticket,
             id: ticket.ticket_id, // Map ticket_id back to id
-            creator: ticket.creator_full_name ? {
+            reporter: ticket.creator_full_name ? {
                 full_name: ticket.creator_full_name,
-                role: ticket.creator_role
+                email: ticket.creator_email,
+                department: ticket.creator_department
+            } : null,
+            technician: ticket.technician_full_name ? {
+                full_name: ticket.technician_full_name,
+                email: ticket.technician_email,
+                department: ticket.technician_department
             } : null
         }));
     };
@@ -230,15 +240,31 @@ export default function AdminDashboard() {
                                     </div>
 
                                     <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-4 text-sm text-slate-500">
-                                            <span className="flex items-center gap-1">
-                                                <Users className="w-4 h-4" />
-                                                {ticket.creator?.full_name || 'Unknown'}
-                                            </span>
-                                            <span className="flex items-center gap-1">
-                                                <Clock className="w-4 h-4" />
-                                                {new Date(ticket.created_at).toLocaleDateString()}
-                                            </span>
+                                        <div className="space-y-2">
+                                            {/* Reporter Information */}
+                                            <div className="flex items-center gap-4 text-sm text-slate-500">
+                                                <span className="flex items-center gap-1">
+                                                    <User className="w-4 h-4 text-blue-500" />
+                                                    {ticket.reporter?.full_name || 'Unknown Reporter'}
+                                                </span>
+                                                <span className="flex items-center gap-1">
+                                                    <Clock className="w-4 h-4" />
+                                                    {new Date(ticket.created_at).toLocaleDateString()}
+                                                </span>
+                                            </div>
+                                            
+                                            {/* Technician Information */}
+                                            <div className="flex items-center gap-2 text-sm">
+                                                <span className="flex items-center gap-1">
+                                                    <WrenchIcon className="w-4 h-4 text-green-500" />
+                                                    {ticket.technician?.full_name || 'Unassigned'}
+                                                </span>
+                                                {ticket.technician?.department && (
+                                                    <span className="text-slate-400 text-xs">
+                                                        ({ticket.technician.department})
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                         <Eye className="w-5 h-5 text-slate-400" />
                                     </div>

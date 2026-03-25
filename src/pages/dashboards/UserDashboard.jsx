@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Clock, CheckCircle, AlertCircle, MapPin, Calendar, Activity, ThumbsUp, ThumbsDown, X } from 'lucide-react';
+import { Clock, CheckCircle, AlertCircle, MapPin, Calendar, Activity, ThumbsUp, ThumbsDown, X, Wrench as WrenchIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import clsx from 'clsx';
 import Loader from '../../components/Loader';
@@ -16,10 +16,6 @@ const STATUS_STYLES = {
     'Resolved': { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: CheckCircle, border: 'border-emerald-100' },
     'Completed': { bg: 'bg-teal-50', text: 'text-teal-700', icon: CheckCircle, border: 'border-teal-100' },
 };
-
-function WrenchIcon(props) {
-    return <Activity {...props} />; // Fallback icon
-}
 
 import useSWR from 'swr';
 
@@ -44,7 +40,8 @@ export default function UserDashboard() {
                 updated_at,
                 assigned_to,
                 rejection_reason,
-                image_url
+                image_url,
+                technician:assigned_to(full_name, email, department)
             `)
             .eq('created_by', user.id)
             .order('created_at', { ascending: false });
@@ -174,6 +171,19 @@ export default function UserDashboard() {
                                         <div className="flex items-center gap-2 text-sm text-slate-500 font-medium">
                                             <MapPin className="w-4 h-4 text-slate-400" />
                                             <span className="truncate">{ticket.facility_type} • {ticket.specific_location}</span>
+                                        </div>
+
+                                        {/* Technician Information */}
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <span className="flex items-center gap-1 font-medium text-green-600 bg-green-50 px-2 py-1 rounded-md border border-green-100">
+                                                <WrenchIcon className="w-3.5 h-3.5" />
+                                                {ticket.technician?.full_name || 'Unassigned'}
+                                            </span>
+                                            {ticket.technician?.department && (
+                                                <span className="text-xs text-green-500">
+                                                    ({ticket.technician.department})
+                                                </span>
+                                            )}
                                         </div>
 
                                         {ticket.status === 'Pending Verification' && (

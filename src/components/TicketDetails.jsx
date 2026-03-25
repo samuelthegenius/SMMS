@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Sparkles, Wrench, AlertTriangle, Loader2, ClipboardList } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Sparkles, Wrench, AlertTriangle, Loader2, ClipboardList, User, Wrench as WrenchIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from './ui/Button';
@@ -9,8 +9,49 @@ export default function TicketDetails({ ticket, onClose }) {
     const [loading, setLoading] = useState(false);
     const [aiSuggestion, setAiSuggestion] = useState(null);
     const [error, setError] = useState(null);
+    const [reporterInfo, setReporterInfo] = useState(null);
+    const [technicianInfo, setTechnicianInfo] = useState(null);
+    const [userInfoLoading, setUserInfoLoading] = useState(true);
 
     const isTechnicianOrAdmin = profile?.role === 'technician' || profile?.role === 'admin';
+
+    // Fetch reporter and technician information
+    useEffect(() => {
+        const fetchUserInfo = async () => {
+            if (!ticket) return;
+            
+            setUserInfoLoading(true);
+            try {
+                // Fetch reporter information
+                const { data: reporterData } = await supabase
+                    .from('profiles')
+                    .select('full_name, email, department, identification_number')
+                    .eq('id', ticket.created_by)
+                    .single();
+                
+                setReporterInfo(reporterData);
+
+                // Fetch technician information if assigned
+                if (ticket.assigned_to) {
+                    const { data: technicianData } = await supabase
+                        .from('profiles')
+                        .select('full_name, email, department, identification_number')
+                        .eq('id', ticket.assigned_to)
+                        .single();
+                    
+                    setTechnicianInfo(technicianData);
+                } else {
+                    setTechnicianInfo(null);
+                }
+            } catch (err) {
+                console.error('Error fetching user information:', err);
+            } finally {
+                setUserInfoLoading(false);
+            }
+        };
+
+        fetchUserInfo();
+    }, [ticket]);
 
     const handleAskAI = async () => {
         setLoading(true);
@@ -78,6 +119,68 @@ export default function TicketDetails({ ticket, onClose }) {
                                     {ticket.status}
                                 </span>
                             </div>
+                        </div>
+
+                        {/* Reporter and Technician Information */}
+                        <div className="border-t border-slate-100 pt-6">
+                            <h4 className="text-sm font-semibold text-slate-900 mb-4">People Involved</h4>
+                            
+                            {userInfoLoading ? (
+                                <div className="flex items-center justify-center py-4">
+                                    <Loader2 className="w-4 h-4 animate-spin text-slate-400 mr-2" />
+                                    <span className="text-sm text-slate-500">Loading user information...</span>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {/* Reporter Information */}
+                                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <User className="w-4 h-4 text-blue-500" />
+                                            <span className="text-sm font-semibold text-slate-900">Reporter</span>
+                                        </div>
+                                        {reporterInfo ? (
+                                            <div className="space-y-1">
+                                                <p className="text-sm font-medium text-slate-800">{reporterInfo.full_name || 'Unknown'}</p>
+                                                <p className="text-xs text-slate-600">{reporterInfo.email}</p>
+                                                <div className="flex gap-4 text-xs text-slate-500">
+                                                    {reporterInfo.department && (
+                                                        <span>Dept: {reporterInfo.department}</span>
+                                                    )}
+                                                    {reporterInfo.identification_number && (
+                                                        <span>ID: {reporterInfo.identification_number}</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-slate-500">Reporter information not available</p>
+                                        )}
+                                    </div>
+
+                                    {/* Technician Information */}
+                                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <WrenchIcon className="w-4 h-4 text-green-500" />
+                                            <span className="text-sm font-semibold text-slate-900">Assigned Technician</span>
+                                        </div>
+                                        {technicianInfo ? (
+                                            <div className="space-y-1">
+                                                <p className="text-sm font-medium text-slate-800">{technicianInfo.full_name || 'Unknown'}</p>
+                                                <p className="text-xs text-slate-600">{technicianInfo.email}</p>
+                                                <div className="flex gap-4 text-xs text-slate-500">
+                                                    {technicianInfo.department && (
+                                                        <span>Dept: {technicianInfo.department}</span>
+                                                    )}
+                                                    {technicianInfo.identification_number && (
+                                                        <span>ID: {technicianInfo.identification_number}</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-slate-500">No technician assigned yet</p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 

@@ -31,6 +31,7 @@
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
+    "@babel/plugin-transform-runtime": "^7.29.0",
     "@eslint/js": "^9.39.1",
     "@types/react": "^19.2.14",
     "@types/react-devtools": "^3.6.2",

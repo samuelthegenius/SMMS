@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Bot, CheckCircle, MapPin, AlertTriangle, Play, CheckSquare, Clock } from 'lucide-react';
+import { Bot, CheckCircle, MapPin, AlertTriangle, Play, CheckSquare, Clock, User } from 'lucide-react';
 import clsx from 'clsx';
 import Loader from '../../components/Loader';
 import { toast } from 'sonner';
@@ -30,7 +30,7 @@ export default function TechnicianDashboard() {
                 created_at,
                 assigned_to,
                 image_url,
-                student:created_by(email)
+                reporter:created_by(full_name, email, department)
             `)
             .eq('assigned_to', user.id)
             .neq('status', 'Resolved')
@@ -98,12 +98,12 @@ export default function TechnicianDashboard() {
             // Trigger Email Notification on Completion
             if (newStatus === 'Resolved') {
                 const job = jobs.find(j => j.id === ticketId);
-                if (job?.student?.email) {
+                if (job?.reporter?.email) {
                     await supabase.functions.invoke('send-email', {
                         body: {
                             type: 'ticket_completed',
                             ticket_title: job.title,
-                            student_email: job.student.email
+                            student_email: job.reporter.email
                         }
                     });
                 }
@@ -240,6 +240,17 @@ export default function TechnicianDashboard() {
                                     <div className="inline-flex items-center gap-2 text-sm text-slate-500 font-medium bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100/50">
                                         <MapPin className="w-4 h-4 text-slate-400" />
                                         <span>{job.facility_type} • {job.specific_location}</span>
+                                    </div>
+
+                                    {/* Reporter Information */}
+                                    <div className="inline-flex items-center gap-2 text-sm text-slate-500 font-medium bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100/50">
+                                        <User className="w-4 h-4 text-blue-500" />
+                                        <span>{job.reporter?.full_name || 'Unknown Reporter'}</span>
+                                        {job.reporter?.department && (
+                                            <span className="text-blue-400 text-xs">
+                                                ({job.reporter.department})
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
 

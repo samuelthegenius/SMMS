@@ -55,16 +55,19 @@ class SecurityLogger {
    * Log a security event
    */
   async logEvent(eventType, details, severity = SEVERITY_LEVELS.MEDIUM) {
+    // Sanitize details to prevent log injection
+    const sanitizedDetails = this.sanitizeLogData(details);
+    
     const event = {
       type: eventType,
       severity,
       timestamp: new Date().toISOString(),
-      userAgent: navigator.userAgent,
-      url: window.location.href,
+      userAgent: this.sanitizeString(navigator.userAgent),
+      url: this.sanitizeString(window.location.href),
       ip: await this.getClientIP(),
       userId: await this.getCurrentUserId(),
       sessionId: this.getSessionId(),
-      details
+      details: sanitizedDetails
     };
 
     // Add to queue
@@ -79,6 +82,39 @@ class SecurityLogger {
     if (this.eventQueue.length >= this.batchSize) {
       await this.flushQueue();
     }
+  }
+
+  /**
+   * Sanitize log data to prevent log injection
+   */
+  sanitizeLogData(data) {
+    if (typeof data !== 'object' || data === null) {
+      return this.sanitizeString(String(data));
+    }
+    
+    const sanitized = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (typeof value === 'string') {
+        sanitized[key] = this.sanitizeString(value);
+      } else if (typeof value === 'object' && value !== null) {
+        sanitized[key] = this.sanitizeLogData(value);
+      } else {
+        sanitized[key] = value;
+      }
+    }
+    return sanitized;
+  }
+
+  /**
+   * Sanitize string for logging
+   */
+  sanitizeString(str) {
+    if (!str) return '';
+    return str
+      .replace(/[\r\n]/g, '') // Remove line breaks
+      .replace(/[<>]/g, '') // Remove HTML tags
+      .replace(/["'\\]/g, '') // Remove quotes and backslashes
+      .substring(0, 500); // Limit length
   }
 
   /**

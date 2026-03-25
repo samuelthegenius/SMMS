@@ -34,14 +34,26 @@ export const VALIDATION_PATTERNS = {
   idNumber: /^[a-zA-Z0-9]{5,20}$/,
   title: /^.{3,100}$/,
   description: /^.{10,2000}$/,
-  location: /^.{0,200}$/
+  location: /^.{0,200}$/,
+  // Security patterns to detect malicious input
+  xssPattern: /<script|javascript:|on\w+\s*=|expression\(/gi,
+  sqlPattern: /union\s+select|drop\s+table|insert\s+into|delete\s+from|'|"|;|--|\/\*/gi,
+  pathTraversal: /\.\.\/|\.\.\\|%2e%2e%2f/gi
 };
 
 // File upload constraints
 export const FILE_CONSTRAINTS = {
   maxSize: 5 * 1024 * 1024, // 5MB
   allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
-  allowedExtensions: ['.jpg', '.jpeg', '.png', '.webp', '.gif']
+  allowedExtensions: ['.jpg', '.jpeg', '.png', '.webp', '.gif'],
+  // Security patterns for file names
+  dangerousPatterns: [
+    /\.exe$/i, /\.bat$/i, /\.cmd$/i, /\.scr$/i,
+    /\.php$/i, /\.asp$/i, /\.jsp$/i, /\.sh$/i,
+    /\.com$/i, /\.pif$/i, /\.vbs$/i, /\.js$/i,
+    /\.jar$/i, /\.app$/i, /\.deb$/i, /\.rpm$/i,
+    /\.dmg$/i, /\.pkg$/i, /\.msi$/i, /\.msu$/i
+  ]
 };
 
 // Rate limiting configurations
@@ -66,6 +78,17 @@ export const sanitizeInput = (input, type = 'text') => {
   if (!input) return '';
   
   let sanitized = input.toString().trim();
+  
+  // Check for malicious patterns first
+  if (VALIDATION_PATTERNS.xssPattern.test(sanitized)) {
+    throw new Error('Invalid input format detected');
+  }
+  if (VALIDATION_PATTERNS.sqlPattern.test(sanitized)) {
+    throw new Error('Invalid input format detected');
+  }
+  if (VALIDATION_PATTERNS.pathTraversal.test(sanitized)) {
+    throw new Error('Invalid input format detected');
+  }
   
   // Remove potential XSS characters
   sanitized = sanitized.replace(/[<>]/g, '');
@@ -122,7 +145,9 @@ export const sanitizeError = (error, isProduction = true) => {
     'server': 'Server error. Please try again later.',
     'validation': 'Invalid input provided',
     'permission': 'Access denied',
-    'rate_limit': 'Too many requests. Please try again later.'
+    'rate_limit': 'Too many requests. Please try again later.',
+    'database': 'Database operation failed',
+    'storage': 'File operation failed'
   };
   
   // Determine error type and return appropriate generic message
@@ -140,11 +165,17 @@ export const sanitizeError = (error, isProduction = true) => {
   if (message.includes('valid') || message.includes('required')) {
     return genericMessages.validation;
   }
-  if (message.includes('permission') || message.includes('access')) {
+  if (message.includes('permission') || message.includes('access') || message.includes('unauthorized')) {
     return genericMessages.permission;
   }
   if (message.includes('rate') || message.includes('limit')) {
     return genericMessages.rate_limit;
+  }
+  if (message.includes('database') || message.includes('sql') || message.includes('constraint')) {
+    return genericMessages.database;
+  }
+  if (message.includes('storage') || message.includes('upload') || message.includes('file')) {
+    return genericMessages.storage;
   }
   
   return genericMessages.server;

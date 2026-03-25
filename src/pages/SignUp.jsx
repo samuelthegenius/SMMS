@@ -102,6 +102,12 @@ export default function SignUp() {
             return;
         }
 
+        // Validate Access Code for all roles
+        if (formData.accessCode.length < 4) {
+            toast.error('Invalid access code format');
+            return;
+        }
+
         // Validate Specialization for Technician
         if (formData.role === 'technician' && !formData.specialization) {
             toast.error('Please select a specialization');
@@ -143,8 +149,8 @@ export default function SignUp() {
                 throw new Error('This ID number is already registered. Please sign in or contact support.');
             }
 
-            // 3. Validate access code BEFORE creating auth user (for staff_member/technician)
-            if (formData.role === 'staff_member' || formData.role === 'technician') {
+            // 3. Validate access code BEFORE creating auth user (for student/staff_member/technician)
+            if (formData.role === 'student' || formData.role === 'staff_member' || formData.role === 'technician') {
                 const { data: accessCodeData } = await supabase
                     .from('role_access_codes')
                     .select('code')
@@ -362,10 +368,10 @@ export default function SignUp() {
                             )}
 
                             {/* Conditional Access Code Input */}
-                            {formData.role !== 'student' && (
+                            {formData.role && (
                                 <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
                                     <label className="text-sm font-medium leading-none text-indigo-600" htmlFor="accessCode">
-                                        Access Code (Required for {formData.role === 'staff_member' ? 'Staff' : formData.role.replace('_', ' ')})
+                                        Access Code (Required for {formData.role === 'student' ? 'Student' : formData.role === 'staff_member' ? 'Staff' : formData.role.replace('_', ' ')})
                                     </label>
                                     <Input
                                         id="accessCode"

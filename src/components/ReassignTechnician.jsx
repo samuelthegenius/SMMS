@@ -40,7 +40,7 @@ export default function ReassignTechnician({ ticket, onReassign }) {
             // 2. Update Database
             const { error } = await supabase
                 .from('tickets')
-                .update({ assigned_to: selectedTech, status: 'In Progress' })
+                .update({ assigned_to: selectedTech })
                 .eq('id', ticket.id);
 
             if (error) throw error;

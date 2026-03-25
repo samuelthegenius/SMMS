@@ -371,7 +371,7 @@ export default function SignUp() {
                             {formData.role && (
                                 <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
                                     <label className="text-sm font-medium leading-none text-indigo-600" htmlFor="accessCode">
-                                        Access Code (Required for {formData.role === 'student' ? 'Student' : formData.role === 'staff_member' ? 'Staff' : formData.role.replace('_', ' ')})
+                                        Access Code (Required for {formData.role === 'student' ? 'Student' : formData.role === 'staff_member' ? 'Staff' : formData.role.charAt(0).toUpperCase() + formData.role.slice(1).replace('_', ' ')})
                                     </label>
                                     <Input
                                         id="accessCode"

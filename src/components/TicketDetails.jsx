@@ -3,8 +3,10 @@ import { X, Sparkles, Wrench, AlertTriangle, Loader2, ClipboardList, User, Wrenc
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from './ui/Button';
+import ReassignTechnician from './ReassignTechnician';
+import { toast } from 'sonner';
 
-export default function TicketDetails({ ticket, onClose }) {
+export default function TicketDetails({ ticket, onClose, onReassign }) {
     const { profile } = useAuth();
     const [loading, setLoading] = useState(false);
     const [aiSuggestion, setAiSuggestion] = useState(null);
@@ -14,6 +16,7 @@ export default function TicketDetails({ ticket, onClose }) {
     const [userInfoLoading, setUserInfoLoading] = useState(true);
 
     const isTechnicianOrAdmin = profile?.role === 'technician' || profile?.role === 'admin';
+    const isAdmin = profile?.role === 'admin';
 
     // Fetch reporter and technician information
     useEffect(() => {
@@ -163,20 +166,44 @@ export default function TicketDetails({ ticket, onClose }) {
                                             <span className="text-sm font-semibold text-slate-900">Assigned Technician</span>
                                         </div>
                                         {technicianInfo ? (
-                                            <div className="space-y-1">
-                                                <p className="text-sm font-medium text-slate-800">{technicianInfo.full_name || 'Unknown'}</p>
-                                                <p className="text-xs text-slate-600">{technicianInfo.email}</p>
-                                                <div className="flex gap-4 text-xs text-slate-500">
-                                                    {technicianInfo.department && (
-                                                        <span>Dept: {technicianInfo.department}</span>
-                                                    )}
-                                                    {technicianInfo.identification_number && (
-                                                        <span>ID: {technicianInfo.identification_number}</span>
-                                                    )}
+                                            <div className="space-y-3">
+                                                <div className="space-y-1">
+                                                    <p className="text-sm font-medium text-slate-800">{technicianInfo.full_name || 'Unknown'}</p>
+                                                    <p className="text-xs text-slate-600">{technicianInfo.email}</p>
+                                                    <div className="flex gap-4 text-xs text-slate-500">
+                                                        {technicianInfo.department && (
+                                                            <span>Dept: {technicianInfo.department}</span>
+                                                        )}
+                                                        {technicianInfo.identification_number && (
+                                                            <span>ID: {technicianInfo.identification_number}</span>
+                                                        )}
+                                                    </div>
                                                 </div>
+                                                {isAdmin && (
+                                                    <div className="pt-2 border-t border-slate-200">
+                                                        <ReassignTechnician 
+                                                            ticket={ticket} 
+                                                            onReassign={() => {
+                                                                if (onReassign) onReassign();
+                                                                toast.success('Technician reassigned successfully');
+                                                            }}
+                                                        />
+                                                    </div>
+                                                )}
                                             </div>
                                         ) : (
-                                            <p className="text-sm text-slate-500">No technician assigned yet</p>
+                                            <div className="space-y-3">
+                                                <p className="text-sm text-slate-500">No technician assigned yet</p>
+                                                {isAdmin && (
+                                                    <ReassignTechnician 
+                                                        ticket={ticket} 
+                                                        onReassign={() => {
+                                                            if (onReassign) onReassign();
+                                                            toast.success('Technician assigned successfully');
+                                                        }}
+                                                    />
+                                                )}
+                                            </div>
                                         )}
                                     </div>
                                 </div>

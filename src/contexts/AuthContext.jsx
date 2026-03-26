@@ -65,14 +65,18 @@ export function AuthProvider({ children }) {
                 if (session?.user) {
                     // For SIGNED_IN or other events, verify if ID actually changed
                     if (currentId !== newId) {
-                        setLoading(true);
                         userIdRef.current = newId;
                         setUser(session.user);
                         await fetchProfile(newId, session.user);
                     } else {
-                        // Same user, different event (e.g. recovered session)
+                        // Same user, different event (e.g. recovered session) - don't show loader
                         setUser(session.user);
-                        setLoading(false);
+                        // Only fetch profile if we don't have one
+                        if (!profile) {
+                            await fetchProfile(newId, session.user);
+                        } else {
+                            setLoading(false);
+                        }
                     }
                 } else {
                     // Logic for SIGNED_OUT
@@ -103,6 +107,12 @@ export function AuthProvider({ children }) {
             setProfile(cached.data);
             setLoading(false);
             return;
+        }
+
+        // Only show loading if this is a new user (not just a profile refresh)
+        const isNewUser = !profile || profile.id !== userId;
+        if (isNewUser) {
+            setLoading(true);
         }
 
         try {

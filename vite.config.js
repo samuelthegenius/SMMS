@@ -19,9 +19,14 @@ export default defineConfig({
 
   // Development Server Configuration
   server: {
+    // WebSocket HMR configuration
+    hmr: {
+      port: 5173,
+      host: 'localhost'
+    },
     // Security Headers for Development
     headers: {
-      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' https://ntayjobqhpbozamoxgad.supabase.co 'sha256-Z2/iFzh9VMlVkEOar1f/oSHWwQk3ve1qk/C2WdsC4Xk=' 'sha256-+iz8eJzSsU+2n7gjPhZ3/518PSxaGqZql8Kzpmp5BwU='; style-src 'self' 'unsafe-inline' https://ntayjobqhpbozamoxgad.supabase.co; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https://ntayjobqhpbozamoxgad.supabase.co https://api.supabase.co https://mtusmms.me https://api.emailjs.com wss://ntayjobqhpbozamoxgad.supabase.co ws://ntayjobqhpbozamoxgad.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests; object-src 'none'; media-src 'self'; worker-src 'self' blob:;",
+      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' https://ntayjobqhpbozamoxgad.supabase.co 'sha256-Z2/iFzh9VMlVkEOar1f/oSHWwQk3ve1qk/C2WdsC4Xk=' 'sha256-+iz8eJzSsU+2n7gjPhZ3/518PSxaGqZql8Kzpmp5BwU='; style-src 'self' 'unsafe-inline' https://ntayjobqhpbozamoxgad.supabase.co; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https://ntayjobqhpbozamoxgad.supabase.co https://api.supabase.co https://mtusmms.me https://api.emailjs.com wss://ntayjobqhpbozamoxgad.supabase.co ws://ntayjobqhpbozamoxgad.supabase.co ws://localhost:* wss://localhost:*; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests; object-src 'none'; media-src 'self'; worker-src 'self' blob:;",
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'DENY',
       'X-XSS-Protection': '1; mode=block',
@@ -42,9 +47,20 @@ export default defineConfig({
           'vendor-ui': ['lucide-react', 'class-variance-authority', 'clsx', 'tailwind-merge'],
           'vendor-charts': ['recharts'],
           'vendor-pdf': ['jspdf', 'jspdf-autotable'],
-          'vendor-supabase': ['@supabase/supabase-js']
+          'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-motion': ['framer-motion'],
+          'vendor-other': ['@google/generative-ai', 'resend', 'swr', 'sonner']
+        },
+        // Optimize chunk splitting for better caching
+        chunkFileNames: (chunkInfo) => {
+          const facadeModuleId = chunkInfo.facadeModuleId ? chunkInfo.facadeModuleId.split('/').pop() : 'chunk';
+          return `assets/[name]-[hash].js`;
         }
       }
-    }
+    },
+    // Enable better optimization
+    minify: 'terser',
+    sourcemap: false,
+    target: 'es2015'
   }
 })

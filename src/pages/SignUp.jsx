@@ -376,7 +376,7 @@ export default function SignUp() {
                                     <Input
                                         id="accessCode"
                                         name="accessCode"
-                                        type="password"
+                                        type="text"
                                         placeholder="Enter role verification code"
                                         value={formData.accessCode}
                                         onChange={handleChange}

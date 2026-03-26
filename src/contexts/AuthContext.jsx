@@ -26,20 +26,32 @@ export function AuthProvider({ children }) {
     const profileCacheRef = useRef(new Map());
 
     useEffect(() => {
+        let mounted = true;
+        
         // 1. Initial Session Check:
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session?.user) {
-                userIdRef.current = session.user.id;
-                setUser(session.user);
-                fetchProfile(session.user.id);
-            } else {
-                setLoading(false);
+        const initializeAuth = async () => {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (mounted && session?.user) {
+                    userIdRef.current = session.user.id;
+                    setUser(session.user);
+                    await fetchProfile(session.user.id);
+                } else if (mounted) {
+                    setLoading(false);
+                }
+            } catch (error) {
+                console.error('Auth initialization error:', error);
+                if (mounted) setLoading(false);
             }
-        });
+        };
+
+        initializeAuth();
 
         // 2. Auth State Listener:
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            (event, session) => {
+            async (event, session) => {
+                if (!mounted) return;
+                
                 const currentId = userIdRef.current;
                 const newId = session?.user?.id;
 
@@ -56,7 +68,7 @@ export function AuthProvider({ children }) {
                         setLoading(true);
                         userIdRef.current = newId;
                         setUser(session.user);
-                        fetchProfile(newId);
+                        await fetchProfile(newId);
                     } else {
                         // Same user, different event (e.g. recovered session)
                         setUser(session.user);
@@ -72,7 +84,10 @@ export function AuthProvider({ children }) {
             }
         );
 
-        return () => subscription.unsubscribe();
+        return () => {
+            mounted = false;
+            subscription.unsubscribe();
+        };
     }, []);
 
     // Fetches the extended user profile (role, department) from the 'profiles' table.
@@ -91,16 +106,25 @@ export function AuthProvider({ children }) {
         }
 
         try {
-            const { data, error } = await supabase
+            // Add timeout to prevent hanging
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
+            );
+            
+            const fetchPromise = supabase
                 .from('profiles')
                 .select('*')
                 .eq('id', userId)
                 .maybeSingle();
 
+            const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
+
             if (!error && data) {
                 setProfile(data);
                 // Cache the result with timestamp
                 cache.set(userId, { data, timestamp: Date.now() });
+            } else if (error) {
+                console.error('Profile fetch error:', error);
             }
         } catch (error) {
             console.error('Error fetching profile:', error);

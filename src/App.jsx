@@ -7,7 +7,7 @@
  * - Dependency Injection: Wraps the entire tree in context providers (AuthProvider) for global state access.
  * - Security Layer: Implements ProtectedRoute middleware to guard sensitive pages.
  */
-import { Suspense } from 'react';
+import { Suspense, useEffect, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
@@ -19,11 +19,13 @@ import { Toaster } from 'sonner';
 import Login from './pages/Login';
 import SignUp from './pages/SignUp';
 import TicketForm from './pages/TicketForm';
-import UserDashboard from './pages/dashboards/UserDashboard';
-import TechnicianDashboard from './pages/dashboards/TechnicianDashboard';
-import AdminDashboard from './pages/dashboards/AdminDashboard';
-import AnalyticsPage from './pages/AnalyticsPage';
-import LandingPage from './pages/LandingPage';
+
+// Lazy load heavy components
+const UserDashboard = lazy(() => import('./pages/dashboards/UserDashboard'));
+const TechnicianDashboard = lazy(() => import('./pages/dashboards/TechnicianDashboard'));
+const AdminDashboard = lazy(() => import('./pages/dashboards/AdminDashboard'));
+const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
+const LandingPage = lazy(() => import('./pages/LandingPage'));
 
 /**
  * @function DashboardRouter
@@ -50,6 +52,25 @@ function DashboardRouter() {
 }
 
 export default function App() {
+  useEffect(() => {
+    // Initialize performance monitoring
+    import('./utils/performanceMonitoring.js').then(({ initPerformanceMonitoring, logPerformanceWarnings }) => {
+      initPerformanceMonitoring();
+      // Log warnings after 5 seconds
+      setTimeout(logPerformanceWarnings, 5000);
+    });
+
+    // Initialize security monitoring after app mounts
+    import('./utils/securityMonitoring.js').then(({ initializeSecurityMonitoring }) => {
+      initializeSecurityMonitoring();
+    });
+
+    // Register service worker
+    import('./utils/registerSW.js').then(() => {
+      // Service worker registered
+    });
+  }, []);
+
   return (
     <BrowserRouter>
       {/* 

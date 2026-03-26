@@ -9,7 +9,6 @@
  */
 import { createContext, useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import Loader from '../components/Loader';
 
 const AuthContext = createContext({});
 
@@ -18,8 +17,7 @@ export { AuthContext };
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [profile, setProfile] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [initialLoad, setInitialLoad] = useState(true);
+    const [loading, setLoading] = useState(false); // Don't block UI on initial load
 
     // Use a ref to track the current ID to avoid stale closure issues
     const userIdRef = useRef(null);
@@ -100,32 +98,25 @@ export function AuthProvider({ children }) {
             }
         } finally {
             setLoading(false);
-            setInitialLoad(false);
         }
     }, []);
 
     useEffect(() => {
         let mounted = true;
         
-        // 1. Initial Session Check:
+        // 1. Initial Session Check - non-blocking
         const initializeAuth = async () => {
             try {
                 const { data: { session } } = await supabase.auth.getSession();
                 if (mounted && session?.user) {
                     userIdRef.current = session.user.id;
                     setUser(session.user);
-                    await fetchProfile(session.user.id, session.user);
-                } else if (mounted) {
-                    setLoading(false);
-                    setInitialLoad(false);
+                    // Fetch profile in background without blocking UI
+                    fetchProfile(session.user.id, session.user);
                 }
             } catch (error) {
                 if (import.meta.env.DEV) {
                     console.error('Auth initialization error:', error);
-                }
-                if (mounted) {
-                    setLoading(false);
-                    setInitialLoad(false);
                 }
             }
         };
@@ -150,28 +141,18 @@ export function AuthProvider({ children }) {
                 if (session?.user) {
                     // For SIGNED_IN or other events, verify if ID actually changed
                     if (currentId !== newId) {
-                        // Don't show loading state after initial load
-                        if (!initialLoad) {
-                            setLoading(false);
-                        }
                         userIdRef.current = newId;
                         setUser(session.user);
-                        await fetchProfile(newId, session.user);
+                        fetchProfile(newId, session.user);
                     } else {
                         // Same user, different event (e.g. recovered session)
                         setUser(session.user);
-                        if (!initialLoad) {
-                            setLoading(false);
-                        }
                     }
                 } else {
                     // Logic for SIGNED_OUT
                     userIdRef.current = null;
                     setUser(null);
                     setProfile(null);
-                    if (!initialLoad) {
-                        setLoading(false);
-                    }
                 }
             }
         );
@@ -180,7 +161,7 @@ export function AuthProvider({ children }) {
             mounted = false;
             subscription.unsubscribe();
         };
-    }, [fetchProfile, initialLoad]);
+    }, [fetchProfile]);
 
     const value = {
         user,
@@ -194,13 +175,7 @@ export function AuthProvider({ children }) {
 
     return (
         <AuthContext.Provider value={value}>
-            {initialLoad ? (
-                <div className="flex items-center justify-center min-h-screen bg-slate-50">
-                    <Loader />
-                </div>
-            ) : (
-                children
-            )}
+            {children}
         </AuthContext.Provider>
     );
 };

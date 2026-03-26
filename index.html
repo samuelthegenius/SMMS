@@ -37,7 +37,8 @@
         const now = Date.now();
         if (!lastReload || (now - parseInt(lastReload) > 10000)) {
           localStorage.setItem('chunk-error-reload', now.toString());
-          window.location.reload(true);
+          // Redirect to root instead of reloading current path to prevent 404 on SPA routes
+          window.location.href = '/';
         }
       }
     }

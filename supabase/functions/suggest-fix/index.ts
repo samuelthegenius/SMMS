@@ -4,6 +4,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 const ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://localhost:3000',
+    'https://mtusmms.me',
+    'https://www.mtusmms.me',
 ]
 
 const corsHeaders = (origin: string) => {

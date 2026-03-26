@@ -33,13 +33,8 @@
       if (!error?.message) return;
       const isChunkError = ['Failed to fetch dynamically imported module', 'Importing a module script failed', 'error loading dynamically imported module'].some(m => error.message.includes(m));
       if (isChunkError) {
-        const lastReload = localStorage.getItem('chunk-error-reload');
         const now = Date.now();
-        if (!lastReload || (now - parseInt(lastReload) > 10000)) {
-          localStorage.setItem('chunk-error-reload', now.toString());
-          // Redirect to root instead of reloading current path to prevent 404 on SPA routes
-          window.location.href = '/';
-        }
+        window.location.reload(true);
       }
     }
   </script>

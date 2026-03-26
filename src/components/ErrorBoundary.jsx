@@ -49,8 +49,8 @@ class ErrorBoundary extends React.Component {
     };
 
     handleReload = () => {
-        // Redirect to root instead of reloading current path to prevent 404 on SPA routes
-        window.location.href = '/';
+        // Force reload to get fresh assets (handles chunk load errors)
+        window.location.reload();
     };
 
     render() {

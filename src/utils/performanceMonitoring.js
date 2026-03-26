@@ -26,16 +26,19 @@ export const initPerformanceMonitoring = () => {
     };
   }
 
-  // Track route changes
+  // Track route changes (excluding tab switches)
   let routeStartTime = performance.now();
-  window.addEventListener('popstate', () => {
-    const routeEndTime = performance.now();
-    metrics.routeChanges.push({
-      from: window.location.pathname,
-      to: document.location.pathname,
-      duration: routeEndTime - routeStartTime
-    });
-    routeStartTime = performance.now();
+  window.addEventListener('popstate', (event) => {
+    // Only track if this is an actual navigation, not tab switch
+    if (event.state !== null) {
+      const routeEndTime = performance.now();
+      metrics.routeChanges.push({
+        from: window.location.pathname,
+        to: document.location.pathname,
+        duration: routeEndTime - routeStartTime
+      });
+      routeStartTime = performance.now();
+    }
   });
 };
 

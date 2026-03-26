@@ -13,15 +13,96 @@ import Loader from '../components/Loader';
 
 const AuthContext = createContext({});
 
+export { AuthContext };
+
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [initialLoad, setInitialLoad] = useState(true);
 
     // Use a ref to track the current ID to avoid stale closure issues
     const userIdRef = useRef(null);
     // Cache profile to avoid unnecessary refetches
     const profileCacheRef = useRef(new Map());
+
+    // Fetches the extended user profile (role, department) from the 'profiles' table.
+    // This separation of 'auth.users' (credentials) and 'public.profiles' (metadata) 
+    // is a standard security practice in Supabase.
+    const fetchProfile = useCallback(async (userId, currentUser, retryCount = 0) => {
+        // Check cache first
+        const cache = profileCacheRef.current;
+        const cached = cache.get(userId);
+        
+        // Use cached data if it's less than 5 minutes old
+        if (cached && (Date.now() - cached.timestamp) < 300000) {
+            setProfile(cached.data);
+            setLoading(false);
+            return;
+        }
+
+        try {
+            // Add timeout to prevent hanging - increased to 10 seconds
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Profile fetch timeout after 10 seconds')), 10000)
+            );
+            
+            const fetchPromise = supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', userId)
+                .maybeSingle();
+
+            const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
+
+            if (!error && data) {
+                setProfile(data);
+                // Cache the result with timestamp
+                cache.set(userId, { data, timestamp: Date.now() });
+            } else if (error) {
+                if (import.meta.env.DEV) {
+                    console.error('Profile fetch error:', error);
+                }
+                // Retry logic for network errors
+                if (retryCount < 2 && (error.message?.includes('timeout') || error.message?.includes('network'))) {
+                    if (import.meta.env.DEV) {
+                        console.log(`Retrying profile fetch (${retryCount + 1}/3)...`);
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    return fetchProfile(userId, currentUser, retryCount + 1);
+                }
+                // Set a default profile if user exists but no profile record
+                if (error.code === 'PGRST116') { // No rows returned
+                    if (import.meta.env.DEV) {
+                        console.warn('No profile found for user, setting default profile');
+                    }
+                    const defaultProfile = {
+                        id: userId,
+                        email: currentUser?.email || 'unknown@example.com',
+                        role: 'student', // Default role
+                        full_name: currentUser?.user_metadata?.full_name || 'Unknown User'
+                    };
+                    setProfile(defaultProfile);
+                    cache.set(userId, { data: defaultProfile, timestamp: Date.now() });
+                }
+            }
+        } catch (error) {
+            if (import.meta.env.DEV) {
+                console.error('Error fetching profile:', error.message);
+            }
+            // Retry logic for timeout errors
+            if (retryCount < 2 && error.message?.includes('timeout')) {
+                if (import.meta.env.DEV) {
+                    console.log(`Retrying profile fetch after timeout (${retryCount + 1}/3)...`);
+                }
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                return fetchProfile(userId, currentUser, retryCount + 1);
+            }
+        } finally {
+            setLoading(false);
+            setInitialLoad(false);
+        }
+    }, []);
 
     useEffect(() => {
         let mounted = true;
@@ -36,10 +117,16 @@ export function AuthProvider({ children }) {
                     await fetchProfile(session.user.id, session.user);
                 } else if (mounted) {
                     setLoading(false);
+                    setInitialLoad(false);
                 }
             } catch (error) {
-                console.error('Auth initialization error:', error);
-                if (mounted) setLoading(false);
+                if (import.meta.env.DEV) {
+                    console.error('Auth initialization error:', error);
+                }
+                if (mounted) {
+                    setLoading(false);
+                    setInitialLoad(false);
+                }
             }
         };
 
@@ -63,16 +150,17 @@ export function AuthProvider({ children }) {
                 if (session?.user) {
                     // For SIGNED_IN or other events, verify if ID actually changed
                     if (currentId !== newId) {
+                        // Don't show loading state after initial load
+                        if (!initialLoad) {
+                            setLoading(false);
+                        }
                         userIdRef.current = newId;
                         setUser(session.user);
                         await fetchProfile(newId, session.user);
                     } else {
-                        // Same user, different event (e.g. recovered session) - don't show loader
+                        // Same user, different event (e.g. recovered session)
                         setUser(session.user);
-                        // Only fetch profile if we don't have one
-                        if (!profile) {
-                            await fetchProfile(newId, session.user);
-                        } else {
+                        if (!initialLoad) {
                             setLoading(false);
                         }
                     }
@@ -81,7 +169,9 @@ export function AuthProvider({ children }) {
                     userIdRef.current = null;
                     setUser(null);
                     setProfile(null);
-                    setLoading(false);
+                    if (!initialLoad) {
+                        setLoading(false);
+                    }
                 }
             }
         );
@@ -90,80 +180,7 @@ export function AuthProvider({ children }) {
             mounted = false;
             subscription.unsubscribe();
         };
-    }, [fetchProfile, profile]);
-
-    // Fetches the extended user profile (role, department) from the 'profiles' table.
-    // This separation of 'auth.users' (credentials) and 'public.profiles' (metadata) 
-    // is a standard security practice in Supabase.
-    const fetchProfile = useCallback(async (userId, currentUser, retryCount = 0) => {
-        // Check cache first
-        const cache = profileCacheRef.current;
-        const cached = cache.get(userId);
-        
-        // Use cached data if it's less than 5 minutes old
-        if (cached && (Date.now() - cached.timestamp) < 300000) {
-            setProfile(cached.data);
-            setLoading(false);
-            return;
-        }
-
-        // Only show loading if this is a new user (not just a profile refresh)
-        const isNewUser = !profile || profile.id !== userId;
-        if (isNewUser) {
-            setLoading(true);
-        }
-
-        try {
-            // Add timeout to prevent hanging - increased to 10 seconds
-            const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Profile fetch timeout after 10 seconds')), 10000)
-            );
-            
-            const fetchPromise = supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', userId)
-                .maybeSingle();
-
-            const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
-
-            if (!error && data) {
-                setProfile(data);
-                // Cache the result with timestamp
-                cache.set(userId, { data, timestamp: Date.now() });
-            } else if (error) {
-                console.error('Profile fetch error:', error);
-                // Retry logic for network errors
-                if (retryCount < 2 && (error.message?.includes('timeout') || error.message?.includes('network'))) {
-                    console.log(`Retrying profile fetch (${retryCount + 1}/3)...`);
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    return fetchProfile(userId, currentUser, retryCount + 1);
-                }
-                // Set a default profile if user exists but no profile record
-                if (error.code === 'PGRST116') { // No rows returned
-                    console.warn('No profile found for user, setting default profile');
-                    const defaultProfile = {
-                        id: userId,
-                        email: currentUser?.email || 'unknown@example.com',
-                        role: 'student', // Default role
-                        full_name: currentUser?.user_metadata?.full_name || 'Unknown User'
-                    };
-                    setProfile(defaultProfile);
-                    cache.set(userId, { data: defaultProfile, timestamp: Date.now() });
-                }
-            }
-        } catch (error) {
-            console.error('Error fetching profile:', error.message);
-            // Retry logic for timeout errors
-            if (retryCount < 2 && error.message?.includes('timeout')) {
-                console.log(`Retrying profile fetch after timeout (${retryCount + 1}/3)...`);
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                return fetchProfile(userId, currentUser, retryCount + 1);
-            }
-        } finally {
-            setLoading(false);
-        }
-    }, [profile]);
+    }, [fetchProfile, initialLoad]);
 
     const value = {
         user,
@@ -177,7 +194,7 @@ export function AuthProvider({ children }) {
 
     return (
         <AuthContext.Provider value={value}>
-            {loading ? (
+            {initialLoad ? (
                 <div className="flex items-center justify-center min-h-screen bg-slate-50">
                     <Loader />
                 </div>

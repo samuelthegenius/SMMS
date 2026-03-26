@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/useAuth';
 import { Bell, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -10,6 +10,34 @@ export default function NotificationBell() {
     const [unreadCount, setUnreadCount] = useState(0);
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
+
+    const fetchNotifications = useCallback(async () => {
+        try {
+            const { data, error } = await supabase
+                .from('notifications')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false })
+                .limit(10);
+
+            if (error) throw error;
+
+            setNotifications(data);
+
+            // Count all unread (not just the fetched ones if possible, but distinct count helps)
+            // For simple UI, we assume correct sync. To be precise with count:
+            const { count } = await supabase
+                .from('notifications')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', user.id)
+                .eq('is_read', false);
+
+            setUnreadCount(count || 0);
+
+        } catch (error) {
+            console.error('Error fetching notifications:', error);
+        }
+    }, [user.id]);
 
     useEffect(() => {
         if (!user) return;
@@ -48,34 +76,6 @@ export default function NotificationBell() {
             document.removeEventListener("mousedown", handleClickOutside);
         };
     }, [user, fetchNotifications]);
-
-    const fetchNotifications = useCallback(async () => {
-        try {
-            const { data, error } = await supabase
-                .from('notifications')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false })
-                .limit(10);
-
-            if (error) throw error;
-
-            setNotifications(data);
-
-            // Count all unread (not just the fetched ones if possible, but distinct count helps)
-            // For simple UI, we assume correct sync. To be precise with count:
-            const { count } = await supabase
-                .from('notifications')
-                .select('*', { count: 'exact', head: true })
-                .eq('user_id', user.id)
-                .eq('is_read', false);
-
-            setUnreadCount(count || 0);
-
-        } catch (error) {
-            console.error('Error fetching notifications:', error);
-        }
-    }, [user.id]);
 
     const handleToggle = async () => {
         const newIsOpen = !isOpen;

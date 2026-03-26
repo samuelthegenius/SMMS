@@ -15,7 +15,9 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-    console.error('Missing Supabase configuration. Please check your .env file.');
+    if (import.meta.env.DEV) {
+        console.error('Missing Supabase configuration. Please check your .env file.');
+    }
 }
 
 // Custom fetch wrapper to handle rate limiting responses
@@ -28,14 +30,18 @@ const customFetch = async (url, options) => {
         const _reset = response.headers.get('X-RateLimit-Reset');
         
         if (response.status === 429) {
-            console.warn('Rate limit exceeded. Please slow down.');
+            if (import.meta.env.DEV) {
+                console.warn('Rate limit exceeded. Please slow down.');
+            }
         }
         
         return response;
     } catch (error) {
         // Network errors
         if (error.message.includes('fetch')) {
-            console.error('Network error: Please check your connection');
+            if (import.meta.env.DEV) {
+                console.error('Network error: Please check your connection');
+            }
         }
         throw error;
     }

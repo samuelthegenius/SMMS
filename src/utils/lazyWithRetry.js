@@ -27,10 +27,10 @@ export const lazyWithRetry = (importFunction, name = 'Component') => {
             window.sessionStorage.setItem('page-has-been-force-refreshed', 'false');
             return component;
         } catch (error) {
-            console.error(`[LazyRetry] Failed to load ${name}:`, error);
+            // Error loading component, will attempt recovery
 
             if (!pageHasAlreadyBeenForceRefreshed) {
-                console.log('[LazyRetry] Force refreshing page to recover from chunk error...');
+                // Force refreshing page to recover from chunk error...
                 // Set flag to prevent infinite loops
                 window.sessionStorage.setItem('page-has-been-force-refreshed', 'true');
                 // Reload the page to get fresh assets

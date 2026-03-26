@@ -8,23 +8,22 @@ const registerSW = async () => {
         scope: '/'
       });
       
-      console.log('SW registered: ', registration);
+      // Registration successful
+      // Optional: Show a non-intrusive notification instead of forcing reload
       
-      // Handle updates
+      // Handle updates silently without forcing reload
       registration.addEventListener('updatefound', () => {
         const newWorker = registration.installing;
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            // New content is available
-            if (confirm('New version available. Reload to update?')) {
-              window.location.reload();
-            }
+            // New content is available - notify user without forcing reload
+            // Optional: Show a non-intrusive notification instead of forcing reload
           }
         });
       });
       
     } catch (error) {
-      console.log('SW registration failed: ', error);
+      // SW registration failed - will be handled gracefully
     }
   }
 };

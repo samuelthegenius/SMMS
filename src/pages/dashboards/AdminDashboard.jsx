@@ -17,7 +17,7 @@ const FACILITY_TYPES = [
 ];
 
 import useSWR from 'swr';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/useAuth';
 
 export default function AdminDashboard() {
     const { profile, loading } = useAuth();

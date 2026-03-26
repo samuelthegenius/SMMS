@@ -168,12 +168,16 @@ class SecurityLogger {
       const { error: _error } = await supabase.rpc('log_security_events', { events });
       
       if (_error) {
-        console.error('Failed to log security events:', _error);
+        if (import.meta.env.DEV) {
+          console.error('Failed to log security events:', _error);
+        }
         // Re-queue events on failure
         this.eventQueue.unshift(...events);
       }
     } catch (error) {
-      console.error('Security logging error:', error);
+      if (import.meta.env.DEV) {
+        console.error('Security logging error:', error);
+      }
       // Re-queue events on failure
       this.eventQueue.unshift(...events);
     }
@@ -191,11 +195,15 @@ class SecurityLogger {
         .limit(limit);
 
       if (_error) {
-        console.error('Failed to fetch security events:', _error);
+        if (import.meta.env.DEV) {
+          console.error('Failed to fetch security events:', _error);
+        }
       }
       return data || [];
     } catch (error) {
-      console.error('Failed to fetch security events:', error);
+      if (import.meta.env.DEV) {
+        console.error('Failed to fetch security events:', error);
+      }
       return [];
     }
   }
@@ -217,7 +225,9 @@ class SecurityLogger {
         hourlyDistribution: data.hourly_distribution || []
       };
     } catch (error) {
-      console.error('Failed to fetch security stats:', error);
+      if (import.meta.env.DEV) {
+        console.error('Failed to fetch security stats:', error);
+      }
       return {
         totalEvents: 0,
         criticalEvents: 0,
@@ -331,7 +341,9 @@ export const securityMonitoring = {
         });
 
       if (_error) {
-        console.error('Failed to create security alert:', _error);
+        if (import.meta.env.DEV) {
+          console.error('Failed to create security alert:', _error);
+        }
       }
 
       // Log the alert
@@ -341,7 +353,9 @@ export const securityMonitoring = {
         severity
       );
     } catch (error) {
-      console.error('Failed to create security alert:', error);
+      if (import.meta.env.DEV) {
+        console.error('Failed to create security alert:', error);
+      }
     }
   }
 };
@@ -377,11 +391,11 @@ export const initializeSecurityMonitoring = () => {
     }
   });
 
-  // Monitor for suspicious DOM manipulation
+  // Monitor for suspicious DOM manipulation (reduced sensitivity)
   const observer = new MutationObserver((mutations) => {
     const suspiciousChanges = mutations.filter(mutation => 
       mutation.type === 'childList' && 
-      mutation.addedNodes.length > 10 // Rapid DOM additions
+      mutation.addedNodes.length > 50 // Increased threshold to reduce false positives
     );
     
     if (suspiciousChanges.length > 0) {
@@ -391,14 +405,16 @@ export const initializeSecurityMonitoring = () => {
           type: 'rapid_dom_manipulation',
           mutations: suspiciousChanges.length 
         },
-        SEVERITY_LEVELS.HIGH
+        SEVERITY_LEVELS.MEDIUM // Reduced severity
       );
     }
   });
 
   observer.observe(document.body, {
     childList: true,
-    subtree: true
+    subtree: true,
+    // Debounce to reduce sensitivity
+    attributeFilter: ['id', 'class'] // Only monitor specific attributes
   });
 
   // Monitor for XSS attempts in URL

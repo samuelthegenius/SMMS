@@ -4,13 +4,10 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 const ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://localhost:3000',
-    'https://mtusmms.me',
 ]
 
 const corsHeaders = (origin: string) => {
-    console.log(`[suggest-fix] CORS request from origin: ${origin}`)
     const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
-    console.log(`[suggest-fix] Allowed origin set to: ${allowedOrigin}`)
     return {
         'Access-Control-Allow-Origin': allowedOrigin,
         'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -35,17 +32,13 @@ const validateImageUrl = (url: string): boolean => {
         const urlObj = new URL(url)
         // Only allow HTTPS and specific domains
         return urlObj.protocol === 'https:' && 
-               (urlObj.hostname.includes('supabase.co') || 
-                urlObj.hostname.includes('mtusmms.me'))
+               (urlObj.hostname.includes('supabase.co'))
     } catch {
         return false
     }
 }
 
 serve(async (req: Request) => {
-    console.log(`[suggest-fix] Request received: ${req.method} ${req.url}`)
-    console.log(`[suggest-fix] Headers:`, Object.fromEntries(req.headers.entries()))
-    
     // Handle CORS preflight
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders(req.headers.get('origin') || '') })
@@ -53,7 +46,6 @@ serve(async (req: Request) => {
 
     // Only allow POST
     if (req.method !== 'POST') {
-        console.log(`[suggest-fix] Method not allowed: ${req.method}`)
         return new Response(
             JSON.stringify({ error: 'Method not allowed' }),
             { headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' }, status: 405 }
@@ -63,7 +55,6 @@ serve(async (req: Request) => {
     try {
         // @ts-ignore: Deno namespace
         const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
-        console.log(`[suggest-fix] GEMINI_API_KEY exists: ${!!GEMINI_API_KEY}`)
         
         if (!GEMINI_API_KEY) {
             throw new Error('Server Config Error: Missing GEMINI_API_KEY. Please configure this secret in Supabase Dashboard > Edge Functions > Secrets.')
@@ -73,20 +64,15 @@ serve(async (req: Request) => {
         let requestBody
         try {
             const bodyText = await req.text()
-            console.log(`[suggest-fix] Request body:`, bodyText)
             requestBody = JSON.parse(bodyText)
         } catch (parseError) {
-            console.error(`[suggest-fix] JSON parse error:`, parseError)
             throw new Error('Invalid JSON in request body')
         }
-
-        console.log(`[suggest-fix] Parsed request body:`, requestBody)
 
         const { ticketDescription, ticketCategory, image_url } = requestBody
 
         // Validate required fields
         if (!ticketDescription || typeof ticketDescription !== 'string') {
-            console.error(`[suggest-fix] Missing or invalid ticketDescription:`, ticketDescription)
             throw new Error('Missing or invalid ticketDescription')
         }
 
@@ -98,18 +84,14 @@ serve(async (req: Request) => {
             throw new Error('Ticket description too short')
         }
 
-        console.log(`[suggest-fix] Processing request for: ${sanitizedCategory}`)
-
         // Construct Gemini Payload Parts
         const parts: any[] = []
 
         // Handle Image Processing if URL is provided
         if (image_url) {
-            console.log(`[suggest-fix] Fetching image from: ${image_url}`)
             try {
                 // Validate URL to prevent SSRF
                 if (!validateImageUrl(image_url)) {
-                    console.warn('[suggest-fix] Invalid or unauthorized image URL')
                     throw new Error('Invalid image URL')
                 }
 
@@ -117,13 +99,13 @@ serve(async (req: Request) => {
                     headers: { 'Accept': 'image/*' },
                 })
                 if (!imageResponse.ok) {
-                    console.warn(`[suggest-fix] Failed to fetch image: ${imageResponse.statusText}`)
+                    throw new Error(`Failed to fetch image: ${imageResponse.statusText}`)
                 } else {
                     const blob = await imageResponse.blob()
                     
                     // Validate image size (max 10MB)
                     if (blob.size > 10 * 1024 * 1024) {
-                        console.warn('[suggest-fix] Image too large, skipping')
+                        throw new Error('Image too large')
                     } else {
                         const arrayBuffer = await blob.arrayBuffer()
 
@@ -142,11 +124,10 @@ serve(async (req: Request) => {
                                 data: base64String
                             }
                         })
-                        console.log("[suggest-fix] Image attached to payload.")
                     }
                 }
             } catch (imgError) {
-                console.error("[suggest-fix] Error processing image:", imgError)
+                // Silently handle image errors
             }
         }
 
@@ -178,8 +159,6 @@ Keep responses concise and professional.
         // Call Gemini API with timeout
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 30000) // 30s timeout
-
-        console.log(`[suggest-fix] About to call Gemini API...`)
 
         try {
             const response = await fetch(
@@ -220,10 +199,6 @@ Keep responses concise and professional.
                 throw new Error("AI returned no suggestion content.")
             }
 
-            console.log(`[suggest-fix] Raw AI response:`, suggestionText)
-            console.log(`[suggest-fix] Response length:`, suggestionText.length)
-            console.log(`[suggest-fix] Response type:`, typeof suggestionText)
-
             // Parse the structured text response
             let jsonResponse = {
                 technical_diagnosis: "",
@@ -234,7 +209,6 @@ Keep responses concise and professional.
             try {
                 // Split by lines and parse each section
                 const lines = suggestionText.split('\n').map(line => line.trim())
-                console.log(`[suggest-fix] Split lines:`, lines)
                 
                 let currentSection = ""
                 let toolsList = []
@@ -242,7 +216,6 @@ Keep responses concise and professional.
                 
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i]
-                    console.log(`[suggest-fix] Processing line ${i}: "${line}"`)
                     
                     // Handle multi-line diagnosis
                     if (line.toLowerCase().includes('technical diagnosis:')) {
@@ -254,26 +227,21 @@ Keep responses concise and professional.
                             j++
                         }
                         jsonResponse.technical_diagnosis = diagnosisText.trim()
-                        console.log(`[suggest-fix] Found diagnosis: "${jsonResponse.technical_diagnosis}"`)
                         i = j - 1 // Skip the processed lines
                     } else if (line.toLowerCase().includes('tools required:')) {
                         currentSection = 'tools'
-                        console.log(`[suggest-fix] Switched to tools section`)
                     } else if (line.toLowerCase().includes('safety precaution:')) {
                         jsonResponse.safety_precaution = line.replace(/safety precaution:/gi, '').trim()
                         currentSection = 'safety'
-                        console.log(`[suggest-fix] Found safety: "${jsonResponse.safety_precaution}"`)
                     } else if ((line.startsWith('•') || line.startsWith('-') || line.startsWith('*')) && currentSection === 'tools') {
                         const tool = line.replace(/^[•\-\*]\s*/, '').trim()
                         if (tool) {
                             toolsList.push(tool)
-                            console.log(`[suggest-fix] Found tool: "${tool}"`)
                         }
                     }
                 }
                 
                 jsonResponse.tools_required = toolsList
-                console.log(`[suggest-fix] Final parsed response:`, jsonResponse)
                 
                 // Validation and fallbacks
                 if (!jsonResponse.technical_diagnosis) {
@@ -297,9 +265,6 @@ Keep responses concise and professional.
                 jsonResponse.safety_precaution = jsonResponse.safety_precaution.substring(0, 200)
                 
             } catch (e) {
-                console.error("Failed to parse structured response:", suggestionText);
-                console.error("Parse error:", e);
-                
                 // Fallback response
                 jsonResponse = {
                     technical_diagnosis: "Maintenance issue detected. Professional assessment required.",

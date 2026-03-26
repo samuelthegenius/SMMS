@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/useAuth';
 import { Bot, CheckCircle, MapPin, AlertTriangle, Play, CheckSquare, Clock, User } from 'lucide-react';
 import clsx from 'clsx';
 import Loader from '../../components/Loader';

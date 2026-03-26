@@ -14,7 +14,7 @@ import Loader from '../components/Loader';
 import AnalyticsSummary from '../components/AnalyticsSummary';
 import { generateTicketReport } from '../utils/generateReport';
 import { BarChart, PieChart } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/useAuth';
 
 export default function AnalyticsPage() {
     const { profile, loading: authLoading } = useAuth();

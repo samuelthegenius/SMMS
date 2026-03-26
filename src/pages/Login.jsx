@@ -149,6 +149,8 @@ export default function Login() {
             // Success - reset rate limit
             resetRateLimit();
             toast.success('Welcome back!');
+            
+            // Navigate to dashboard - the routing system will handle the auth state
             navigate('/dashboard');
         } catch (error) {
             console.error('Login error:', error);

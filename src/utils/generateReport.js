@@ -16,8 +16,38 @@
  * 6. Trigger Browser Download.
  */
 
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+/**
+ * Lazy-loaded PDF generation utility
+ * Only loads jspdf when actually needed to reduce initial bundle size
+ */
+
+// Lazy load jspdf modules
+let jsPDF, autoTable;
+let isLoading = false;
+let loadPromise = null;
+
+const loadPdfLibraries = async () => {
+    if (jsPDF && autoTable) return { jsPDF, autoTable };
+    
+    if (isLoading && loadPromise) return loadPromise;
+    
+    isLoading = true;
+    loadPromise = Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable')
+    ]).then(([jsPdfModule, autoTableModule]) => {
+        jsPDF = jsPdfModule.default;
+        autoTable = autoTableModule.default;
+        isLoading = false;
+        return { jsPDF, autoTable };
+    }).catch(error => {
+        isLoading = false;
+        loadPromise = null;
+        throw error;
+    });
+    
+    return loadPromise;
+};
 
 /**
  * Generates and downloads a PDF report detailing all maintenance tickets.
@@ -25,86 +55,87 @@ import autoTable from 'jspdf-autotable';
  * @param {Array<Object>} tickets - The raw array of ticket objects from the database.
  * @returns {void} - Triggers a file download directly in the browser.
  */
-export const generateTicketReport = (tickets) => {
-    // 1. Initialize a new PDF Document instance
-    // 'p' = portrait mode
-    // 'pt' = points (standard PDF unit)
-    // 'a4' = standard sheet size
-    const doc = new jsPDF('p', 'pt', 'a4');
+export const generateTicketReport = async (tickets) => {
+    try {
+        // Load PDF libraries only when needed
+        const { jsPDF: JsPDF, autoTable: AutoTable } = await loadPdfLibraries();
+        
+        // 1. Initialize a new PDF Document instance
+        const doc = new JsPDF('p', 'pt', 'a4');
 
-    // --- HEADER SECTION ---
+        // --- HEADER SECTION ---
 
-    // Set font for the organization title
-    doc.setFontSize(18);
+        // Set font for the organization title
+        doc.setFontSize(18);
 
-    // Add Organization Name: "Mountain Top University"
-    // Arguments: (text, x-coordinate, y-coordinate)
-    doc.text('Mountain Top University', 40, 40);
+        // Add Organization Name: "Mountain Top University"
+        doc.text('Mountain Top University', 40, 40);
 
-    // Set font for the subtitle/report name
-    doc.setFontSize(14);
-    doc.text('Maintenance Report', 40, 65);
+        // Set font for the subtitle/report name
+        doc.setFontSize(14);
+        doc.text('Maintenance Report', 40, 65);
 
-    // --- METADATA SECTION ---
+        // --- METADATA SECTION ---
 
-    // Generate a readable timestamp for the report
-    const date = new Date().toLocaleDateString('en-GB', {
-        day: 'numeric', month: 'long', year: 'numeric',
-        hour: '2-digit', minute: '2-digit'
-    });
+        // Generate a readable timestamp for the report
+        const date = new Date().toLocaleDateString('en-GB', {
+            day: 'numeric', month: 'long', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        });
 
-    // Add Timestamp below the title
-    doc.setFontSize(10);
-    doc.setTextColor(100); // Gray color for metadata
-    doc.text(`Generated on: ${date}`, 40, 85);
-    doc.setTextColor(0); // Reset to black
+        // Add Timestamp below the title
+        doc.setFontSize(10);
+        doc.setTextColor(100); // Gray color for metadata
+        doc.text(`Generated on: ${date}`, 40, 85);
+        doc.setTextColor(0); // Reset to black
 
-    // --- DATA TRANSFORMATION SECTION ---
+        // --- DATA TRANSFORMATION SECTION ---
 
-    // Define the columns for the data grid
-    // These correspond to the visual columns in the PDF
-    const tableColumn = ["Ticket ID", "Title", "Location", "Priority", "Status", "Assigned To"];
+        // Define the columns for the data grid
+        const tableColumn = ["Ticket ID", "Title", "Location", "Priority", "Status", "Assigned To"];
 
-    // Map the raw ticket data to an array of arrays (rows)
-    // Required format for jspdf-autotable
-    const tableRows = tickets.map(ticket => [
-        ticket.id.substring(0, 8) + '...', // Truncate UUID for readability
-        ticket.title,
-        `${ticket.facility_type} - ${ticket.specific_location}`, // Combine facility and specific location
-        ticket.priority,
-        ticket.status,
-        ticket.assigned_to || 'Unassigned' // Handle null values
-    ]);
+        // Map the raw ticket data to an array of arrays (rows)
+        const tableRows = tickets.map(ticket => [
+            ticket.id.substring(0, 8) + '...', // Truncate UUID for readability
+            ticket.title,
+            `${ticket.facility_type} - ${ticket.specific_location}`, // Combine facility and specific location
+            ticket.priority,
+            ticket.status,
+            ticket.assigned_to || 'Unassigned' // Handle null values
+        ]);
 
-    // --- TABLE GENERATION SECTION ---
+        // --- TABLE GENERATION SECTION ---
 
-    // REPORT GENERATION: Transforms raw JSON data into a formal PDF document for administrative auditing.
-    // autoTable automatically calculates column widths and handles pagination.
-    autoTable(doc, {
-        head: [tableColumn],
-        body: tableRows,
-        startY: 100, // Start drawing the table 100pts from top (below headers)
-        theme: 'grid', // 'grid' | 'striped' | 'plain'
-        styles: {
-            fontSize: 9,
-            cellPadding: 6,
-        },
-        headStyles: {
-            fillColor: [41, 128, 185], // Corporate Blue color for headers
-            textColor: 255,
-            fontSize: 10,
-            fontStyle: 'bold'
-        },
-        alternateRowStyles: {
-            fillColor: [245, 245, 245] // Light gray for readability
-        }
-    });
+        // REPORT GENERATION: Transforms raw JSON data into a formal PDF document for administrative auditing.
+        AutoTable(doc, {
+            head: [tableColumn],
+            body: tableRows,
+            startY: 100, // Start drawing the table 100pts from top (below headers)
+            theme: 'grid', // 'grid' | 'striped' | 'plain'
+            styles: {
+                fontSize: 9,
+                cellPadding: 6,
+            },
+            headStyles: {
+                fillColor: [41, 128, 185], // Corporate Blue color for headers
+                textColor: 255,
+                fontSize: 10,
+                fontStyle: 'bold'
+            },
+            alternateRowStyles: {
+                fillColor: [245, 245, 245] // Light gray for readability
+            }
+        });
 
-    // --- OUTPUT SECTION ---
+        // --- OUTPUT SECTION ---
 
-    // Construct a sanitized filename
-    const dateString = new Date().toISOString().split('T')[0];
+        // Construct a sanitized filename
+        const dateString = new Date().toISOString().split('T')[0];
 
-    // Trigger the download
-    doc.save(`MTU_Report_${dateString}.pdf`);
+        // Trigger the download
+        doc.save(`MTU_Report_${dateString}.pdf`);
+    } catch (error) {
+        console.error('Failed to generate PDF report:', error);
+        throw new Error('PDF generation failed. Please try again.');
+    }
 };

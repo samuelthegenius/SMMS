@@ -42,9 +42,9 @@ export function AuthProvider({ children }) {
         }
 
         try {
-            // Add timeout to prevent hanging - increased to 10 seconds
+            // Add timeout to prevent hanging - reduced to 5 seconds
             const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Profile fetch timeout after 10 seconds')), 10000)
+                setTimeout(() => reject(new Error('Profile fetch timeout after 5 seconds')), 5000)
             );
             
             const fetchPromise = supabase

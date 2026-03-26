@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Ca
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function SecurityDashboard() {
-    const { profile } = useAuth();
+    const { profile: _profile } = useAuth();
     const [metrics, setMetrics] = useState(null);
     const [recentEvents, setRecentEvents] = useState([]);
     const [loading, setLoading] = useState(true);

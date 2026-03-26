@@ -175,7 +175,7 @@ serve(async (req: Request) => {
         }
 
         const emailPromises = [];
-        const dashboardLink = "https://mtusmms.me/dashboard";
+        const dashboardLink = Deno.env.get('DASHBOARD_URL') || '[DASHBOARD_URL]';
 
         // 1. Ticket Created -> Notify Student & Technician
         if (type === 'ticket_created') {

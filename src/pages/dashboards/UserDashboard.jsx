@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Clock, CheckCircle, AlertCircle, MapPin, Calendar, Activity, ThumbsUp, ThumbsDown, X, Wrench as WrenchIcon } from 'lucide-react';
@@ -110,7 +110,7 @@ export default function UserDashboard() {
 
     if (isLoading && !tickets.length) return <Loader />;
 
-    const displayRole = profile?.role === 'staff_member' ? 'Staff' : 'Student';
+    const _displayRole = profile?.role === 'staff_member' ? 'Staff' : 'Student';
 
     return (
         <div className="space-y-8">

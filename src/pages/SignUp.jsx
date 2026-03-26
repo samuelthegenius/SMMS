@@ -54,7 +54,7 @@ export default function SignUp() {
         return true;
     };
 
-    const recordFailedAttempt = () => {
+    const _recordFailedAttempt = () => {
         const now = Date.now();
         const stored = localStorage.getItem(SIGNUP_STORAGE_KEY);
         const { attempts = 0 } = stored ? JSON.parse(stored) : { attempts: 0 };

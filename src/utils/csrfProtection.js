@@ -3,8 +3,6 @@
  * Implements CSRF token generation and validation for state-changing operations
  */
 
-import { supabase } from '../lib/supabase';
-
 // CSRF token storage key
 const CSRF_TOKEN_KEY = 'csrf_token';
 const CSRF_TOKEN_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours

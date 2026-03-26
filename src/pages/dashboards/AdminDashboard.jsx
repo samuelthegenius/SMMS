@@ -104,7 +104,7 @@ export default function AdminDashboard() {
         return () => {
             subscription.unsubscribe();
         };
-    }, [mutate, profile?.id]);
+    }, [mutate, profile?.id, profile]);
 
     const filteredTickets = filter === 'All'
         ? tickets
@@ -286,7 +286,7 @@ export default function AdminDashboard() {
                         setSelectedTicket(null);
                         mutate();
                     }}
-                    onReassign={(technicianId) => {
+                    onReassign={() => {
                         setSelectedTicket(null);
                         mutate();
                         toast.success('Ticket reassigned successfully');

@@ -9,7 +9,11 @@ import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import ReassignTechnician from '../../components/ReassignTechnician';
-import SecurityDashboard from './SecurityDashboard';
+import { DashboardSkeleton, CardSkeleton, StatsCardSkeleton } from '../../components/SkeletonLoader';
+import { lazy, Suspense } from 'react';
+
+// Lazy load security dashboard only when needed
+const SecurityDashboard = lazy(() => import('./SecurityDashboard'));
 
 const FACILITY_TYPES = [
     'All', 'Hostel', 'Lecture Hall', 'Laboratory', 'Office',
@@ -117,8 +121,11 @@ export default function AdminDashboard() {
         inProgress: tickets.filter(t => t.status === 'In Progress').length,
     };
 
-    // Show loader only during initial auth loading or SWR loading with no data
-    if (loading || (swrLoading && !tickets.length && !error)) return <Loader />;
+    // Show skeleton during initial loading, loader only for auth
+    if (loading) return <Loader />;
+    
+    // Show skeleton during data loading
+    if (swrLoading && !tickets.length && !error) return <DashboardSkeleton />;
 
     // Handle SWR errors gracefully
     if (error) {
@@ -198,83 +205,93 @@ export default function AdminDashboard() {
 
                     {/* Stats Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        {[
-                            { label: 'Total Tickets', value: stats.total, icon: AlertCircle, color: 'text-blue-600', bg: 'bg-blue-50' },
-                            { label: 'Pending', value: stats.pending, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
-                            { label: 'In Progress', value: stats.inProgress, icon: Wrench, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-                            { label: 'Resolved', value: stats.resolved, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                        ].map((stat, idx) => (
-                            <Card key={idx} className="hover:shadow-md transition-shadow">
-                                <CardContent className="p-6 flex justify-between items-start">
-                                    <div>
-                                        <p className="text-sm font-medium text-slate-500">{stat.label}</p>
-                                        <p className="text-3xl font-bold text-slate-900 mt-2">{stat.value}</p>
-                                    </div>
-                                    <div className={clsx("p-3 rounded-xl", stat.bg)}>
-                                        <stat.icon className={clsx("w-6 h-6", stat.color)} />
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
+                        {swrLoading && !tickets.length ? (
+                            Array.from({ length: 4 }).map((_, idx) => <StatsCardSkeleton key={idx} />)
+                        ) : (
+                            [
+                                { label: 'Total Tickets', value: stats.total, icon: AlertCircle, color: 'text-blue-600', bg: 'bg-blue-50' },
+                                { label: 'Pending', value: stats.pending, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
+                                { label: 'In Progress', value: stats.inProgress, icon: Wrench, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+                                { label: 'Resolved', value: stats.resolved, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                            ].map((stat, idx) => (
+                                <Card key={idx} className="hover:shadow-md transition-shadow">
+                                    <CardContent className="p-6 flex justify-between items-start">
+                                        <div>
+                                            <p className="text-sm font-medium text-slate-500">{stat.label}</p>
+                                            <p className="text-3xl font-bold text-slate-900 mt-2">{stat.value}</p>
+                                        </div>
+                                        <div className={clsx("p-3 rounded-xl", stat.bg)}>
+                                            <stat.icon className={clsx("w-6 h-6", stat.color)} />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))
+                        )}
                     </div>
 
                     {/* Tickets Grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {filteredTickets.map((ticket) => (
-                            <Card key={ticket.id} className="hover:shadow-md transition-all cursor-pointer" onClick={() => setSelectedTicket(ticket)}>
-                                <CardContent className="p-6">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div>
-                                            <h3 className="font-semibold text-slate-900 text-lg">{ticket.title}</h3>
-                                            <p className="text-slate-500 text-sm">{ticket.facility_type} • {ticket.specific_location}</p>
+                        {swrLoading && !tickets.length ? (
+                            Array.from({ length: 4 }).map((_, idx) => <CardSkeleton key={idx} />)
+                        ) : (
+                            filteredTickets.map((ticket) => (
+                                <Card key={ticket.id} className="hover:shadow-md transition-all cursor-pointer" onClick={() => setSelectedTicket(ticket)}>
+                                    <CardContent className="p-6">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div>
+                                                <h3 className="font-semibold text-slate-900 text-lg">{ticket.title}</h3>
+                                                <p className="text-slate-500 text-sm">{ticket.facility_type} • {ticket.specific_location}</p>
+                                            </div>
+                                            <span className={clsx(
+                                                "px-3 py-1 rounded-full text-xs font-medium",
+                                                ticket.priority === 'high' ? "bg-red-100 text-red-700" :
+                                                ticket.priority === 'medium' ? "bg-amber-100 text-amber-700" :
+                                                ticket.priority === 'low' ? "bg-green-100 text-green-700" :
+                                                "bg-slate-100 text-slate-700"
+                                            )}>
+                                                {ticket.priority?.toUpperCase()}
+                                            </span>
                                         </div>
-                                        <span className={clsx(
-                                            "px-3 py-1 rounded-full text-xs font-medium",
-                                            ticket.priority === 'high' ? "bg-red-100 text-red-700" :
-                                            ticket.priority === 'medium' ? "bg-amber-100 text-amber-700" :
-                                            ticket.priority === 'low' ? "bg-green-100 text-green-700" :
-                                            "bg-slate-100 text-slate-700"
-                                        )}>
-                                            {ticket.priority?.toUpperCase()}
-                                        </span>
-                                    </div>
 
-                                    <div className="flex items-center justify-between">
-                                        <div className="space-y-2">
-                                            {/* Reporter Information */}
-                                            <div className="flex items-center gap-4 text-sm text-slate-500">
-                                                <span className="flex items-center gap-1">
-                                                    <User className="w-4 h-4 text-blue-500" />
-                                                    {ticket.reporter?.full_name || 'Unknown Reporter'}
-                                                </span>
-                                                <span className="flex items-center gap-1">
-                                                    <Clock className="w-4 h-4" />
-                                                    {new Date(ticket.created_at).toLocaleDateString()}
-                                                </span>
-                                            </div>
-                                            
-                                            {/* Technician Information */}
-                                            <div className="flex items-center gap-2 text-sm">
-                                                <span className="flex items-center gap-1">
-                                                    <WrenchIcon className="w-4 h-4 text-green-500" />
-                                                    {ticket.technician?.full_name || 'Unassigned'}
-                                                </span>
-                                                {ticket.technician?.department && (
-                                                    <span className="text-slate-400 text-xs">
-                                                        ({ticket.technician.department})
+                                        <div className="flex items-center justify-between">
+                                            <div className="space-y-2">
+                                                {/* Reporter Information */}
+                                                <div className="flex items-center gap-4 text-sm text-slate-500">
+                                                    <span className="flex items-center gap-1">
+                                                        <User className="w-4 h-4 text-blue-500" />
+                                                        {ticket.reporter?.full_name || 'Unknown Reporter'}
                                                     </span>
-                                                )}
+                                                    <span className="flex items-center gap-1">
+                                                        <Clock className="w-4 h-4" />
+                                                        {new Date(ticket.created_at).toLocaleDateString()}
+                                                    </span>
+                                                </div>
+                                                
+                                                {/* Technician Information */}
+                                                <div className="flex items-center gap-2 text-sm">
+                                                    <span className="flex items-center gap-1">
+                                                        <WrenchIcon className="w-4 h-4 text-green-500" />
+                                                        {ticket.technician?.full_name || 'Unassigned'}
+                                                    </span>
+                                                    {ticket.technician?.department && (
+                                                        <span className="text-slate-400 text-xs">
+                                                            ({ticket.technician.department})
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
+                                            <Eye className="w-5 h-5 text-slate-400" />
                                         </div>
-                                        <Eye className="w-5 h-5 text-slate-400" />
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
+                                    </CardContent>
+                                </Card>
+                            ))
+                        )}
                     </div>
                 </>
             ) : (
-                <SecurityDashboard />
+                <Suspense fallback={<DashboardSkeleton />}>
+                    <SecurityDashboard />
+                </Suspense>
             )}
 
             {/* Ticket Details Modal */}

@@ -28,6 +28,10 @@ const AdminDashboard = lazy(() => import('./pages/dashboards/AdminDashboard'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 
+// Lazy load admin-specific components
+const SecurityDashboard = lazy(() => import('./pages/dashboards/SecurityDashboard'));
+const ReassignTechnician = lazy(() => import('./components/ReassignTechnician'));
+
 /**
  * @function DashboardRouter
  * @description Role-Based Access Control (RBAC) Switcher.
@@ -54,22 +58,31 @@ function DashboardRouter() {
 
 export default function App() {
   useEffect(() => {
-    // Initialize performance monitoring
-    import('./utils/performanceMonitoring.js').then(({ initPerformanceMonitoring, logPerformanceWarnings }) => {
-      initPerformanceMonitoring();
-      // Log warnings after 5 seconds
-      setTimeout(logPerformanceWarnings, 5000);
-    });
+    // Defer non-critical monitoring to improve initial load
+    const deferMonitoring = async () => {
+      // Wait for initial render before starting monitoring
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Initialize performance monitoring
+      import('./utils/performanceMonitoring.js').then(({ initPerformanceMonitoring, logPerformanceWarnings }) => {
+        initPerformanceMonitoring();
+        // Log warnings after 5 seconds
+        setTimeout(logPerformanceWarnings, 5000);
+      });
 
-    // Initialize security monitoring after app mounts
-    import('./utils/securityMonitoring.js').then(({ initializeSecurityMonitoring }) => {
-      initializeSecurityMonitoring();
-    });
+      // Initialize security monitoring after app mounts
+      import('./utils/securityMonitoring.js').then(({ initializeSecurityMonitoring }) => {
+        initializeSecurityMonitoring();
+      });
 
-    // Register service worker
-    import('./utils/registerSW.js').then(() => {
-      // Service worker registered
-    });
+      // Register service worker
+      import('./utils/registerSW.js').then(() => {
+        // Service worker registered
+      });
+    };
+
+    // Run in background to not block initial render
+    deferMonitoring();
   }, []);
 
   return (

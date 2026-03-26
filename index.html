@@ -3,12 +3,40 @@
 
 <head>
   <meta charset="UTF-8" />
+  <script>
+    // Early intervention: Disable unload API before extensions can use it
+    // This prevents Permissions-Policy violation warnings from browser extensions
+    try {
+      if (window.addEventListener) {
+        const originalAddEventListener = window.addEventListener;
+        window.addEventListener = function(type, listener, options) {
+          if (type === 'unload' || type === 'beforeunload') {
+            // Silently drop unload listeners from extensions
+            return;
+          }
+          return originalAddEventListener.call(this, type, listener, options);
+        };
+      }
+      if (window.removeEventListener) {
+        const originalRemoveEventListener = window.removeEventListener;
+        window.removeEventListener = function(type, listener, options) {
+          if (type === 'unload' || type === 'beforeunload') {
+            return;
+          }
+          return originalRemoveEventListener.call(this, type, listener, options);
+        };
+      }
+    } catch (e) {
+      // Ignore any errors in this early script
+    }
+  </script>
   <link rel="icon" href="/favicon.ico" sizes="any" />
   <link rel="icon" type="image/png" href="/pwa-192x192.png" />
   <link rel="apple-touch-icon" href="/pwa-192x192.png" />
   <link rel="manifest" href="/manifest.json" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://ntayjobqhpbozamoxgad.supabase.co 'sha256-Z2/iFzh9VMlVkEOar1f/oSHWwQk3ve1qk/C2WdsC4Xk=' 'sha256-+iz8eJzSsU+2n7gjPhZ3/518PSxaGqZql8Kzpmp5BwU='; style-src 'self' 'unsafe-inline' https://ntayjobqhpbozamoxgad.supabase.co; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://ntayjobqhpbozamoxgad.supabase.co https://api.supabase.co https://mtusmms.me https://api.emailjs.com wss://ntayjobqhpbozamoxgad.supabase.co ws://ntayjobqhpbozamoxgad.supabase.co; base-uri 'self'; form-action 'self';" />
+  <meta http-equiv="Permissions-Policy" content="unload=(), camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://ntayjobqhpbozamoxgad.supabase.co; style-src 'self' 'unsafe-inline' https://ntayjobqhpbozamoxgad.supabase.co; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' http://localhost:* https://localhost:* ws://localhost:* wss://localhost:* https://ntayjobqhpbozamoxgad.supabase.co https://api.supabase.co https://mtusmms.me https://api.emailjs.com wss://ntayjobqhpbozamoxgad.supabase.co ws://ntayjobqhpbozamoxgad.supabase.co; base-uri 'self'; form-action 'self';" />
   <title>SMMS | Mountain Top University</title>
   <script>
     // Global Safety Net: Catches ChunkLoadErrors that React boundaries might miss
@@ -40,6 +68,25 @@
 
 <body>
   <div id="root"></div>
+  <!-- CommonJS Polyfill: Must load before any modules -->
+  <script>
+    // Polyfill CommonJS globals for libraries that expect them
+    if (typeof window.exports === 'undefined') {
+      window.exports = {};
+    }
+    if (typeof window.module === 'undefined') {
+      window.module = { exports: window.exports };
+    }
+    if (typeof window.global === 'undefined') {
+      window.global = window.globalThis || window;
+    }
+    if (typeof window.require === 'undefined') {
+      window.require = function(id) {
+        console.warn('require() called but not available for:', id);
+        return {};
+      };
+    }
+  </script>
   <script type="module" src="/src/main.jsx"></script>
 </body>
 

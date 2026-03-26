@@ -35,7 +35,7 @@ export function AuthProvider({ children }) {
                 if (mounted && session?.user) {
                     userIdRef.current = session.user.id;
                     setUser(session.user);
-                    await fetchProfile(session.user.id);
+                    await fetchProfile(session.user.id, session.user);
                 } else if (mounted) {
                     setLoading(false);
                 }
@@ -68,7 +68,7 @@ export function AuthProvider({ children }) {
                         setLoading(true);
                         userIdRef.current = newId;
                         setUser(session.user);
-                        await fetchProfile(newId);
+                        await fetchProfile(newId, session.user);
                     } else {
                         // Same user, different event (e.g. recovered session)
                         setUser(session.user);
@@ -93,7 +93,7 @@ export function AuthProvider({ children }) {
     // Fetches the extended user profile (role, department) from the 'profiles' table.
     // This separation of 'auth.users' (credentials) and 'public.profiles' (metadata) 
     // is a standard security practice in Supabase.
-    const fetchProfile = async (userId) => {
+    const fetchProfile = async (userId, currentUser, retryCount = 0) => {
         // Check cache first
         const cache = profileCacheRef.current;
         const cached = cache.get(userId);
@@ -106,9 +106,9 @@ export function AuthProvider({ children }) {
         }
 
         try {
-            // Add timeout to prevent hanging
+            // Add timeout to prevent hanging - increased to 10 seconds
             const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
+                setTimeout(() => reject(new Error('Profile fetch timeout after 10 seconds')), 10000)
             );
             
             const fetchPromise = supabase
@@ -125,9 +125,33 @@ export function AuthProvider({ children }) {
                 cache.set(userId, { data, timestamp: Date.now() });
             } else if (error) {
                 console.error('Profile fetch error:', error);
+                // Retry logic for network errors
+                if (retryCount < 2 && (error.message?.includes('timeout') || error.message?.includes('network'))) {
+                    console.log(`Retrying profile fetch (${retryCount + 1}/3)...`);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    return fetchProfile(userId, currentUser, retryCount + 1);
+                }
+                // Set a default profile if user exists but no profile record
+                if (error.code === 'PGRST116') { // No rows returned
+                    console.warn('No profile found for user, setting default profile');
+                    const defaultProfile = {
+                        id: userId,
+                        email: currentUser?.email || 'unknown@example.com',
+                        role: 'student', // Default role
+                        full_name: currentUser?.user_metadata?.full_name || 'Unknown User'
+                    };
+                    setProfile(defaultProfile);
+                    cache.set(userId, { data: defaultProfile, timestamp: Date.now() });
+                }
             }
         } catch (error) {
-            console.error('Error fetching profile:', error);
+            console.error('Error fetching profile:', error.message);
+            // Retry logic for timeout errors
+            if (retryCount < 2 && error.message?.includes('timeout')) {
+                console.log(`Retrying profile fetch after timeout (${retryCount + 1}/3)...`);
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                return fetchProfile(userId, currentUser, retryCount + 1);
+            }
         } finally {
             setLoading(false);
         }

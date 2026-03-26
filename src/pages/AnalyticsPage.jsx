@@ -8,13 +8,15 @@
  * - Separation of Concerns: keeps operational dashboard focused on ticket management.
  * - Access Control: Restricted to Administrators only.
  */
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 import { supabase } from '../lib/supabase';
 import Loader from '../components/Loader';
-import AnalyticsSummary from '../components/AnalyticsSummary';
-import { generateTicketReport } from '../utils/generateReport';
 import { BarChart, PieChart } from 'lucide-react';
 import { useAuth } from '../contexts/useAuth';
+
+// Lazy load AnalyticsSummary to avoid loading heavy recharts library on initial load
+const AnalyticsSummary = lazy(() => import('../components/AnalyticsSummary')); 
+import { generateTicketReport } from '../utils/generateReport';
 
 export default function AnalyticsPage() {
     const { profile, loading: authLoading } = useAuth();
@@ -152,7 +154,9 @@ export default function AnalyticsPage() {
                     System Overview
                 </h2>
 
-                <AnalyticsSummary key="analytics-summary" tickets={memoizedTickets} />
+                <Suspense fallback={<div className="h-64 flex items-center justify-center"><Loader /></div>}>
+                    <AnalyticsSummary key="analytics-summary" tickets={memoizedTickets} />
+                </Suspense>
             </div>
         </div>
     );

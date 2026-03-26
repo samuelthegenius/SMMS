@@ -60,43 +60,37 @@ export default defineConfig({
 
   // Build Configuration for Optimization
   build: {
-    chunkSizeWarningLimit: 1000, // Increased limit to 1MB to reduce noise for inevitably large chunks
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
-      // Add Rollup configuration to handle CommonJS modules
       external: [],
       output: {
         format: 'es',
         exports: 'auto',
+        // Simplified chunking strategy - fewer chunks = less HTTP overhead
         manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-ui': ['lucide-react', 'class-variance-authority', 'clsx', 'tailwind-merge'],
-          'vendor-charts': ['recharts'],
-          'vendor-pdf': ['jspdf', 'jspdf-autotable'],
-          'vendor-supabase': ['@supabase/supabase-js'],
-          'vendor-motion': ['framer-motion'],
-          'vendor-other': ['@google/generative-ai', 'resend', 'swr', 'sonner']
+          'vendor-react': ['react', 'react-dom', 'react-router-dom', 'framer-motion', 'lucide-react', 'class-variance-authority', 'clsx', 'tailwind-merge', 'sonner'],
+          'vendor-data': ['@supabase/supabase-js', 'swr'],
+          'vendor-heavy': ['recharts', 'jspdf', 'jspdf-autotable', '@google/generative-ai', 'resend']
         },
-        // Optimize chunk splitting for better caching
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js'
       }
     },
-    // Enable better optimization
     minify: 'terser',
     sourcemap: false,
-    target: 'es2020'
+    target: 'es2020',
+    // Speed up builds
+    reportCompressedSize: false
   },
   
   // Optimize development server
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom', '@supabase/supabase-js'],
-    exclude: [
-      'jspdf', 'jspdf-autotable', // Heavy PDF libraries
-      'recharts', // Charts library - load on demand
-      '@google/generative-ai' // AI library - load on demand
-    ],
-    // Force optimization of problematic dependencies - disabled for faster builds
-    // force: true
+    include: ['react', 'react-dom', 'react-router-dom', '@supabase/supabase-js', 'lucide-react', 'clsx', 'tailwind-merge', 'class-variance-authority'],
+    // Don't exclude heavy deps - let Vite pre-bundle them for faster loading
+    exclude: [],
+    esbuildOptions: {
+      target: 'es2020'
+    }
   },
   
   // Define global constants to replace exports-related issues
@@ -106,9 +100,6 @@ export default defineConfig({
   
   // Resolve module issues
   resolve: {
-    alias: {
-      // Ensure we use the ES module version of supabase
-      '@supabase/supabase-js': '@supabase/supabase-js/dist/module/index.js'
-    }
+    alias: {}
   }
 })

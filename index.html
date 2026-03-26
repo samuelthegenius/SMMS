@@ -11,12 +11,13 @@
   <meta http-equiv="Permissions-Policy" content="unload=(), camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://ntayjobqhpbozamoxgad.supabase.co; style-src 'self' 'unsafe-inline' https://ntayjobqhpbozamoxgad.supabase.co; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' http://localhost:* https://localhost:* ws://localhost:* wss://localhost:* https://ntayjobqhpbozamoxgad.supabase.co https://api.supabase.co https://mtusmms.me https://api.emailjs.com wss://ntayjobqhpbozamoxgad.supabase.co ws://ntayjobqhpbozamoxgad.supabase.co; base-uri 'self'; form-action 'self';" />
   <title>SMMS | Mountain Top University</title>
+  <link rel="preconnect" href="https://ntayjobqhpbozamoxgad.supabase.co" crossorigin />
 </head>
 
 <body>
   <div id="root"></div>
-  <!-- CommonJS Polyfill: Load as module for non-blocking parsing -->
-  <script type="module">
+  <!-- CommonJS Polyfill: Non-blocking async module -->
+  <script type="module" async>
     if (typeof window.exports === 'undefined') window.exports = {};
     if (typeof window.module === 'undefined') window.module = { exports: window.exports };
     if (typeof window.global === 'undefined') window.global = window.globalThis || window;
@@ -25,7 +26,7 @@
     }
   </script>
   <!-- Deferred chunk error handler - non-critical -->
-  <script defer type="module">
+  <script async type="module">
     window.addEventListener('error', (e) => handleChunkError(e));
     window.addEventListener('unhandledrejection', (e) => handleChunkError(e.reason));
     function handleChunkError(error) {
@@ -41,7 +42,7 @@
       }
     }
   </script>
-  <script type="module" src="/src/main.jsx"></script>
+  <script async type="module" src="/src/main.jsx"></script>
 </body>
 
 </html>

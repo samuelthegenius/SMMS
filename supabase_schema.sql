@@ -127,6 +127,20 @@ CREATE TABLE IF NOT EXISTS rate_limits (
     CONSTRAINT rate_limits_identifier_action_key UNIQUE (identifier, action)
 );
 
+-- SECURITY_EVENTS: For security monitoring and logging
+CREATE TABLE IF NOT EXISTS security_events (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    event_type text NOT NULL,
+    severity text DEFAULT 'low' CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+    ip_address text,
+    user_id uuid REFERENCES profiles(id) ON DELETE SET NULL,
+    details jsonb DEFAULT '{}',
+    event_timestamp timestamptz DEFAULT now(),
+    user_agent text,
+    resolved_at timestamptz,
+    created_at timestamptz DEFAULT now()
+);
+
 -- ============================================================================
 -- 4. INDEXES
 -- ============================================================================
@@ -137,6 +151,9 @@ CREATE INDEX idx_tickets_created_at ON tickets(created_at DESC);
 CREATE INDEX idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX idx_notifications_is_read ON notifications(is_read);
 CREATE INDEX idx_technician_skills_profile ON technician_skills(profile_id);
+CREATE INDEX idx_security_events_timestamp ON security_events(event_timestamp DESC);
+CREATE INDEX idx_security_events_type ON security_events(event_type);
+CREATE INDEX idx_security_events_severity ON security_events(severity);
 
 -- ============================================================================
 -- 5. FUNCTIONS
@@ -339,6 +356,67 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Get security metrics for dashboard
+CREATE OR REPLACE FUNCTION get_security_metrics()
+RETURNS TABLE (
+    total_events bigint,
+    failed_logins bigint,
+    suspicious_activities bigint,
+    unique_ips bigint,
+    active_alerts bigint
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        (SELECT COUNT(*)::bigint 
+         FROM security_events 
+         WHERE event_timestamp > NOW() - INTERVAL '24 hours') as total_events,
+        (SELECT COUNT(*)::bigint 
+         FROM security_events 
+         WHERE event_type = 'login_failure' 
+           AND event_timestamp > NOW() - INTERVAL '24 hours') as failed_logins,
+        (SELECT COUNT(*)::bigint 
+         FROM security_events 
+         WHERE severity IN ('high', 'critical')
+           AND event_timestamp > NOW() - INTERVAL '24 hours') as suspicious_activities,
+        (SELECT COUNT(DISTINCT ip_address)::bigint 
+         FROM security_events 
+         WHERE event_timestamp > NOW() - INTERVAL '24 hours') as unique_ips,
+        (SELECT COUNT(*)::bigint 
+         FROM security_events 
+         WHERE severity IN ('high', 'critical')
+           AND (resolved_at IS NULL OR resolved_at > NOW() - INTERVAL '24 hours')) as active_alerts;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Get security events for dashboard
+CREATE OR REPLACE FUNCTION get_security_events_dashboard(limit_count integer DEFAULT 20)
+RETURNS TABLE (
+    id uuid,
+    event_type text,
+    severity text,
+    ip_address text,
+    details jsonb,
+    event_timestamp timestamptz,
+    user_agent text
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        se.id,
+        se.event_type,
+        se.severity,
+        se.ip_address,
+        se.details,
+        se.event_timestamp,
+        se.user_agent
+    FROM security_events se
+    WHERE se.event_timestamp > NOW() - INTERVAL '24 hours'
+    ORDER BY se.event_timestamp DESC
+    LIMIT limit_count;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- ============================================================================
 -- 6. TRIGGERS
 -- ============================================================================
@@ -359,6 +437,7 @@ ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rate_limits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE security_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE departments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE facility_types ENABLE ROW LEVEL SECURITY;
 ALTER TABLE maintenance_categories ENABLE ROW LEVEL SECURITY;
@@ -556,6 +635,15 @@ CREATE POLICY "Users can delete own skills"
             WHERE id = auth.uid() AND role = 'admin'
         )
     );
+
+-- SECURITY_EVENTS: Admin only
+CREATE POLICY "Security events viewable by admins only"
+    ON security_events FOR SELECT
+    TO authenticated
+    USING (EXISTS (
+        SELECT 1 FROM profiles
+        WHERE id = auth.uid() AND role = 'admin'
+    ));
 
 -- ============================================================================
 -- 8. SEED DATA

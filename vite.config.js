@@ -43,6 +43,8 @@ export default defineConfig({
   server: {
     // WebSocket HMR configuration - let Vite auto-configure port
     hmr: true,
+    // SPA routing: serve index.html for all routes
+    historyApiFallback: true,
     // Security Headers for Development
     headers: {
       'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' https://ntayjobqhpbozamoxgad.supabase.co; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' http://localhost:* https://localhost:* ws://localhost:* wss://localhost:* https://ntayjobqhpbozamoxgad.supabase.co https://api.supabase.co https://mtusmms.me https://api.emailjs.com wss://ntayjobqhpbozamoxgad.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests; object-src 'none'; media-src 'self'; worker-src 'self' blob:;",
@@ -69,8 +71,9 @@ export default defineConfig({
         // Simplified chunking strategy - fewer chunks = less HTTP overhead
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom', 'framer-motion', 'lucide-react', 'class-variance-authority', 'clsx', 'tailwind-merge', 'sonner'],
-          'vendor-data': ['@supabase/supabase-js', 'swr'],
-          'vendor-heavy': ['recharts', 'jspdf', 'jspdf-autotable', '@google/generative-ai', 'resend']
+          'vendor-data': ['@supabase/supabase-js', 'swr']
+          // Note: Heavy libs (recharts, jspdf, @google/generative-ai, resend) are NOT here
+          // They are loaded on-demand via dynamic imports in the components that use them
         },
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js'

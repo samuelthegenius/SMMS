@@ -17,11 +17,10 @@ import Loader from './components/Loader';
 import InstallPrompt from './components/InstallPrompt';
 import { Toaster } from 'sonner';
 
-import Login from './pages/Login';
-import SignUp from './pages/SignUp';
-import TicketForm from './pages/TicketForm';
-
-// Lazy load heavy components
+// Lazy load all pages for code splitting
+const Login = lazy(() => import('./pages/Login'));
+const SignUp = lazy(() => import('./pages/SignUp'));
+const TicketForm = lazy(() => import('./pages/TicketForm'));
 const UserDashboard = lazy(() => import('./pages/dashboards/UserDashboard'));
 const TechnicianDashboard = lazy(() => import('./pages/dashboards/TechnicianDashboard'));
 const AdminDashboard = lazy(() => import('./pages/dashboards/AdminDashboard'));

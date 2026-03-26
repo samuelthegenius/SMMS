@@ -1,21 +1,28 @@
 // Custom Service Worker for PWA functionality
 // This replaces the vulnerable vite-plugin-pwa implementation
 
-const CACHE_NAME = 'smms-v1';
+const CACHE_NAME = 'smms-v2';
 const urlsToCache = [
   '/',
-  '/dashboard',
-  '/login',
-  '/signup',
-  '/static/js/bundle.js',
-  '/static/css/main.css'
+  '/index.html',
+  '/manifest.json'
 ];
 
 // Install event - cache resources
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(urlsToCache))
+      .then((cache) => {
+        // Cache each URL individually to handle failures gracefully
+        return Promise.all(
+          urlsToCache.map(url =>
+            cache.add(url).catch(err => {
+              console.warn(`[SW] Failed to cache ${url}:`, err.message);
+            })
+          )
+        );
+      })
+      .then(() => self.skipWaiting())
   );
 });
 

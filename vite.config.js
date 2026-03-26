@@ -77,15 +77,14 @@ export default defineConfig({
           'vendor-other': ['@google/generative-ai', 'resend', 'swr', 'sonner']
         },
         // Optimize chunk splitting for better caching
-        chunkFileNames: () => {
-          return `assets/[name]-[hash].js`;
-        }
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js'
       }
     },
     // Enable better optimization
     minify: 'terser',
     sourcemap: false,
-    target: 'es2015'
+    target: 'es2020'
   },
   
   // Optimize development server
@@ -96,8 +95,8 @@ export default defineConfig({
       'recharts', // Charts library - load on demand
       '@google/generative-ai' // AI library - load on demand
     ],
-    // Force optimization of problematic dependencies
-    force: true
+    // Force optimization of problematic dependencies - disabled for faster builds
+    // force: true
   },
   
   // Define global constants to replace exports-related issues

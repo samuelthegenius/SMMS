@@ -58,31 +58,24 @@ function DashboardRouter() {
 
 export default function App() {
   useEffect(() => {
-    // Defer non-critical monitoring to improve initial load
-    const deferMonitoring = async () => {
-      // Wait for initial render before starting monitoring
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    // Initialize non-critical features after app mounts
+    const init = async () => {
+      // Parallel imports for faster loading
+      const [{ initPerformanceMonitoring }, { initializeSecurityMonitoring }] = await Promise.all([
+        import('./utils/performanceMonitoring.js'),
+        import('./utils/securityMonitoring.js')
+      ]);
       
-      // Initialize performance monitoring
-      import('./utils/performanceMonitoring.js').then(({ initPerformanceMonitoring, logPerformanceWarnings }) => {
-        initPerformanceMonitoring();
-        // Log warnings after 5 seconds
-        setTimeout(logPerformanceWarnings, 5000);
-      });
-
-      // Initialize security monitoring after app mounts
-      import('./utils/securityMonitoring.js').then(({ initializeSecurityMonitoring }) => {
-        initializeSecurityMonitoring();
-      });
-
+      initPerformanceMonitoring();
+      setTimeout(() => initPerformanceMonitoring?.logPerformanceWarnings?.(), 5000);
+      initializeSecurityMonitoring();
+      
       // Register service worker
-      import('./utils/registerSW.js').then(() => {
-        // Service worker registered
-      });
+      import('./utils/registerSW.js');
     };
 
-    // Run in background to not block initial render
-    deferMonitoring();
+    // Small delay to prioritize initial render
+    requestIdleCallback?.(init) || setTimeout(init, 100);
   }, []);
 
   return (

@@ -16,7 +16,8 @@ export default function ProtectedRoute({ children }) {
 
     // 1. Loading State:
     // We wait until we know who the user is (Auth) AND have their details (Profile).
-    if (loading || (user && !profile)) {
+    // But we don't want to show loader if we already have user data and just fetching profile updates
+    if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-slate-50">
                 <div className="text-center">
@@ -31,7 +32,20 @@ export default function ProtectedRoute({ children }) {
     // If no user is logged in, redirect to login.
     if (!user) return <Navigate to="/login" replace />;
 
-    // 3. Render Content:
+    // 3. Profile Check:
+    // If user exists but no profile yet, show a brief loader
+    if (!profile) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-slate-50">
+                <div className="text-center">
+                    <Loader />
+                    <p className="mt-4 text-slate-500 font-medium">Loading Profile...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // 4. Render Content:
     // If used as a wrapper <ProtectedRoute><Component /></ProtectedRoute>, render children.
     // If used as a Layout Route <Route element={<ProtectedRoute />}>, render <Outlet />.
     return children ? children : <Outlet />;

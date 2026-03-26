@@ -32,14 +32,14 @@ async function getAdminEmail(supabase: any) {
         if (error || !data?.email) {
             console.warn('[Escalation Monitor] Could not fetch admin email from DB. Using fallback.')
             // Use environment variable fallback instead of hardcoded email
-            const fallbackEmail = Deno.env.get('ADMIN_EMAIL') || 'admin@mtu.edu.ng'
+            const fallbackEmail = Deno.env.get('ADMIN_EMAIL') || 'admin@example.com'
             return fallbackEmail
         }
 
         return data.email
     } catch (err) {
         console.error('[Escalation Monitor] Error in getAdminEmail:', err)
-        const fallbackEmail = Deno.env.get('ADMIN_EMAIL') || 'admin@mtu.edu.ng'
+        const fallbackEmail = Deno.env.get('ADMIN_EMAIL') || 'admin@example.com'
         return fallbackEmail
     }
 }
@@ -140,7 +140,7 @@ serve(async (req: Request) => {
                     template_params: {
                         to_email: recipientEmail,
                         subject: `URGENT ESCALATION: ${ticket.title}`,
-                        message: `This ticket (ID: ${ticket.id}) has been ignored for over 4 hours.\n\nDetails:\nTitle: ${ticket.title}\nLocation: ${ticket.specific_location || 'Unknown'}\nPriority: ${ticket.priority}\nSubmitted: ${new Date(ticket.created_at).toLocaleString()}\n\nView Dashboard: https://mtusmms.me/dashboard`,
+                        message: `This ticket (ID: ${ticket.id}) has been ignored for over 4 hours.\n\nDetails:\nTitle: ${ticket.title}\nLocation: ${ticket.specific_location || 'Unknown'}\nPriority: ${ticket.priority}\nSubmitted: ${new Date(ticket.created_at).toLocaleString()}\n\nView Dashboard: [DASHBOARD_URL]`,
                         ticket_id: ticket.id
                     }
                 }

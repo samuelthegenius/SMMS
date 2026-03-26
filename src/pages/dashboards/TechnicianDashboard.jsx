@@ -137,6 +137,7 @@ export default function TechnicianDashboard() {
             if (error) throw error;
 
             // Format the AI response for display
+            let formattedSuggestion;
             if (data.technical_diagnosis && data.tools_required && data.safety_precaution) {
                 // Normal mode - format structured response with proper styling
                 formattedSuggestion = `

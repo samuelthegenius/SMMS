@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Bell, Check } from 'lucide-react';
@@ -47,9 +47,9 @@ export default function NotificationBell() {
             subscription.unsubscribe();
             document.removeEventListener("mousedown", handleClickOutside);
         };
-    }, [user]);
+    }, [user, fetchNotifications]);
 
-    const fetchNotifications = async () => {
+    const fetchNotifications = useCallback(async () => {
         try {
             const { data, error } = await supabase
                 .from('notifications')
@@ -75,7 +75,7 @@ export default function NotificationBell() {
         } catch (error) {
             console.error('Error fetching notifications:', error);
         }
-    };
+    }, [user.id]);
 
     const handleToggle = async () => {
         const newIsOpen = !isOpen;

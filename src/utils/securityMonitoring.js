@@ -165,10 +165,10 @@ class SecurityLogger {
     this.eventQueue = [];
 
     try {
-      const { error } = await supabase.rpc('log_security_events', { events });
+      const { error: _error } = await supabase.rpc('log_security_events', { events });
       
-      if (error) {
-        console.error('Failed to log security events:', error);
+      if (_error) {
+        console.error('Failed to log security events:', _error);
         // Re-queue events on failure
         this.eventQueue.unshift(...events);
       }
@@ -184,12 +184,15 @@ class SecurityLogger {
    */
   async getRecentEvents(limit = 50) {
     try {
-      const { data, error } = await supabase
+      const { data, error: _error } = await supabase
         .from('security_logs')
         .select('*')
         .order('timestamp', { ascending: false })
         .limit(limit);
 
+      if (_error) {
+        console.error('Failed to fetch security events:', _error);
+      }
       return data || [];
     } catch (error) {
       console.error('Failed to fetch security events:', error);
@@ -202,9 +205,9 @@ class SecurityLogger {
    */
   async getSecurityStats(timeframe = '24h') {
     try {
-      const { data, error } = await supabase.rpc('get_security_stats', { timeframe });
+      const { data, error: _error } = await supabase.rpc('get_security_stats', { timeframe });
       
-      if (error) throw error;
+      if (_error) throw _error;
       
       return {
         totalEvents: data.total_events || 0,
@@ -274,7 +277,7 @@ export const securityMonitoring = {
     });
 
     const suspiciousIPs = Object.entries(ipCounts)
-      .filter(([_, count]) => count >= threshold)
+      .filter(([count]) => count >= threshold)
       .map(([ip, count]) => ({ ip, count }));
 
     return suspiciousIPs;
@@ -305,7 +308,7 @@ export const securityMonitoring = {
 
     const avgRequests = Object.values(endpointCounts).reduce((a, b) => a + b, 0) / Object.keys(endpointCounts).length;
     analysis.unusualEndpoints = Object.entries(endpointCounts)
-      .filter(([_, count]) => count > avgRequests * 3)
+      .filter(([, endpoint]) => endpoint > avgRequests * 3)
       .map(([endpoint, count]) => ({ endpoint, count }));
 
     return analysis;
@@ -316,18 +319,20 @@ export const securityMonitoring = {
    */
   async createAlert(type, message, severity, details = {}) {
     try {
-      const { error } = await supabase
+      const { error: _error } = await supabase
         .from('security_alerts')
         .insert({
           type,
           message,
           severity,
           details,
-          created_at: new Date().toISOString(),
+          timestamp: new Date().toISOString(),
           resolved: false
         });
 
-      if (error) throw error;
+      if (_error) {
+        console.error('Failed to create security alert:', _error);
+      }
 
       // Log the alert
       await securityLogger.logEvent(

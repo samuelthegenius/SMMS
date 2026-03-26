@@ -7,13 +7,11 @@
  * - RBAC (Role-Based Access Control): Fetches and exposes user roles to protected routes.
  * - Real-time Sync: Listens for Supabase Auth events (LOGIN, SIGNOUT).
  */
-import { createContext, useContext, useEffect, useState, useRef } from 'react';
+import { createContext, useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import Loader from '../components/Loader';
 
 const AuthContext = createContext({});
-
-export const useAuth = () => useContext(AuthContext);
 
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
@@ -92,12 +90,12 @@ export function AuthProvider({ children }) {
             mounted = false;
             subscription.unsubscribe();
         };
-    }, []);
+    }, [fetchProfile, profile]);
 
     // Fetches the extended user profile (role, department) from the 'profiles' table.
     // This separation of 'auth.users' (credentials) and 'public.profiles' (metadata) 
     // is a standard security practice in Supabase.
-    const fetchProfile = async (userId, currentUser, retryCount = 0) => {
+    const fetchProfile = useCallback(async (userId, currentUser, retryCount = 0) => {
         // Check cache first
         const cache = profileCacheRef.current;
         const cached = cache.get(userId);
@@ -165,7 +163,7 @@ export function AuthProvider({ children }) {
         } finally {
             setLoading(false);
         }
-    };
+    }, [profile]);
 
     const value = {
         user,

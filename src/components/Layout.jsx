@@ -1,6 +1,6 @@
 import { Outlet, useLocation } from 'react-router-dom';
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { Wrench, Menu, X } from 'lucide-react';
 import Sidebar from './Sidebar';
 import NotificationBell from './NotificationBell';
@@ -40,16 +40,12 @@ export default function Layout() {
 
                 <div className="p-4 md:p-8 max-w-7xl mx-auto min-h-full w-full">
                     <AnimatePresence mode="wait">
-                        <motion.div
+                        <div
                             key={location.pathname}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -20 }}
-                            transition={{ duration: 0.3, ease: "easeOut" }}
                             className="h-full"
                         >
                             <Outlet />
-                        </motion.div>
+                        </div>
                     </AnimatePresence>
                 </div>
             </main>

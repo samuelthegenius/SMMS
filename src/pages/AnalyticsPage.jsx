@@ -26,7 +26,7 @@ export default function AnalyticsPage() {
     const hasFetched = useRef(false);
     const ticketsRef = useRef([]);
     const fetchedProfileId = useRef(null);
-    const lastProfileRef = useRef(null);
+    const _lastProfileRef = useRef(null);
 
     // Memoize tickets to prevent unnecessary re-renders
     const memoizedTickets = useMemo(() => tickets, [tickets]);
@@ -101,7 +101,7 @@ export default function AnalyticsPage() {
             setError('Please log in to access analytics');
             setLoading(false);
         }
-    }, [profile, authLoading]);
+    }, [profile, authLoading, fetchTickets, loading]);
 
     // Show loader during authentication or data loading
     if (authLoading || loading) return <Loader />;

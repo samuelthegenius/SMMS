@@ -3,7 +3,7 @@
  * Automated security tests for SMMS application
  */
 
-import { describe, it, expect, beforeEach, afterEach } from '@jest/testing-framework';
+import { describe, it, expect, beforeEach } from '@jest/testing-framework';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from '../contexts/AuthContext';
@@ -39,7 +39,7 @@ describe('Security Tests', () => {
     });
 
     it('should prevent SQL injection patterns', () => {
-      const sqlInjection = "'; DROP TABLE users; --";
+      const sqlInjection = "'; DELETE FROM users; --";
       const sanitized = sanitizeInput(sqlInjection);
       
       expect(sanitized).not.toContain("';");
@@ -158,7 +158,7 @@ describe('Security Tests', () => {
       );
 
       const titleInput = screen.getByLabelText(/Title/i);
-      const descriptionInput = screen.getByLabelText(/Description/i);
+      const _descriptionInput = screen.getByLabelText(/Description/i);
 
       // Test XSS attempt in title
       fireEvent.change(titleInput, { 

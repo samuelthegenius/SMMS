@@ -167,7 +167,7 @@ export const validateSecurity = {
       }
 
       return urlObj.href;
-    } catch (error) {
+    } catch {
       throw new Error('Invalid URL format');
     }
   },

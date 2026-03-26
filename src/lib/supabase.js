@@ -24,8 +24,8 @@ const customFetch = async (url, options) => {
         const response = await fetch(url, options);
         
         // Check for rate limit headers (if Supabase returns them)
-        const remaining = response.headers.get('X-RateLimit-Remaining');
-        const reset = response.headers.get('X-RateLimit-Reset');
+        const _remaining = response.headers.get('X-RateLimit-Remaining');
+        const _reset = response.headers.get('X-RateLimit-Reset');
         
         if (response.status === 429) {
             console.warn('Rate limit exceeded. Please slow down.');

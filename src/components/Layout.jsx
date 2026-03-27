@@ -1,9 +1,16 @@
 import { Outlet, useLocation } from 'react-router-dom';
-import { useState } from 'react';
-import { AnimatePresence } from 'framer-motion';
+import { useState, lazy, Suspense } from 'react';
 import { Wrench, Menu, X } from 'lucide-react';
 import Sidebar from './Sidebar';
 import NotificationBell from './NotificationBell';
+
+// Lazy load framer-motion to prevent it from blocking initial render
+const AnimatePresence = lazy(() => 
+  import('framer-motion').then(m => ({ default: m.AnimatePresence }))
+);
+
+// Simple fallback wrapper that doesn't block render
+const MotionFallback = ({ children }) => <>{children}</>;
 
 export default function Layout() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -39,14 +46,16 @@ export default function Layout() {
                 </div>
 
                 <div className="p-4 md:p-8 max-w-7xl mx-auto min-h-full w-full">
-                    <AnimatePresence mode="wait">
-                        <div
-                            key={location.pathname}
-                            className="h-full"
-                        >
-                            <Outlet />
-                        </div>
-                    </AnimatePresence>
+                    <Suspense fallback={<MotionFallback />}>
+                        <AnimatePresence mode="wait">
+                            <div
+                                key={location.pathname}
+                                className="h-full"
+                            >
+                                <Outlet />
+                            </div>
+                        </AnimatePresence>
+                    </Suspense>
                 </div>
             </main>
         </div>

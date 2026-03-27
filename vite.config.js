@@ -9,6 +9,7 @@
  */
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { visualizer } from 'rollup-plugin-visualizer'
 
 // Custom plugin to handle CommonJS exports issues
 const commonjsFix = () => ({
@@ -26,7 +27,7 @@ const commonjsFix = () => ({
 })
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     // Custom plugin to handle CommonJS exports issues
     commonjsFix(),
@@ -36,27 +37,35 @@ export default defineConfig({
       jsxRuntime: 'automatic',
       // Ensure proper import source
       importSource: 'react'
+    }),
+    // Bundle analyzer - only in analyze mode
+    mode === 'analyze' && visualizer({
+      open: true,
+      gzipSize: true,
+      brotliSize: true,
+      filename: 'dist/stats.html'
     })
-  ],
+  ].filter(Boolean),
 
   // Development Server Configuration
   server: {
-    // WebSocket HMR configuration - use same port as HTTP server
+    // Explicit HMR configuration to fix WebSocket connection
     hmr: {
-      port: 5173,
+      protocol: 'ws',
       host: 'localhost',
-      protocol: 'ws'
+      port: 5173,
+      clientPort: 5173
     },
     // SPA routing: serve index.html for all routes
     historyApiFallback: true,
     // Security Headers for Development
     headers: {
-      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' https://ntayjobqhpbozamoxgad.supabase.co; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' http://localhost:* https://localhost:* ws://localhost:* wss://localhost:* https://ntayjobqhpbozamoxgad.supabase.co https://api.supabase.co https://mtusmms.me https://api.emailjs.com wss://ntayjobqhpbozamoxgad.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests; object-src 'none'; media-src 'self'; worker-src 'self' blob:;",
+      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' https://ntayjobqhpbozamoxgad.supabase.co https://va.vercel-scripts.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' http://localhost:* https://localhost:* ws://localhost:* wss://localhost:* https://ntayjobqhpbozamoxgad.supabase.co https://api.supabase.co https://mtusmms.me https://api.emailjs.com wss://ntayjobqhpbozamoxgad.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests; object-src 'none'; media-src 'self'; worker-src 'self' blob:;",
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'DENY',
       'X-XSS-Protection': '1; mode=block',
       'Referrer-Policy': 'strict-origin-when-cross-origin',
-      'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=(), unload=()',
+      'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()',
       'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload'
     },
     // Enable preloading for better performance
@@ -74,30 +83,103 @@ export default defineConfig({
         exports: 'auto',
         // Simplified chunking strategy - fewer chunks = less HTTP overhead
         manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom', 'framer-motion', 'lucide-react', 'class-variance-authority', 'clsx', 'tailwind-merge', 'sonner'],
+          // Core framework + UI utilities - merged to avoid circular dependency
+          'vendor-core': [
+            'react', 'react-dom', 'react-router-dom',
+            'lucide-react', 'class-variance-authority', 'clsx', 'tailwind-merge', 'sonner'
+          ],
+          // Animations - lazy loaded when needed
+          'vendor-motion': ['framer-motion'],
+          // Data layer
           'vendor-data': ['@supabase/supabase-js', 'swr']
-          // Note: Heavy libs (recharts, jspdf, @google/generative-ai, resend) are NOT here
-          // They are loaded on-demand via dynamic imports in the components that use them
+          // Heavy libs (recharts, jspdf, @google/generative-ai, resend) loaded on-demand via dynamic imports
         },
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js'
       }
     },
     minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+        pure_funcs: ['console.log', 'console.info', 'console.debug', 'console.trace'],
+        passes: 2,
+        dead_code: true,
+        unused: true,
+        reduce_vars: true,
+        collapse_vars: true,
+        evaluate: true,
+        booleans: true,
+        typeofs: true,
+        conditionals: true,
+        sequences: true,
+        properties: true,
+        comparisons: true,
+        hoist_funs: true,
+        hoist_vars: false,
+        if_return: true,
+        join_vars: true,
+        side_effects: true
+      },
+      mangle: {
+        safari10: true,
+        properties: false
+      },
+      format: {
+        comments: false,
+        ascii_only: true
+      }
+    },
+    cssMinify: true,
     sourcemap: false,
     target: 'es2020',
-    // Speed up builds
-    reportCompressedSize: false
+    reportCompressedSize: false,
+    // Generate smaller chunks
+    cssCodeSplit: true,
+    assetsInlineLimit: 8192,
+    // Module preloading for critical chunks
+    modulePreload: {
+      polyfill: true,
+      resolveDependencies: (url, deps, _chunk) => {
+        // Only preload critical dependencies
+        return deps.filter(dep => 
+          dep.includes('vendor-core') || 
+          dep.includes('vendor-data')
+        );
+      }
+    },
+    // Experimental features for faster builds
+    experimental: {
+      renderBuiltUrl: (_filename) => {
+        return {
+          relative: true
+        };
+      }
+    }
   },
   
   // Optimize development server
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom', '@supabase/supabase-js', 'lucide-react', 'clsx', 'tailwind-merge', 'class-variance-authority'],
-    // Don't exclude heavy deps - let Vite pre-bundle them for faster loading
-    exclude: [],
+    include: ['react', 'react-dom', 'react-router-dom', '@supabase/supabase-js', 'lucide-react', 'clsx', 'tailwind-merge', 'class-variance-authority', 'sonner', 'swr'],
+    exclude: ['framer-motion'], // Loaded when animations are needed
     esbuildOptions: {
-      target: 'es2020'
-    }
+      target: 'es2020',
+      minify: true,
+      legalComments: 'none'
+    },
+    force: false
+  },
+  
+  // ESBuild configuration for faster builds
+  esbuild: {
+    target: 'es2020',
+    legalComments: 'none',
+    treeShaking: true,
+    minifyIdentifiers: true,
+    minifySyntax: true,
+    minifyWhitespace: true,
+    drop: ['console', 'debugger']
   },
   
   // Define global constants to replace exports-related issues
@@ -109,4 +191,4 @@ export default defineConfig({
   resolve: {
     alias: {}
   }
-})
+}))

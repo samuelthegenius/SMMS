@@ -28,7 +28,9 @@ export const lazyWithRetry = (importFunction, name = 'Component') => {
             return component;
         } catch (error) {
             // Error loading component, will attempt recovery
-            console.warn(`Failed to load ${name}:`, error.message);
+            if (import.meta.env.DEV) {
+              console.warn(`Failed to load ${name}:`, error.message);
+            }
 
             if (!pageHasAlreadyBeenForceRefreshed) {
                 // Force refreshing page to recover from chunk error...

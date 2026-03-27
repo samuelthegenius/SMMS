@@ -1,12 +1,6 @@
 /**
  * @file src/lib/supabase.js
- * @description Centralized Supabase implementation.
- * @author System Administrator
- *
- * Architecture Note:
- * Implements the Singleton Pattern.
- * Establishes a single connection instance to the Supabase Backend-as-a-Service (BaaS).
- * This instance is reused across the entire application to maintain connection pooling efficiency.
+ * @description Centralized Supabase implementation with lazy initialization.
  */
 import { createClient } from '@supabase/supabase-js';
 
@@ -20,55 +14,53 @@ if (!supabaseUrl || !supabaseKey) {
     }
 }
 
-// Custom fetch wrapper to handle rate limiting responses
-const customFetch = async (url, options) => {
-    try {
-        const response = await fetch(url, options);
-        
-        // Check for rate limit headers (if Supabase returns them)
-        const _remaining = response.headers.get('X-RateLimit-Remaining');
-        const _reset = response.headers.get('X-RateLimit-Reset');
-        
-        if (response.status === 429) {
-            if (import.meta.env.DEV) {
+// Lazy initialization - client created only when first accessed
+let supabaseInstance = null;
+
+const getSupabaseClient = () => {
+    if (supabaseInstance) return supabaseInstance;
+    
+    // Custom fetch wrapper to handle rate limiting
+    const customFetch = async (url, options) => {
+        try {
+            const response = await fetch(url, options);
+            if (response.status === 429 && import.meta.env.DEV) {
                 console.warn('Rate limit exceeded. Please slow down.');
             }
-        }
-        
-        return response;
-    } catch (error) {
-        // Network errors
-        if (error.message.includes('fetch')) {
-            if (import.meta.env.DEV) {
+            return response;
+        } catch (error) {
+            if (import.meta.env.DEV && error.message.includes('fetch')) {
                 console.error('Network error: Please check your connection');
             }
+            throw error;
         }
-        throw error;
-    }
-};
-
-// Constructing the client with secure environment variables.
-// VITE_ prefix exposes these variables safely to the browser bundle.
-export const supabase = createClient(
-    supabaseUrl,
-    supabaseKey,
-    {
-        fetch: customFetch,
-        auth: {
-            // Auto-refresh tokens before expiry
-            autoRefreshToken: true,
-            // Persist session to localStorage
-            persistSession: true,
-            // Detect session changes in other tabs
-            detectSessionInUrl: true,
-            // Flow type for PKCE (more secure than implicit)
-            flowType: 'pkce'
-        },
-        // Realtime options
-        realtime: {
-            params: {
-                eventsPerSecond: 10 // Limit events to prevent abuse
+    };
+    
+    supabaseInstance = createClient(
+        supabaseUrl,
+        supabaseKey,
+        {
+            fetch: customFetch,
+            auth: {
+                autoRefreshToken: true,
+                persistSession: true,
+                detectSessionInUrl: true,
+                flowType: 'pkce',
+                // Storage key to avoid conflicts
+                storageKey: 'smms-auth-token'
+            },
+            realtime: {
+                params: { eventsPerSecond: 10 }
+            },
+            // Disable realtime by default - enable only when needed
+            db: {
+                schema: 'public'
             }
         }
-    }
-);
+    );
+    
+    return supabaseInstance;
+};
+
+// Export singleton instance
+export const supabase = getSupabaseClient();

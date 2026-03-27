@@ -123,13 +123,18 @@ export const secureFetch = async (url, options = {}) => {
       if (error.error?.includes('CSRF')) {
         // Clear invalid token and regenerate
         sessionStorage.removeItem(CSRF_TOKEN_KEY);
+        if (import.meta.env.DEV) {
+          console.error('CSRF token validation failed. Please try again.');
+        }
         throw new Error('CSRF token validation failed. Please try again.');
       }
     }
     
     return response;
   } catch (error) {
-    console.error('Secure fetch error:', error);
+    if (import.meta.env.DEV) {
+      console.error('Secure fetch error:', error);
+    }
     throw error;
   }
 };

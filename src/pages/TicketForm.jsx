@@ -87,9 +87,9 @@ export default function TicketForm() {
         try {
             const sanitized = validateAndSanitizeInput(name, value, false);
             setFormData({ ...formData, [name]: sanitized });
-        } catch (error) {
+        } catch {
             // Prevent input beyond max length but don't block typing otherwise
-            toast.error(error.message);
+            toast.error('Invalid input. Please check your entry.');
         }
     };
 
@@ -213,16 +213,20 @@ export default function TicketForm() {
                     }
                 });
             } catch (emailError) {
+              if (import.meta.env.DEV) {
                 console.error("Email processing failed:", emailError);
-                // Don't block the UI flow, just log it
+              }
+                // Don't block the UI flow, just log it in development
             }
 
             toast.success('Report Submitted Successfully!');
             setSuccess(true);
             setTimeout(() => navigate('/dashboard'), 2000);
         } catch (error) {
+          if (import.meta.env.DEV) {
             console.error('Submission Error:', error);
-            toast.error(error.message || 'Failed to submit report');
+          }
+            toast.error('Failed to submit report. Please try again.');
         } finally {
             setLoading(false);
         }

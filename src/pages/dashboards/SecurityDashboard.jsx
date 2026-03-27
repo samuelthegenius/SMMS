@@ -31,7 +31,9 @@ export default function SecurityDashboard() {
                 setMetrics(metricsData);
                 setRecentEvents(eventsData || []);
             } catch (error) {
+              if (import.meta.env.DEV) {
                 console.error('Error fetching security data:', error);
+              }
             } finally {
                 setLoading(false);
             }

@@ -112,7 +112,9 @@ export default function Login() {
                 }
 
                 if (error) {
+                  if (import.meta.env.DEV) {
                     console.error('RPC error:', error);
+                  }
                     // Handle rate limit errors from server
                     if (error.message?.includes('Too many attempts')) {
                         throw new Error(error.message);
@@ -137,7 +139,9 @@ export default function Login() {
 
             if (authError) {
                 recordFailedAttempt();
-                console.error('Supabase auth error:', authError);
+                if (import.meta.env.DEV) {
+                  console.error('Supabase auth error:', authError);
+                }
                 
                 // Generic error message to prevent user enumeration
                 if (authError.message.includes('Invalid login credentials')) {
@@ -153,7 +157,9 @@ export default function Login() {
             // Navigate to dashboard - the routing system will handle the auth state
             navigate('/dashboard');
         } catch (error) {
-            console.error('Login error:', error);
+            if (import.meta.env.DEV) {
+              console.error('Login error:', error);
+            }
             // Don't expose specific errors to prevent user enumeration
             const remaining = MAX_LOGIN_ATTEMPTS - (JSON.parse(localStorage.getItem(STORAGE_KEY) || '{"attempts":0}').attempts);
             if (remaining <= 0) {

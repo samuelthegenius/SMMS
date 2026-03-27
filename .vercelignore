@@ -1,0 +1,73 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+dist
+build
+*.tgz
+
+# Development files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env*.local
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage
+.nyc_output
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Scripts that don't need to be deployed
+scripts
+
+# Documentation that's not needed in production
+*.md
+!README.md
+SECURITY_AUDIT_REPORT.md
+PRIVACY_AUDIT_FINAL.md
+PRIVACY_FIXES.md
+DEPLOYMENT_CHECKLIST.md
+PWA_RESTORATION.md
+SECURITY.md
+
+# Local Supabase (if not used in production)
+supabase/.temp
+supabase/migrations/*.sql
+
+# Misc
+.eslintrc.cjs
+eslint.config.js
+postcss.config.js
+tailwind.config.js
+vite.config.js
+
+# Missing items
+.env.example
+package-lock.json
+deploy_error.log
+supabase_schema.sql
+AGENTS.md

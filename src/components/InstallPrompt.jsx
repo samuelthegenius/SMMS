@@ -1,10 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Download, X } from 'lucide-react';
 import { Button } from './ui/Button';
 
 export default function InstallPrompt() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
     const [isVisible, setIsVisible] = useState(false);
+    const deferredPromptRef = useRef(null);
+
+    // Keep ref in sync with state for cleanup
+    useEffect(() => {
+        deferredPromptRef.current = deferredPrompt;
+    }, [deferredPrompt]);
 
     useEffect(() => {
         const handler = (e) => {
@@ -20,12 +26,12 @@ export default function InstallPrompt() {
         return () => {
             window.removeEventListener('beforeinstallprompt', handler);
             // Clean up any pending prompt
-            if (deferredPrompt) {
+            if (deferredPromptRef.current) {
                 setDeferredPrompt(null);
                 setIsVisible(false);
             }
         };
-    }, [deferredPrompt]);
+    }, []);
 
     const handleInstall = async () => {
         if (!deferredPrompt) return;

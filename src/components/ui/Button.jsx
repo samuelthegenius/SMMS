@@ -18,21 +18,21 @@ const Button = forwardRef(({
     children,
     ...props
 }, ref) => {
-    const baseStyles = "inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:pointer-events-none ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+    const baseStyles = "inline-flex items-center justify-center rounded-xl font-semibold transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2";
 
     const variants = {
-        primary: "bg-primary text-white hover:text-accent shadow-md hover:shadow-lg",
-        secondary: "bg-accent text-white hover:bg-accent/90 shadow-sm",
-        outline: "border border-slate-200 bg-transparent hover:bg-slate-100 text-slate-900",
-        ghost: "hover:bg-slate-100 text-slate-700",
-        danger: "bg-red-500 text-white hover:bg-red-600 shadow-sm",
+        primary: "bg-gradient-to-r from-primary to-slate-800 text-white hover:shadow-lg hover:shadow-primary/25 hover:brightness-110",
+        secondary: "bg-accent text-white hover:bg-amber-600 hover:shadow-lg hover:shadow-accent/25",
+        outline: "border-2 border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-700",
+        ghost: "hover:bg-slate-100 text-slate-600 hover:text-slate-900",
+        danger: "bg-gradient-to-r from-red-500 to-red-600 text-white hover:shadow-lg hover:shadow-red-500/25 hover:brightness-110",
     };
 
     const sizes = {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
-        lg: "h-11 rounded-md px-8",
-        icon: "h-10 w-10",
+        default: "h-11 px-6 py-2.5 text-sm",
+        sm: "h-9 rounded-lg px-3 py-2 text-xs",
+        lg: "h-12 rounded-xl px-8 py-3 text-base",
+        icon: "h-10 w-10 rounded-lg",
     };
 
     return (

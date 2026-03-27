@@ -117,40 +117,48 @@ export default function NotificationBell() {
         <div className="relative" ref={dropdownRef}>
             <button
                 onClick={handleToggle}
-                className="relative p-2 rounded-full hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="relative p-2.5 rounded-xl hover:bg-slate-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-accent/50 active:scale-95"
             >
-                <Bell className="w-6 h-6 text-slate-600" />
+                <Bell className="w-5 h-5 text-slate-600" />
                 {unreadCount > 0 && (
-                    <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white">
+                    <span className="absolute -top-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-md shadow-red-500/30 ring-2 ring-white animate-bounce-soft">
                         {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                 )}
             </button>
 
             {isOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-slate-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
-                    <div className="flex items-center justify-between px-4 py-2 border-b border-slate-50">
-                        <h3 className="font-semibold text-slate-900">Notifications</h3>
+                <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-2xl shadow-slate-900/10 border border-slate-100 py-2 z-50 animate-scale-in origin-top-right overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/50">
+                        <h3 className="font-bold text-slate-900">Notifications</h3>
+                        {unreadCount > 0 && (
+                            <span className="text-xs font-medium text-accent bg-accent/10 px-2 py-1 rounded-full">
+                                {unreadCount} new
+                            </span>
+                        )}
                     </div>
 
-                    <div className="max-h-[300px] overflow-y-auto">
+                    <div className="max-h-[320px] overflow-y-auto">
                         {notifications.length === 0 ? (
-                            <div className="p-8 text-center text-slate-500 text-sm">
-                                No notifications
+                            <div className="p-8 text-center">
+                                <div className="mx-auto h-12 w-12 bg-slate-100 rounded-full flex items-center justify-center mb-3">
+                                    <Bell className="h-6 w-6 text-slate-400" />
+                                </div>
+                                <p className="text-slate-500 text-sm">No notifications yet</p>
                             </div>
                         ) : (
                             <div className="divide-y divide-slate-50">
                                 {notifications.map((notification) => (
                                     <div
                                         key={notification.id}
-                                        className={`p-4 transition-colors ${!notification.is_read ? 'bg-indigo-50/50' : 'hover:bg-slate-50'}`}
+                                        className={`p-4 transition-all duration-200 cursor-pointer ${!notification.is_read ? 'bg-accent/5 border-l-2 border-l-accent' : 'hover:bg-slate-50 border-l-2 border-l-transparent'}`}
                                     >
                                         <div className="flex gap-3 items-start">
                                             <div className="flex-1 space-y-1">
                                                 <p className={`text-sm ${!notification.is_read ? 'font-semibold text-slate-900' : 'text-slate-600'}`}>
                                                     {notification.message}
                                                 </p>
-                                                <p className="text-xs text-slate-400">
+                                                <p className="text-xs text-slate-400 font-medium">
                                                     {new Date(notification.created_at).toLocaleString()}
                                                 </p>
                                             </div>

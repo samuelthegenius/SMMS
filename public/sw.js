@@ -219,6 +219,9 @@ async function cleanupCache(cacheName, maxEntries) {
 self.addEventListener('message', (event) => {
   if (event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+    if (event.source) {
+      event.source.postMessage({ type: 'SKIP_WAITING_SUCCESS' });
+    }
   }
   if (event.data.type === 'CLEAR_CACHE') {
     event.waitUntil(
@@ -226,6 +229,14 @@ self.addEventListener('message', (event) => {
         return Promise.all(
           cacheNames.map(cacheName => caches.delete(cacheName))
         );
+      }).then(() => {
+        if (event.source) {
+          event.source.postMessage({ type: 'CLEAR_CACHE_SUCCESS' });
+        }
+      }).catch((err) => {
+        if (event.source) {
+          event.source.postMessage({ type: 'CLEAR_CACHE_ERROR', error: err.message });
+        }
       })
     );
   }

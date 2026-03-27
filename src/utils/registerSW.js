@@ -1,6 +1,8 @@
 // PWA Registration Script
 // Register custom service worker for PWA functionality
 
+let isReloading = false;
+
 const registerSW = async () => {
   if ('serviceWorker' in navigator) {
     try {
@@ -22,9 +24,12 @@ const registerSW = async () => {
         });
       });
       
-      // Listen for controller change (new SW activated) - reload to use new assets
+      // Listen for controller change (new SW activated) - reload once to use new assets
       navigator.serviceWorker.addEventListener('controllerchange', () => {
-        window.location.reload();
+        if (!isReloading) {
+          isReloading = true;
+          window.location.reload();
+        }
       });
       
     } catch (error) {

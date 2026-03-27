@@ -34,7 +34,8 @@ export default defineConfig(({ mode }) => ({
       protocol: 'ws',
       host: 'localhost',
       port: 5173,
-      clientPort: 5173
+      clientPort: 5173,
+      timeout: false
     },
     // SPA routing: serve index.html for all routes
     historyApiFallback: true,

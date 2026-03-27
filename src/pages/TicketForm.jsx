@@ -34,18 +34,42 @@ export default function TicketForm() {
     const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
     // Input validation and sanitization
-    const validateAndSanitizeInput = (name, value) => {
-        const sanitized = value.trim().replace(/[<>]/g, ''); // Remove potential XSS
+    const validateAndSanitizeInput = (name, value, isFinal = false) => {
+        const sanitized = value.replace(/[<>]/g, ''); // Remove potential XSS
         
+        // Only enforce length limits on final validation (blur/submit)
+        if (isFinal) {
+            const trimmed = sanitized.trim();
+            switch (name) {
+                case 'title':
+                    if (trimmed.length < 3 || trimmed.length > 100) {
+                        throw new Error('Title must be between 3 and 100 characters');
+                    }
+                    break;
+                case 'description':
+                    if (trimmed.length < 10 || trimmed.length > 2000) {
+                        throw new Error('Description must be between 10 and 2000 characters');
+                    }
+                    break;
+                case 'specificLocation':
+                    if (trimmed.length > 200) {
+                        throw new Error('Location must be less than 200 characters');
+                    }
+                    break;
+            }
+            return trimmed;
+        }
+        
+        // During typing, only check max length to prevent overflow
         switch (name) {
             case 'title':
-                if (sanitized.length < 3 || sanitized.length > 100) {
-                    throw new Error('Title must be between 3 and 100 characters');
+                if (sanitized.length > 100) {
+                    throw new Error('Title must be less than 100 characters');
                 }
                 break;
             case 'description':
-                if (sanitized.length < 10 || sanitized.length > 2000) {
-                    throw new Error('Description must be between 10 and 2000 characters');
+                if (sanitized.length > 2000) {
+                    throw new Error('Description must be less than 2000 characters');
                 }
                 break;
             case 'specificLocation':
@@ -61,11 +85,10 @@ export default function TicketForm() {
     const handleChange = (e) => {
         const { name, value } = e.target;
         try {
-            const sanitized = validateAndSanitizeInput(name, value);
+            const sanitized = validateAndSanitizeInput(name, value, false);
             setFormData({ ...formData, [name]: sanitized });
         } catch (error) {
-            // Reset field to previous valid value
-            e.target.value = formData[name] || '';
+            // Prevent input beyond max length but don't block typing otherwise
             toast.error(error.message);
         }
     };

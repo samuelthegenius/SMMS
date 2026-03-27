@@ -1,0 +1,23 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[context.production.environment]
+  VITE_SUPABASE_URL = "${SUPABASE_URL}"
+  VITE_SUPABASE_ANON_KEY = "${SUPABASE_ANON_KEY}"
+
+[context.branch-deploy.environment]
+  VITE_SUPABASE_URL = "${SUPABASE_URL}"
+  VITE_SUPABASE_ANON_KEY = "${SUPABASE_ANON_KEY}"
+
+[context.deploy-preview.environment]
+  VITE_SUPABASE_URL = "${SUPABASE_URL}"
+  VITE_SUPABASE_ANON_KEY = "${SUPABASE_ANON_KEY}"

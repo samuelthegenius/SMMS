@@ -44,10 +44,10 @@ root.render(
 )
 
 // Mark end of render and measure
-requestIdleCallback(() => {
+setTimeout(() => {
   performance.mark('react-render-end')
   performance.measure('react-render', 'react-render-start', 'react-render-end')
   
   const measure = performance.getEntriesByName('react-render')[0]
   console.log(`⚛️ React render time: ${Math.round(measure.duration)}ms`)
-})
+}, 0)

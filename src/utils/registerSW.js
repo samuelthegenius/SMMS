@@ -11,15 +11,20 @@ const registerSW = async () => {
       // Registration successful
       // Optional: Show a non-intrusive notification instead of forcing reload
       
-      // Handle updates - force reload to clear old broken caches
+      // Handle updates - notify user and skip waiting to activate new SW immediately
       registration.addEventListener('updatefound', () => {
         const newWorker = registration.installing;
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            // New content is available - force reload to clear old caches
-            window.location.reload();
+            // New content is available - skip waiting to activate immediately
+            newWorker.postMessage({ type: 'SKIP_WAITING' });
           }
         });
+      });
+      
+      // Listen for controller change (new SW activated) - reload to use new assets
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
       });
       
     } catch (error) {

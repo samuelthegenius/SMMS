@@ -61,27 +61,27 @@ export default function InstallPrompt() {
     if (!isVisible) return null;
 
     return (
-        <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-8 md:bottom-8 z-50 max-w-md w-full bg-slate-900 text-white p-4 rounded-xl shadow-2xl flex items-center justify-between gap-4 animate-in slide-in-from-bottom-5 fade-in duration-500 border border-slate-700">
-            <div className="flex items-center gap-3">
-                <div className="bg-slate-800 p-2.5 rounded-lg">
-                    <Download className="w-5 h-5 text-emerald-400" />
+        <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-8 md:bottom-8 z-50 max-w-md w-full bg-gradient-to-br from-slate-900 to-slate-800 text-white p-5 rounded-2xl shadow-2xl shadow-slate-900/30 flex items-center justify-between gap-4 animate-slide-up border border-slate-700/50 backdrop-blur-xl">
+            <div className="flex items-center gap-4">
+                <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-3 rounded-xl shadow-lg shadow-emerald-500/20">
+                    <Download className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                    <h3 className="font-semibold text-sm">Install App</h3>
-                    <p className="text-xs text-slate-400">Add to Home Screen for quick access</p>
+                    <h3 className="font-bold text-sm">Install SMMS App</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Add to Home Screen for quick access</p>
                 </div>
             </div>
             <div className="flex items-center gap-2">
                 <button
                     onClick={handleDismiss}
-                    className="p-1.5 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-white"
+                    className="p-2 hover:bg-white/10 rounded-xl transition-all duration-200 text-slate-400 hover:text-white active:scale-95"
                 >
                     <X className="w-5 h-5" />
                 </button>
                 <Button
                     onClick={handleInstall}
                     size="sm"
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white border-0"
+                    className="bg-emerald-500 hover:bg-emerald-400 text-white border-0 shadow-lg shadow-emerald-500/25 font-semibold"
                 >
                     Install
                 </Button>

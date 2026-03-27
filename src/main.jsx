@@ -8,15 +8,11 @@
  * - Global Styles: Injects the standard Tailwind CSS directives via 'index.css'.
  * - Error Boundary: Catches and handles React errors gracefully.
  */
-import { StrictMode, lazy, Suspense } from 'react'
+import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import './index.css'
 import App from './App.jsx'
-
-// Lazy load analytics to not block critical render path
-const Analytics = lazy(() => import('@vercel/analytics/react').then(m => ({ default: m.Analytics })))
-const SpeedInsights = lazy(() => import('@vercel/speed-insights/react').then(m => ({ default: m.SpeedInsights })))
 
 // Hide skeleton loader immediately when script runs
 const hideLoader = () => {

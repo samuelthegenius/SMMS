@@ -41,10 +41,6 @@ root.render(
   <StrictMode>
     <ErrorBoundary>
       <App />
-      <Suspense fallback={null}>
-        <Analytics />
-        <SpeedInsights />
-      </Suspense>
     </ErrorBoundary>
   </StrictMode>,
 )

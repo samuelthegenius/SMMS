@@ -271,7 +271,7 @@ export default async function handler(req, res) {
     const sanitizedCategory = sanitizeInput(ticketCategory || 'General');
 
     if (sanitizedDescription.length < 10) {
-      return res.status(400). json({ error: 'Ticket description too short (min 10 characters)' });
+      return res.status(400).json({ error: 'Ticket description too short (min 10 characters)' });
     }
 
     if (!process.env.AI_GATEWAY_API_KEY) {

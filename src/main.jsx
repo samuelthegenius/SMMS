@@ -8,6 +8,7 @@
  * - Global Styles: Injects the standard Tailwind CSS directives via 'index.css'.
  * - Error Boundary: Catches and handles React errors gracefully.
  */
+import React from 'react'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import ErrorBoundary from './components/ErrorBoundary.jsx'

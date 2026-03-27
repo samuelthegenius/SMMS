@@ -11,26 +11,9 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { visualizer } from 'rollup-plugin-visualizer'
 
-// Custom plugin to handle CommonJS exports issues
-const commonjsFix = () => ({
-  name: 'commonjs-fix',
-  configResolved(resolved) {
-    // Add global definitions for CommonJS compatibility
-    resolved.define = {
-      ...resolved.define,
-      exports: '{}',
-      module: 'undefined',
-      require: 'undefined',
-      global: 'globalThis'
-    }
-  }
-})
-
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
   plugins: [
-    // Custom plugin to handle CommonJS exports issues
-    commonjsFix(),
     // Integration of React specific features like Fast Refresh
     react({
       // Add JSX runtime configuration

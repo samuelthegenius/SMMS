@@ -64,12 +64,5 @@
     }
   },
   "regions": ["iad1"],
-  "cleanUrls": true,
-  "framework": "vite",
-  "crons": [
-    {
-      "path": "/api/cron/escalation-monitor",
-      "schedule": "0 */6 * * *"
-    }
-  ]
+  "cleanUrls": true
 }

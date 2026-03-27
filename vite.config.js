@@ -15,12 +15,7 @@ import { visualizer } from 'rollup-plugin-visualizer'
 export default defineConfig(({ mode }) => ({
   plugins: [
     // Integration of React specific features like Fast Refresh
-    react({
-      // Add JSX runtime configuration
-      jsxRuntime: 'automatic',
-      // Ensure proper import source
-      importSource: 'react'
-    }),
+    react(),
     // Bundle analyzer - only in analyze mode
     mode === 'analyze' && visualizer({
       open: true,

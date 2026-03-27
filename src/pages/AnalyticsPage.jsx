@@ -28,7 +28,6 @@ export default function AnalyticsPage() {
     const hasFetched = useRef(false);
     const ticketsRef = useRef([]);
     const fetchedProfileId = useRef(null);
-    const _lastProfileRef = useRef(null);
 
     // Memoize tickets to prevent unnecessary re-renders
     const memoizedTickets = useMemo(() => tickets, [tickets]);

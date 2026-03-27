@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/useAuth';
 import { Clock, CheckCircle, AlertCircle, MapPin, Calendar, Activity, ThumbsUp, ThumbsDown, X, Wrench as WrenchIcon } from 'lucide-react';
@@ -9,20 +10,30 @@ import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 
 const STATUS_STYLES = {
-    'Pending': { bg: 'bg-amber-50', text: 'text-amber-700', icon: Clock, border: 'border-amber-100' },
-    'Assigned': { bg: 'bg-blue-50', text: 'text-blue-700', icon: Activity, border: 'border-blue-100' },
+    'Open': { bg: 'bg-amber-50', text: 'text-amber-700', icon: Clock, border: 'border-amber-100' },
     'In Progress': { bg: 'bg-indigo-50', text: 'text-indigo-700', icon: WrenchIcon, border: 'border-indigo-100' },
     'Pending Verification': { bg: 'bg-purple-50', text: 'text-purple-700', icon: Clock, border: 'border-purple-100' },
+    'Escalated': { bg: 'bg-rose-50', text: 'text-rose-700', icon: AlertCircle, border: 'border-rose-100' },
     'Resolved': { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: CheckCircle, border: 'border-emerald-100' },
-    'Completed': { bg: 'bg-teal-50', text: 'text-teal-700', icon: CheckCircle, border: 'border-teal-100' },
+    'Closed': { bg: 'bg-slate-50', text: 'text-slate-700', icon: CheckCircle, border: 'border-slate-100' },
 };
 
 import useSWR from 'swr';
 
+const ACTIVE_STATUSES = ['Open', 'In Progress', 'Escalated', 'Pending Verification'];
+const COMPLETED_STATUSES = ['Resolved', 'Closed'];
+
 export default function UserDashboard() {
-    const { user, profile } = useAuth();
+    const { user } = useAuth();
+    const location = useLocation();
     const [rejectingId, setRejectingId] = useState(null);
     const [rejectionReason, setRejectionReason] = useState('');
+
+    const isHistoryView = location.pathname === '/history';
+    const viewTitle = isHistoryView ? 'History' : 'Dashboard';
+    const viewDescription = isHistoryView
+        ? 'View your completed maintenance requests'
+        : 'Track the status of your active maintenance requests';
 
     const fetchTickets = async () => {
         const { data, error } = await supabase
@@ -112,34 +123,43 @@ export default function UserDashboard() {
 
     if (isLoading && !tickets.length) return <Loader />;
 
-    const _displayRole = profile?.role === 'staff_member' ? 'Staff' : 'Student';
+    // Filter tickets based on view mode
+    const filteredTickets = tickets.filter(ticket =>
+        isHistoryView
+            ? COMPLETED_STATUSES.includes(ticket.status)
+            : ACTIVE_STATUSES.includes(ticket.status)
+    );
 
     return (
         <div className="space-y-8">
             <div>
                 <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
-                    Welcome, {profile?.full_name?.split(' ')[0] || 'User'}
+                    {viewTitle}
                 </h1>
                 <p className="text-slate-500 mt-2 text-lg">
-                    Track the status of your maintenance requests
+                    {viewDescription}
                 </p>
             </div>
 
-            {tickets.length === 0 ? (
+            {filteredTickets.length === 0 ? (
                 <Card className="border-dashed">
                     <CardContent className="flex flex-col items-center justify-center py-16 text-center">
                         <div className="mx-auto h-12 w-12 bg-slate-50 rounded-full flex items-center justify-center mb-4">
                             <AlertCircle className="h-6 w-6 text-slate-400" />
                         </div>
-                        <h3 className="text-lg font-semibold text-slate-900">No tickets yet</h3>
+                        <h3 className="text-lg font-semibold text-slate-900">
+                            {isHistoryView ? 'No completed tickets yet' : 'No active tickets'}
+                        </h3>
                         <p className="mt-2 text-slate-500 max-w-sm">
-                            Get started by creating a new maintenance request using the "New Ticket" button.
+                            {isHistoryView
+                                ? 'Completed tickets will appear here once they are resolved.'
+                                : 'Get started by creating a new maintenance request using the "New Ticket" button.'}
                         </p>
                     </CardContent>
                 </Card>
             ) : (
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    {tickets.map((ticket) => {
+                    {filteredTickets.map((ticket) => {
                         const statusStyle = STATUS_STYLES[ticket.status] || STATUS_STYLES['Pending'];
                         const StatusIcon = statusStyle.icon;
 

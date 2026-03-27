@@ -55,7 +55,7 @@
   ],
   "trailingSlash": false,
   "functions": {
-    "api/**/*.js": {
+    "api/[!ai]/**/*.js": {
       "maxDuration": 30
     },
     "api/ai/**/*.js": {

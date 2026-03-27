@@ -22,6 +22,30 @@
   
   <!-- Preload critical fonts if any -->
   
+  <!-- Force clear old caches and service workers -->
+  <script>
+    (function() {
+      // Clear all caches from old versions
+      if (window.caches) {
+        caches.keys().then(function(names) {
+          names.forEach(function(name) {
+            if (!name.includes('v6')) {
+              caches.delete(name);
+            }
+          });
+        });
+      }
+      // Unregister old service workers
+      if (navigator.serviceWorker) {
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+          regs.forEach(function(reg) {
+            reg.unregister();
+          });
+        });
+      }
+    })();
+  </script>
+  
   <!-- Inline Critical CSS - prevents render blocking -->
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}

@@ -9,6 +9,7 @@
  * - Error Boundary: Catches and handles React errors gracefully.
  */
 import React from 'react'
+window.React = React
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import ErrorBoundary from './components/ErrorBoundary.jsx'

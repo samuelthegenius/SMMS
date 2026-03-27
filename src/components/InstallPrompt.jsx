@@ -1,37 +1,41 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Download, X } from 'lucide-react';
 import { Button } from './ui/Button';
+
+const DISMISSED_KEY = 'smms-install-dismissed';
 
 export default function InstallPrompt() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
     const [isVisible, setIsVisible] = useState(false);
-    const deferredPromptRef = useRef(null);
-
-    // Keep ref in sync with state for cleanup
-    useEffect(() => {
-        deferredPromptRef.current = deferredPrompt;
-    }, [deferredPrompt]);
 
     useEffect(() => {
-        const handler = (e) => {
-            // Prevent Chrome 67 and earlier from automatically showing the prompt
-            e.preventDefault();
-            // Stash the event so it can be triggered later.
-            setDeferredPrompt(e);
+        // Check if there's already a captured deferred prompt
+        if (window.__SMMS_DEFERRED_PROMPT__ && !window.__SMMS_INSTALL_DISMISSED__) {
+            setDeferredPrompt(window.__SMMS_DEFERRED_PROMPT__);
             setIsVisible(true);
-        };
+        }
 
-        window.addEventListener('beforeinstallprompt', handler);
-
-        return () => {
-            window.removeEventListener('beforeinstallprompt', handler);
-            // Clean up any pending prompt
-            if (deferredPromptRef.current) {
-                setDeferredPrompt(null);
-                setIsVisible(false);
+        // Listen for the custom event fired by install-capture.js
+        const handleInstallable = () => {
+            if (window.__SMMS_DEFERRED_PROMPT__ && !window.__SMMS_INSTALL_DISMISSED__) {
+                setDeferredPrompt(window.__SMMS_DEFERRED_PROMPT__);
+                setIsVisible(true);
             }
         };
+
+        window.addEventListener('smms:installable', handleInstallable);
+
+        return () => {
+            window.removeEventListener('smms:installable', handleInstallable);
+        };
     }, []);
+
+    const handleDismiss = () => {
+        localStorage.setItem(DISMISSED_KEY, 'true');
+        window.__SMMS_INSTALL_DISMISSED__ = true;
+        setIsVisible(false);
+        setDeferredPrompt(null);
+    };
 
     const handleInstall = async () => {
         if (!deferredPrompt) return;
@@ -40,9 +44,16 @@ export default function InstallPrompt() {
         deferredPrompt.prompt();
 
         // Wait for the user to respond to the prompt
-        await deferredPrompt.userChoice;
+        const { outcome } = await deferredPrompt.userChoice;
+
+        // If installed, clear the dismissed flag
+        if (outcome === 'accepted') {
+            localStorage.removeItem(DISMISSED_KEY);
+            window.__SMMS_INSTALL_DISMISSED__ = false;
+        }
 
         // We've used the prompt, and can't use it again, throw it away
+        window.__SMMS_DEFERRED_PROMPT__ = null;
         setDeferredPrompt(null);
         setIsVisible(false);
     };
@@ -62,7 +73,7 @@ export default function InstallPrompt() {
             </div>
             <div className="flex items-center gap-2">
                 <button
-                    onClick={() => setIsVisible(false)}
+                    onClick={handleDismiss}
                     className="p-1.5 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-white"
                 >
                     <X className="w-5 h-5" />

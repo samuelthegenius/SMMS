@@ -217,12 +217,23 @@ async function cleanupCache(cacheName, maxEntries) {
 
 // Message handling from main thread
 self.addEventListener('message', (event) => {
-  if (event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
+  const sendResponse = (data) => {
     if (event.source) {
-      event.source.postMessage({ type: 'SKIP_WAITING_SUCCESS' });
+      event.source.postMessage(data);
     }
+  };
+
+  if (event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting()
+      .then(() => {
+        sendResponse({ type: 'SKIP_WAITING_SUCCESS' });
+      })
+      .catch((err) => {
+        sendResponse({ type: 'SKIP_WAITING_ERROR', error: err.message });
+      });
+    return;
   }
+
   if (event.data.type === 'CLEAR_CACHE') {
     event.waitUntil(
       caches.keys().then(cacheNames => {
@@ -230,14 +241,11 @@ self.addEventListener('message', (event) => {
           cacheNames.map(cacheName => caches.delete(cacheName))
         );
       }).then(() => {
-        if (event.source) {
-          event.source.postMessage({ type: 'CLEAR_CACHE_SUCCESS' });
-        }
+        sendResponse({ type: 'CLEAR_CACHE_SUCCESS' });
       }).catch((err) => {
-        if (event.source) {
-          event.source.postMessage({ type: 'CLEAR_CACHE_ERROR', error: err.message });
-        }
+        sendResponse({ type: 'CLEAR_CACHE_ERROR', error: err.message });
       })
     );
+    return;
   }
 });

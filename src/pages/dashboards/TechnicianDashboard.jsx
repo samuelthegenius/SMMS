@@ -12,7 +12,7 @@ import useSWR from 'swr';
 
 export default function TechnicianDashboard() {
     const { user } = useAuth();
-    const [aiSuggestion, setAiSuggestion] = useState({ ticketId: null, text: '', loading: false });
+    const [aiSuggestion, setAiSuggestion] = useState({ ticketId: null, data: null, loading: false });
 
     // SWR Fetcher - Only fetch necessary fields
     const fetchJobs = async () => {
@@ -119,12 +119,12 @@ export default function TechnicianDashboard() {
     };
 
     const getAiHelp = async (ticket) => {
-        if (aiSuggestion.ticketId === ticket.id && aiSuggestion.text) {
-            setAiSuggestion({ ticketId: null, text: '', loading: false }); // Toggle off
+        if (aiSuggestion.ticketId === ticket.id && aiSuggestion.data) {
+            setAiSuggestion({ ticketId: null, data: null, loading: false }); // Toggle off
             return;
         }
 
-        setAiSuggestion({ ticketId: ticket.id, text: '', loading: true });
+        setAiSuggestion({ ticketId: ticket.id, data: null, loading: true });
         try {
             // Securely Call Supabase Edge Function
             const { data, error } = await supabase.functions.invoke('suggest-fix', {
@@ -136,68 +136,30 @@ export default function TechnicianDashboard() {
 
             if (error) throw error;
 
-            // Format the AI response for display
-            let formattedSuggestion;
+            // Store structured data for rendering
+            let suggestionData = null;
             if (data.technical_diagnosis && data.tools_required && data.safety_precaution) {
-                // Normal mode - format structured response with proper styling
-                formattedSuggestion = `
-<div class="space-y-4">
-    <div>
-        <h3 class="font-semibold text-slate-900 mb-2 flex items-center gap-2">
-            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1v-7.686a3 3 0 1 0-5.828 0M4.75 12a3.25 3.25 0 1 0 6.5 0 3.25 3.25 0 0 0-6.5 0M12 17.25h.008"></path>
-            </svg>
-            Technical Diagnosis
-        </h3>
-        <p class="text-slate-700 leading-relaxed bg-blue-50 p-3 rounded-lg border border-blue-100">${data.technical_diagnosis}</p>
-    </div>
-    
-    <div>
-        <h3 class="font-semibold text-slate-900 mb-2 flex items-center gap-2">
-            <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.121 14.121L19 19m-7-7l-7 7m-7-7l7 7m6.5-3.5a2.121 2.121 0 0 1 3 3L12 15l3-3m6.5-3.5a2.121 2.121 0 0 1 3 3L12 15l3-3"></path>
-            </svg>
-            Tools Required
-        </h3>
-        <ul class="space-y-1 bg-green-50 p-3 rounded-lg border border-green-100">
-            ${(data.tools_required || []).map(tool => `
-                <li class="flex items-center gap-2 text-slate-700">
-                    <span class="w-2 h-2 bg-green-500 rounded-full"></span>
-                    ${tool}
-                </li>
-            `).join('')}
-        </ul>
-    </div>
-    
-    <div>
-        <h3 class="font-semibold text-slate-900 mb-2 flex items-center gap-2">
-            <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 2.502-3.181V8c0-1.51-1.963-2.58-3.181-2.581A2.25 2.25 0 0 0 11.938 6H8.062a2.25 2.25 0 0 0-2.181 2.419C5.62 8.62 4 9.629 4 11v2.5c0 1.514 1.962 2.58 3.181 2.581h5.876c1.54 0 2.502-1.667 2.502-3.181Z"></path>
-            </svg>
-            Safety Precaution
-        </h3>
-        <div class="bg-red-50 border border-red-200 text-red-800 p-3 rounded-lg font-medium">
-            ${data.safety_precaution}
-        </div>
-    </div>
-</div>
-                `.trim();
+                suggestionData = {
+                    technical_diagnosis: data.technical_diagnosis,
+                    tools_required: data.tools_required,
+                    safety_precaution: data.safety_precaution
+                };
             } else if (data.error) {
-                formattedSuggestion = `Error: ${data.error}`;
+                suggestionData = { error: data.error };
             } else {
-                formattedSuggestion = 'AI response format error. Please try again.';
+                suggestionData = { error: 'AI response format error. Please try again.' };
             }
 
             setAiSuggestion({
                 ticketId: ticket.id,
-                text: formattedSuggestion,
+                data: suggestionData,
                 loading: false
             });
         } catch (error) {
             toast.error('Could not get AI suggestion');
             setAiSuggestion({
                 ticketId: ticket.id,
-                text: `Failed to access AI service. Error: ${error.message || 'Unknown error'}`,
+                data: { error: `Failed to access AI service. Error: ${error.message || 'Unknown error'}` },
                 loading: false
             });
         }
@@ -313,9 +275,52 @@ export default function TechnicianDashboard() {
                                                 <div className="animate-spin rounded-full h-4 w-4 border-2 border-indigo-600 border-t-transparent"></div>
                                                 <span className="font-medium">Analyzing ticket details...</span>
                                             </div>
+                                        ) : aiSuggestion.data?.error ? (
+                                            <div className="text-red-600 font-medium">
+                                                Error: {aiSuggestion.data.error}
+                                            </div>
                                         ) : (
-                                            <div className="prose prose-sm prose-indigo max-w-none whitespace-pre-wrap">
-                                                {aiSuggestion.text}
+                                            <div className="space-y-4">
+                                                <div>
+                                                    <h3 className="font-semibold text-slate-900 mb-2 flex items-center gap-2">
+                                                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1v-7.686a3 3 0 1 0-5.828 0M4.75 12a3.25 3.25 0 1 0 6.5 0 3.25 3.25 0 0 0-6.5 0M12 17.25h.008"></path>
+                                                        </svg>
+                                                        Technical Diagnosis
+                                                    </h3>
+                                                    <p className="text-slate-700 leading-relaxed bg-blue-50 p-3 rounded-lg border border-blue-100">
+                                                        {aiSuggestion.data?.technical_diagnosis}
+                                                    </p>
+                                                </div>
+                                                
+                                                <div>
+                                                    <h3 className="font-semibold text-slate-900 mb-2 flex items-center gap-2">
+                                                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.121 14.121L19 19m-7-7l-7 7m-7-7l7 7m6.5-3.5a2.121 2.121 0 0 1 3 3L12 15l3-3m6.5-3.5a2.121 2.121 0 0 1 3 3L12 15l3-3"></path>
+                                                        </svg>
+                                                        Tools Required
+                                                    </h3>
+                                                    <ul className="space-y-1 bg-green-50 p-3 rounded-lg border border-green-100">
+                                                        {(aiSuggestion.data?.tools_required || []).map((tool, i) => (
+                                                            <li key={i} className="flex items-center gap-2 text-slate-700">
+                                                                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                                                                {tool}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                                
+                                                <div>
+                                                    <h3 className="font-semibold text-slate-900 mb-2 flex items-center gap-2">
+                                                        <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 2.502-3.181V8c0-1.51-1.963-2.58-3.181-2.581A2.25 2.25 0 0 0 11.938 6H8.062a2.25 2.25 0 0 0-2.181 2.419C5.62 8.62 4 9.629 4 11v2.5c0 1.514 1.962 2.58 3.181 2.581h5.876c1.54 0 2.502-1.667 2.502-3.181Z"></path>
+                                                        </svg>
+                                                        Safety Precaution
+                                                    </h3>
+                                                    <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded-lg font-medium">
+                                                        {aiSuggestion.data?.safety_precaution}
+                                                    </div>
+                                                </div>
                                             </div>
                                         )}
                                     </div>

@@ -11,13 +11,13 @@ const registerSW = async () => {
       // Registration successful
       // Optional: Show a non-intrusive notification instead of forcing reload
       
-      // Handle updates silently without forcing reload
+      // Handle updates - force reload to clear old broken caches
       registration.addEventListener('updatefound', () => {
         const newWorker = registration.installing;
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            // New content is available - notify user without forcing reload
-            // Optional: Show a non-intrusive notification instead of forcing reload
+            // New content is available - force reload to clear old caches
+            window.location.reload();
           }
         });
       });

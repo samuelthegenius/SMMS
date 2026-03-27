@@ -15,7 +15,9 @@ import { visualizer } from 'rollup-plugin-visualizer'
 export default defineConfig(({ mode }) => ({
   plugins: [
     // Integration of React specific features like Fast Refresh
-    react(),
+    react({
+      jsxRuntime: 'automatic'
+    }),
     // Bundle analyzer - only in analyze mode
     mode === 'analyze' && visualizer({
       open: true,
@@ -149,20 +151,11 @@ export default defineConfig(({ mode }) => ({
     force: false
   },
   
-  // ESBuild configuration for faster builds
-  esbuild: {
-    target: 'es2020',
-    legalComments: 'none',
-    treeShaking: true,
-    minifyIdentifiers: true,
-    minifySyntax: true,
-    minifyWhitespace: true,
-    drop: ['console', 'debugger']
-  },
-  
   // Define global constants to replace exports-related issues
   define: {
-    global: 'globalThis'
+    global: 'globalThis',
+    // Polyfill React for legacy modules that might need it globally
+    'window.React': 'React'
   },
   
   // Resolve module issues

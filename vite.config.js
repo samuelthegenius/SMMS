@@ -84,23 +84,12 @@ export default defineConfig(({ mode }) => ({
         drop_console: true,
         drop_debugger: true,
         pure_funcs: ['console.log', 'console.info', 'console.debug', 'console.trace'],
-        passes: 2,
-        dead_code: true,
-        unused: true,
-        reduce_vars: true,
-        collapse_vars: true,
-        evaluate: true,
-        booleans: true,
-        typeofs: true,
-        conditionals: true,
-        sequences: true,
-        properties: true,
-        comparisons: true,
-        hoist_funs: true,
-        hoist_vars: false,
-        if_return: true,
-        join_vars: true,
-        side_effects: true
+        passes: 1,
+        dead_code: false,
+        unused: false,
+        reduce_vars: false,
+        collapse_vars: false,
+        side_effects: false
       },
       mangle: {
         safari10: true,
@@ -154,8 +143,7 @@ export default defineConfig(({ mode }) => ({
   // Define global constants to replace exports-related issues
   define: {
     global: 'globalThis',
-    // Polyfill React for legacy modules that might need it globally
-    'window.React': 'React'
+    'React': 'window.React'
   },
   
   // Resolve module issues

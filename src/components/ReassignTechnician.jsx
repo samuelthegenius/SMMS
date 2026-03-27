@@ -18,7 +18,9 @@ export default function ReassignTechnician({ ticket, onReassign }) {
                 .eq('role', 'technician');
 
             if (error) {
+              if (import.meta.env.DEV) {
                 console.error('Error fetching technicians:', error);
+              }
             } else {
                 setTechnicians(data || []);
             }
@@ -61,7 +63,9 @@ export default function ReassignTechnician({ ticket, onReassign }) {
             toast.success('Technician reassigned successfully');
             if (onReassign) onReassign(); // Callback to refresh parent list
         } catch (error) {
+          if (import.meta.env.DEV) {
             console.error('Reassign Error:', error);
+          }
             toast.error('Failed to reassign technician');
         } finally {
             setLoading(false);

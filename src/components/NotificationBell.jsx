@@ -12,6 +12,8 @@ export default function NotificationBell() {
     const dropdownRef = useRef(null);
 
     const fetchNotifications = useCallback(async () => {
+        if (!user?.id) return;
+        
         try {
             const { data, error } = await supabase
                 .from('notifications')
@@ -35,9 +37,11 @@ export default function NotificationBell() {
             setUnreadCount(count || 0);
 
         } catch (error) {
+          if (import.meta.env.DEV) {
             console.error('Error fetching notifications:', error);
+          }
         }
-    }, [user.id]);
+    }, [user?.id]);
 
     useEffect(() => {
         if (!user) return;
@@ -102,7 +106,9 @@ export default function NotificationBell() {
 
             if (error) throw error;
         } catch (error) {
+          if (import.meta.env.DEV) {
             console.error('Failed to mark notifications as read', error);
+          }
             // Revert on error? Or just silently fail as it's not critical data loss
         }
     }

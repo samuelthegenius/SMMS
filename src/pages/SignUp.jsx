@@ -196,7 +196,9 @@ export default function SignUp() {
                 });
 
                 if (profileError) {
-                    console.error('Profile creation error:', profileError);
+                    if (import.meta.env.DEV) {
+                      console.error('Profile creation error:', profileError);
+                    }
                     
                     // Log the orphaned auth user for cleanup
                     try {
@@ -204,7 +206,9 @@ export default function SignUp() {
                             p_email: formData.email
                         });
                     } catch (cleanupError) {
-                        console.error('Failed to log orphaned auth user:', cleanupError);
+                        if (import.meta.env.DEV) {
+                          console.error('Failed to log orphaned auth user:', cleanupError);
+                        }
                     }
                     
                     throw new Error('Profile setup failed. Please try again.');
@@ -215,8 +219,18 @@ export default function SignUp() {
             toast.success('Account created successfully! Please check your email to verify your account.');
             navigate('/login');
         } catch (error) {
+          if (import.meta.env.DEV) {
             console.error("SignUp Error:", error);
-            toast.error(error.message || 'Failed to create account');
+          }
+            // Only show specific messages for known validation errors
+            const knownErrors = [
+                'An account with this email already exists',
+                'This ID number is already registered',
+                'Invalid access code',
+                'Profile setup failed'
+            ];
+            const isKnownError = knownErrors.some(known => error.message?.includes(known));
+            toast.error(isKnownError ? error.message : 'Failed to create account. Please try again.');
         } finally {
             setLoading(false);
         }

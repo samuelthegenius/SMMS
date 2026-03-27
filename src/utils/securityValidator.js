@@ -56,8 +56,10 @@ export const validateSecurity = {
     ];
 
     if (suspiciousPatterns.some(pattern => pattern.test(cleanEmail.toLowerCase()))) {
-      // Log suspicious email attempt but don't block
-      console.warn('Suspicious email pattern detected:', cleanEmail);
+      // Log suspicious email attempt but don't block - only in development
+      if (import.meta.env.DEV) {
+        console.warn('Suspicious email pattern detected');
+      }
     }
 
     return cleanEmail.toLowerCase();
@@ -203,9 +205,11 @@ export const validateSecurity = {
         remaining: maxAttempts - data.attempts,
         resetTime: data.resetTime
       };
-    } catch (error) {
-      // If localStorage fails, allow the request but log it
-      console.warn('Rate limit check failed:', error);
+    } catch {
+      // If localStorage fails, allow the request but log it in development only
+      if (import.meta.env.DEV) {
+        console.warn('Rate limit check failed');
+      }
       return { attempts: 0, remaining: maxAttempts, resetTime: now + windowMs };
     }
   },
@@ -236,8 +240,10 @@ export const securityMonitor = {
     const isSuspicious = suspiciousPatterns.some(pattern => pattern.test(userAgent));
     
     if (isSuspicious) {
-      console.warn('Suspicious user agent detected:', userAgent);
-      // Could trigger additional security measures
+      // Could trigger additional security measures - only log in development
+      if (import.meta.env.DEV) {
+        console.warn('Suspicious user agent detected');
+      }
     }
 
     return !isSuspicious;
@@ -257,7 +263,9 @@ export const securityMonitor = {
       const recent = timestamps.filter(timestamp => now - timestamp < windowMs);
       
       if (recent.length >= threshold) {
-        console.warn('Rapid requests detected:', recent.length);
+        if (import.meta.env.DEV) {
+          console.warn('Rapid requests detected');
+        }
         return true;
       }
       
@@ -266,8 +274,10 @@ export const securityMonitor = {
       localStorage.setItem(storageKey, JSON.stringify(recent.slice(-100))); // Keep last 100
       
       return false;
-    } catch (error) {
-      console.warn('Request monitoring failed:', error);
+    } catch {
+      if (import.meta.env.DEV) {
+        console.warn('Request monitoring failed');
+      }
       return false;
     }
   }
@@ -284,7 +294,9 @@ export const initializeSecurity = () => {
   setInterval(() => {
     if (securityMonitor.detectRapidRequests()) {
       // Could implement additional security measures
-      console.warn('Security: Rapid request pattern detected');
+      if (import.meta.env.DEV) {
+        console.warn('Security: Rapid request pattern detected');
+      }
     }
   }, 5000);
 };

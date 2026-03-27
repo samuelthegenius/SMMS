@@ -112,7 +112,9 @@ export default function TechnicianDashboard() {
             toast.success(`Ticket marked as ${newStatus}`);
             mutate(); // Revalidate to ensure consistency
         } catch (error) {
+          if (import.meta.env.DEV) {
             console.error('Error updating status:', error);
+          }
             toast.error('Failed to update status');
             mutate(previousJobs, false); // Rollback
         }
@@ -157,9 +159,12 @@ export default function TechnicianDashboard() {
             });
         } catch (error) {
             toast.error('Could not get AI suggestion');
+          if (import.meta.env.DEV) {
+            console.error('AI suggestion error:', error);
+          }
             setAiSuggestion({
                 ticketId: ticket.id,
-                data: { error: `Failed to access AI service. Error: ${error.message || 'Unknown error'}` },
+                data: { error: 'Failed to access AI service. Please try again.' },
                 loading: false
             });
         }

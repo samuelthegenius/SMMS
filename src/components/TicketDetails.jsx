@@ -47,7 +47,9 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
                     setTechnicianInfo(null);
                 }
             } catch (err) {
+              if (import.meta.env.DEV) {
                 console.error('Error fetching user information:', err);
+              }
             } finally {
                 setUserInfoLoading(false);
             }
@@ -77,7 +79,9 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
 
             setAiSuggestion(data);
         } catch (err) {
+          if (import.meta.env.DEV) {
             console.error(err);
+          }
             setError('Failed to load AI suggestion. Please try again.');
         } finally {
             setLoading(false);

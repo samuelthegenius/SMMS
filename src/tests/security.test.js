@@ -59,12 +59,12 @@ describe('Security Tests', () => {
       });
 
       const safeUrls = [
-        'https://mtusmms.me',
-        'https://ntayjobqhpbozamoxgad.supabase.co'
+        'https://example-app.com',
+        'https://api.example-service.io'
       ];
 
       safeUrls.forEach(url => {
-        expect(validateUrl(url, ['mtusmms.me', 'supabase.co'])).toBe(true);
+        expect(validateUrl(url, ['example-app.com', 'example-service.io'])).toBe(true);
       });
     });
   });

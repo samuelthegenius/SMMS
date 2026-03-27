@@ -16,13 +16,17 @@ export const sendEmailNotification = async ({ to, subject, html }) => {
         });
 
         if (error) {
+          if (import.meta.env.DEV) {
             console.error('Email Edge Function Error:', error);
+          }
             return false;
         }
 
         return true;
     } catch (error) {
+      if (import.meta.env.DEV) {
         console.error('Failed to send email notification:', error);
+      }
         // Returns false to indicate failure without throwing, allowing the UI to degrade gracefully.
         return false;
     }

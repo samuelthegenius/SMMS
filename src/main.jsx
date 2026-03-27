@@ -8,17 +8,52 @@
  * - Global Styles: Injects the standard Tailwind CSS directives via 'index.css'.
  * - Error Boundary: Catches and handles React errors gracefully.
  */
-import { StrictMode } from 'react'
+import { StrictMode, lazy, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import './index.css'
 import App from './App.jsx'
 
-// React 18 Concurrency Model Initialization
-createRoot(document.getElementById('root')).render(
+// Lazy load analytics to not block critical render path
+const Analytics = lazy(() => import('@vercel/analytics/react').then(m => ({ default: m.Analytics })))
+const SpeedInsights = lazy(() => import('@vercel/speed-insights/react').then(m => ({ default: m.SpeedInsights })))
+
+// Hide skeleton loader immediately when script runs
+const hideLoader = () => {
+  const loader = document.getElementById('initial-loader')
+  if (loader) {
+    loader.style.opacity = '0'
+    loader.style.transition = 'opacity 0.3s ease-out'
+    setTimeout(() => loader.remove(), 300)
+  }
+}
+
+// React 18 Concurrency Model - create root immediately
+const root = createRoot(document.getElementById('root'))
+
+// Mark start of React render
+performance.mark('react-render-start')
+
+// Hide loader as soon as React starts mounting (before actual render)
+hideLoader()
+
+root.render(
   <StrictMode>
     <ErrorBoundary>
       <App />
+      <Suspense fallback={null}>
+        <Analytics />
+        <SpeedInsights />
+      </Suspense>
     </ErrorBoundary>
   </StrictMode>,
 )
+
+// Mark end of render and measure
+requestIdleCallback(() => {
+  performance.mark('react-render-end')
+  performance.measure('react-render', 'react-render-start', 'react-render-end')
+  
+  const measure = performance.getEntriesByName('react-render')[0]
+  console.log(`⚛️ React render time: ${Math.round(measure.duration)}ms`)
+})

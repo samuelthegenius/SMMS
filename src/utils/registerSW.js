@@ -24,7 +24,9 @@ const registerSW = async () => {
       
     } catch (error) {
       // SW registration failed - will be handled gracefully
-      console.warn('Service worker registration failed:', error.message);
+      if (import.meta.env.DEV) {
+        console.warn('Service worker registration failed:', error.message);
+      }
     }
   }
 };

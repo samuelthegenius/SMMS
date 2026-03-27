@@ -41,8 +41,12 @@ export default defineConfig({
 
   // Development Server Configuration
   server: {
-    // WebSocket HMR configuration - let Vite auto-configure port
-    hmr: true,
+    // WebSocket HMR configuration - use same port as HTTP server
+    hmr: {
+      port: 5173,
+      host: 'localhost',
+      protocol: 'ws'
+    },
     // SPA routing: serve index.html for all routes
     historyApiFallback: true,
     // Security Headers for Development

@@ -1,4 +1,4 @@
-import React from 'react';
+import { Component } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from './ui/Button';
 
@@ -12,7 +12,7 @@ import { Button } from './ui/Button';
  * - Provides user-friendly error messages
  */
 
-class ErrorBoundary extends React.Component {
+class ErrorBoundary extends Component {
     constructor(props) {
         super(props);
         this.state = {

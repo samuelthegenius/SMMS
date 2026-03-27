@@ -61,13 +61,7 @@ supabase/migrations/*.sql
 # Misc
 .eslintrc.cjs
 eslint.config.js
-postcss.config.js
-tailwind.config.js
-vite.config.js
-
-# Missing items
 .env.example
-package-lock.json
 deploy_error.log
 supabase_schema.sql
 AGENTS.md

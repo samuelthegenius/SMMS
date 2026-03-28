@@ -1,14 +1,20 @@
 -- ============================================================================
--- Add Student Access Codes Migration
+-- Migration: Rename staff_member to staff
 -- ============================================================================
--- This migration adds student access codes and updates validation
+-- This migration updates the database to use 'staff' instead of 'staff_member'
 
--- Insert student access code
-INSERT INTO role_access_codes (role, code) VALUES
-    ('student', 'STUDENT2025')
-ON CONFLICT (role) DO UPDATE SET code = EXCLUDED.code;
+-- Update existing profiles
+UPDATE profiles SET role = 'staff' WHERE role = 'staff_member';
 
--- Update the register_secure_user function to include student validation
+-- Update role_access_codes
+UPDATE role_access_codes SET role = 'staff' WHERE role = 'staff_member';
+
+-- Drop and recreate the CHECK constraint on profiles
+ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
+ALTER TABLE profiles ADD CONSTRAINT profiles_role_check 
+    CHECK (role IN ('student', 'staff', 'technician', 'admin'));
+
+-- Update register_secure_user function to use 'staff'
 CREATE OR REPLACE FUNCTION register_secure_user(
     p_id uuid,
     p_email text,
@@ -43,12 +49,12 @@ BEGIN
         RAISE EXCEPTION 'Too many signup attempts. Please try again later.';
     END IF;
 
-    -- Validate role
+    -- Validate role (updated to use 'staff')
     IF p_role NOT IN ('student', 'staff', 'technician', 'admin') THEN
         RAISE EXCEPTION 'Invalid role specified';
     END IF;
 
-    -- Check access code for student/staff/technician
+    -- Check access code for student/staff/technician (updated to use 'staff')
     IF p_role IN ('student', 'staff', 'technician') THEN
         SELECT code INTO expected_code
         FROM role_access_codes

@@ -143,7 +143,7 @@ export function AuthProvider({ children }) {
         initializing: !authReady,
         isAdmin: profile?.role === 'admin',
         isTechnician: profile?.role === 'technician',
-        isStaff: profile?.role === 'staff_member',
+        isStaff: profile?.role === 'staff',
         isStudent: profile?.role === 'student',
     };
 

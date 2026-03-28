@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/useAuth';
@@ -29,12 +29,13 @@ export default function TicketForm() {
     const [imageFile, setImageFile] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
 
-    // Image upload constants
-    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-    const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    // Memoize constants to prevent recreation on each render
+    const MAX_FILE_SIZE = useMemo(() => 5 * 1024 * 1024, []); // 5MB
+    const ALLOWED_MIME_TYPES = useMemo(() => ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], []);
+    const DANGEROUS_EXTENSIONS = useMemo(() => ['.exe', '.bat', '.cmd', '.scr', '.php', '.asp', '.jsp', '.sh', '.js'], []);
 
-    // Input validation and sanitization
-    const validateAndSanitizeInput = (name, value, isFinal = false) => {
+    // Input validation and sanitization - memoized
+    const validateAndSanitizeInput = useCallback((name, value, isFinal = false) => {
         const sanitized = value.replace(/[<>]/g, ''); // Remove potential XSS
         
         // Only enforce length limits on final validation (blur/submit)
@@ -80,20 +81,19 @@ export default function TicketForm() {
         }
         
         return sanitized;
-    };
+    }, []);
 
-    const handleChange = (e) => {
+    const handleChange = useCallback((e) => {
         const { name, value } = e.target;
         try {
             const sanitized = validateAndSanitizeInput(name, value, false);
-            setFormData({ ...formData, [name]: sanitized });
+            setFormData(prev => ({ ...prev, [name]: sanitized }));
         } catch {
-            // Prevent input beyond max length but don't block typing otherwise
             toast.error('Invalid input. Please check your entry.');
         }
-    };
+    }, [validateAndSanitizeInput]);
 
-    const handleImageChange = (e) => {
+    const handleImageChange = useCallback((e) => {
         const file = e.target.files[0];
         if (!file) return;
 
@@ -113,8 +113,7 @@ export default function TicketForm() {
 
         // Additional security: Check for dangerous file extensions
         const fileName = file.name.toLowerCase();
-        const dangerousExtensions = ['.exe', '.bat', '.cmd', '.scr', '.php', '.asp', '.jsp', '.sh', '.js'];
-        const hasDangerousExtension = dangerousExtensions.some(ext => fileName.endsWith(ext));
+        const hasDangerousExtension = DANGEROUS_EXTENSIONS.some(ext => fileName.endsWith(ext));
         
         if (hasDangerousExtension) {
             toast.error('Invalid file type');
@@ -132,15 +131,15 @@ export default function TicketForm() {
         setImageFile(file);
         const objectUrl = URL.createObjectURL(file);
         setImagePreview(objectUrl);
-    };
+    }, [ALLOWED_MIME_TYPES, MAX_FILE_SIZE, DANGEROUS_EXTENSIONS]);
 
-    const removeImage = () => {
+    const removeImage = useCallback(() => {
         setImageFile(null);
         if (imagePreview) URL.revokeObjectURL(imagePreview);
         setImagePreview(null);
-    };
+    }, [imagePreview]);
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
         setLoading(true);
 
@@ -230,7 +229,12 @@ export default function TicketForm() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [formData, imageFile, navigate, user]);
+
+    // Memoize selectClasses to prevent recreation
+    const selectClasses = useMemo(() => 
+        "flex h-10 w-full rounded-md border-0 ring-1 ring-slate-200 bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 appearance-none", 
+    []);
 
     if (success) {
         return (
@@ -241,8 +245,6 @@ export default function TicketForm() {
             </div>
         );
     }
-
-    const selectClasses = "flex h-10 w-full rounded-md border-0 ring-1 ring-slate-200 bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 appearance-none";
 
     return (
         <div className="max-w-3xl mx-auto py-8">

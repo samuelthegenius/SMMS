@@ -2,10 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Shield, AlertTriangle, Activity, Users, Clock, Eye, TrendingUp, Lock, Database } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
-import { useAuth } from '../../contexts/useAuth';
 
 export default function SecurityDashboard() {
-    const { profile: _profile } = useAuth();
     const [metrics, setMetrics] = useState(null);
     const [recentEvents, setRecentEvents] = useState([]);
     const [loading, setLoading] = useState(true);

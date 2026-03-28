@@ -8,8 +8,6 @@
  * - Global Styles: Injects the standard Tailwind CSS directives via 'index.css'.
  * - Error Boundary: Catches and handles React errors gracefully.
  */
-import React from 'react'
-window.React = React
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
@@ -49,5 +47,7 @@ setTimeout(() => {
   performance.measure('react-render', 'react-render-start', 'react-render-end')
   
   const measure = performance.getEntriesByName('react-render')[0]
-  console.log(`⚛️ React render time: ${Math.round(measure.duration)}ms`)
+  if (import.meta.env.DEV) {
+    console.log(`⚛️ React render time: ${Math.round(measure.duration)}ms`)
+  }
 }, 0)

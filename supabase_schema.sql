@@ -45,7 +45,7 @@ CREATE TABLE profiles (
     id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     email text NOT NULL,
     full_name text,
-    role text NOT NULL CHECK (role IN ('student', 'staff_member', 'technician', 'admin')),
+    role text NOT NULL CHECK (role IN ('student', 'staff', 'technician', 'admin')),
     identification_number text,
     department text,
     is_on_duty boolean DEFAULT true,

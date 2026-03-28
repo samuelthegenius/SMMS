@@ -3,9 +3,14 @@ import { Wrench } from "lucide-react";
 
 export default function Loader() {
     return (
-        <div className="flex h-screen w-full bg-background animate-fade-in">
+        <div 
+            className="flex h-screen w-full bg-background animate-fade-in" 
+            role="status" 
+            aria-label="Loading content"
+            aria-busy="true"
+        >
             {/* Sidebar Skeleton */}
-            <div className="w-64 hidden md:block bg-gradient-to-b from-primary to-slate-900 p-6 space-y-6">
+            <div className="w-64 hidden md:block bg-gradient-to-b from-primary to-slate-900 p-6 space-y-6" aria-hidden="true">
                 <div className="flex items-center gap-3 pb-6 border-b border-white/10">
                     <div className="bg-white/10 p-2 rounded-xl backdrop-blur-sm">
                         <Wrench className="w-6 h-6 text-accent" />
@@ -23,7 +28,7 @@ export default function Loader() {
                 </div>
             </div>
             {/* Content Skeleton */}
-            <div className="flex-1 p-6 md:p-8 space-y-6">
+            <div className="flex-1 p-6 md:p-8 space-y-6" aria-hidden="true">
                 <div className="flex justify-between items-center">
                     <Skeleton className="h-10 w-48 rounded-xl" />
                     <Skeleton className="h-10 w-10 rounded-full" />
@@ -38,6 +43,7 @@ export default function Loader() {
                     <Skeleton className="h-64 rounded-2xl bg-slate-200/70" />
                 </div>
             </div>
+            <span className="sr-only">Loading...</span>
         </div>
     );
 }

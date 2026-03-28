@@ -40,9 +40,13 @@ const Button = forwardRef(({
             ref={ref}
             className={cn(baseStyles, variants[variant], sizes[size], className)}
             disabled={isLoading || props.disabled}
+            aria-disabled={isLoading || props.disabled}
+            aria-busy={isLoading}
             {...props}
         >
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isLoading && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+            )}
             {children}
         </button>
     );

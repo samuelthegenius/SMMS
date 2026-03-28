@@ -4,6 +4,11 @@
  */
 
 export const runPerformanceAudit = () => {
+  if (!import.meta.env.DEV) {
+    console.warn('Performance audit is only available in development mode');
+    return null;
+  }
+  
   const results = {
     timing: {},
     resources: [],
@@ -52,47 +57,49 @@ export const runPerformanceAudit = () => {
     results.timing[p.name] = Math.round(p.startTime) + 'ms';
   });
 
-  console.log('🚀 PERFORMANCE AUDIT RESULTS');
-  console.log('============================');
-  console.log('⏱️ Timing Breakdown:');
-  Object.entries(results.timing).forEach(([key, val]) => {
-    const status = key === 'totalLoad' && val > 3000 ? '⚠️ SLOW' : 
-                   key === 'ttfb' && val > 600 ? '⚠️ SLOW' : '✓';
-    console.log(`  ${key}: ${val} ${status}`);
-  });
-  
-  console.log(`\n📦 Total Transfer Size: ${results.bundleSize}`);
-  
-  if (results.slowResources.length > 0) {
-    console.log('\n🐌 Slow/Large Resources:');
-    results.slowResources.slice(0, 10).forEach(r => {
-      console.log(`  • ${r.name} (${r.duration}, ${r.size}, ${r.type})`);
+  if (import.meta.env.DEV) {
+    console.log('🚀 PERFORMANCE AUDIT RESULTS');
+    console.log('============================');
+    console.log('⏱️ Timing Breakdown:');
+    Object.entries(results.timing).forEach(([key, val]) => {
+      const status = key === 'totalLoad' && val > 3000 ? '⚠️ SLOW' : 
+                     key === 'ttfb' && val > 600 ? '⚠️ SLOW' : '✓';
+      console.log(`  ${key}: ${val} ${status}`);
     });
-  }
+    
+    console.log(`\n📦 Total Transfer Size: ${results.bundleSize}`);
+    
+    if (results.slowResources.length > 0) {
+      console.log('\n🐌 Slow/Large Resources:');
+      results.slowResources.slice(0, 10).forEach(r => {
+        console.log(`  • ${r.name} (${r.duration}, ${r.size}, ${r.type})`);
+      });
+    }
 
-  // Recommendations
-  console.log('\n💡 Quick Fixes:');
-  if (results.timing.ttfb > 600) {
-    console.log('  • TTFB is high - check server response time or enable Vercel Edge');
-  }
-  if (results.timing.domProcessing > 1000) {
-    console.log('  • DOM processing slow - reduce JavaScript execution');
-  }
-  if (parseInt(results.bundleSize) > 500) {
-    console.log('  • Bundle is large - check for duplicate dependencies');
-  }
-  if (results.slowResources.some(r => r.name.includes('framer-motion'))) {
-    console.log('  • Framer Motion is loading - verify it\'s lazy-loaded');
-  }
-  if (results.slowResources.some(r => r.name.includes('recharts'))) {
-    console.log('  • Recharts is loading - should only load on Analytics page');
+    // Recommendations
+    console.log('\n💡 Quick Fixes:');
+    if (results.timing.ttfb > 600) {
+      console.log('  • TTFB is high - check server response time or enable Vercel Edge');
+    }
+    if (results.timing.domProcessing > 1000) {
+      console.log('  • DOM processing slow - reduce JavaScript execution');
+    }
+    if (parseInt(results.bundleSize) > 500) {
+      console.log('  • Bundle is large - check for duplicate dependencies');
+    }
+    if (results.slowResources.some(r => r.name.includes('framer-motion'))) {
+      console.log('  • Framer Motion is loading - verify it\'s lazy-loaded');
+    }
+    if (results.slowResources.some(r => r.name.includes('recharts'))) {
+      console.log('  • Recharts is loading - should only load on Analytics page');
+    }
   }
 
   return results;
 };
 
 // Auto-run after page load
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
   window.addEventListener('load', () => {
     setTimeout(() => {
       console.log('%c🔍 Run runPerformanceAudit() for detailed metrics', 'color: #f59e0b; font-size: 14px; font-weight: bold;');

@@ -139,7 +139,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { prompt, model = 'anthropic/claude-sonnet-4.6' } = req.body;
+    const { prompt, model = 'anthropic/claude-sonnet-4-6' } = req.body;
 
     if (!prompt || typeof prompt !== 'string') {
       return res.status(400).json({ error: 'Prompt is required and must be a string' });

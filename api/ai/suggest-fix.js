@@ -323,7 +323,7 @@ Keep responses concise and professional.`;
     
     // Best model for structured maintenance analysis: Claude Sonnet
     const { text } = await generateText({
-      model: provider.chatModel('anthropic/claude-sonnet-4.6'),
+      model: provider.chatModel('anthropic/claude-sonnet-4-6'),
       messages,
       maxTokens: 1000,
       temperature: 0.3,

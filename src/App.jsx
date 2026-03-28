@@ -16,8 +16,10 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Loader from './components/Loader';
 import InstallPrompt from './components/InstallPrompt';
 import { Toaster } from 'sonner';
+// Eagerly load LandingPage for immediate render (homepage SEO + preview)
+import LandingPage from './pages/LandingPage';
 
-// Lazy load all pages for code splitting
+// Lazy load all other pages for code splitting
 const Login = lazy(() => import('./pages/Login'));
 const SignUp = lazy(() => import('./pages/SignUp'));
 const TicketForm = lazy(() => import('./pages/TicketForm'));
@@ -25,7 +27,6 @@ const UserDashboard = lazy(() => import('./pages/dashboards/UserDashboard'));
 const TechnicianDashboard = lazy(() => import('./pages/dashboards/TechnicianDashboard'));
 const AdminDashboard = lazy(() => import('./pages/dashboards/AdminDashboard'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
-const LandingPage = lazy(() => import('./pages/LandingPage'));
 
 // Lazy load admin-specific components
 const SecurityDashboard = lazy(() => import('./pages/dashboards/SecurityDashboard'));

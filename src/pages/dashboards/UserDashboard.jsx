@@ -121,7 +121,7 @@ export default function UserDashboard() {
         }
     };
 
-    if (isLoading && !tickets.length) return <Loader />;
+    if (isLoading && !tickets.length) return <Loader variant="user" />;
 
     // Filter tickets based on view mode
     const filteredTickets = tickets.filter(ticket =>

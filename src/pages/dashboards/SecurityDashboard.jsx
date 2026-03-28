@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Shield, AlertTriangle, Activity, Users, Clock, Eye, TrendingUp, Lock, Database } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
+import Loader from '../../components/Loader';
 
 export default function SecurityDashboard() {
     const [metrics, setMetrics] = useState(null);
@@ -66,11 +67,7 @@ export default function SecurityDashboard() {
     };
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-            </div>
-        );
+        return <Loader variant="security" />;
     }
 
     return (

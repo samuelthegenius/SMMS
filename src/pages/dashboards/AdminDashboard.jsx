@@ -124,10 +124,10 @@ export default function AdminDashboard() {
     };
 
     // Show skeleton during initial loading, loader only for auth
-    if (loading) return <Loader />;
+    if (loading) return <Loader variant="admin" />;
     
     // Show skeleton during data loading
-    if (swrLoading && !tickets.length && !error) return <DashboardSkeleton />;
+    if (swrLoading && !tickets.length && !error) return <Loader variant="admin" />;
 
     // Handle SWR errors gracefully
     if (error) {
@@ -293,7 +293,7 @@ export default function AdminDashboard() {
                     </div>
                 </>
             ) : (
-                <Suspense fallback={<DashboardSkeleton />}>
+                <Suspense fallback={<Loader variant="security" />}>
                     <SecurityDashboard />
                 </Suspense>
             )}

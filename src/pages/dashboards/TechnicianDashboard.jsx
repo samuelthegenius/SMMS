@@ -170,7 +170,7 @@ export default function TechnicianDashboard() {
         }
     };
 
-    if (isLoading && !jobs.length) return <Loader />;
+    if (isLoading && !jobs.length) return <Loader variant="technician" />;
 
     return (
         <div className="space-y-8">

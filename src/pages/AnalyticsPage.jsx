@@ -111,7 +111,7 @@ export default function AnalyticsPage() {
     }, [profile, authLoading, fetchTickets, loading]);
 
     // Show loader during authentication or data loading
-    if (authLoading || loading) return <Loader />;
+    if (authLoading || loading) return <Loader variant="analytics" />;
 
     // Handle access denied
     if (error) {
@@ -159,7 +159,7 @@ export default function AnalyticsPage() {
                     System Overview
                 </h2>
 
-                <Suspense fallback={<div className="h-64 flex items-center justify-center"><Loader /></div>}>
+                <Suspense fallback={<div className="h-64 flex items-center justify-center"><Loader variant="analytics" /></div>}>
                     <AnalyticsSummary key="analytics-summary" tickets={memoizedTickets} />
                 </Suspense>
             </div>

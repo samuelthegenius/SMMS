@@ -16,12 +16,12 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Loader from './components/Loader';
 import InstallPrompt from './components/InstallPrompt';
 import { Toaster } from 'sonner';
-// Eagerly load LandingPage for immediate render (homepage SEO + preview)
+// Eagerly load public pages for immediate render (homepage SEO + previews)
 import LandingPage from './pages/LandingPage';
+import Login from './pages/Login';
+import SignUp from './pages/SignUp';
 
-// Lazy load all other pages for code splitting
-const Login = lazy(() => import('./pages/Login'));
-const SignUp = lazy(() => import('./pages/SignUp'));
+// Lazy load protected pages for code splitting
 const TicketForm = lazy(() => import('./pages/TicketForm'));
 const UserDashboard = lazy(() => import('./pages/dashboards/UserDashboard'));
 const TechnicianDashboard = lazy(() => import('./pages/dashboards/TechnicianDashboard'));

@@ -41,9 +41,6 @@ Thumbs.db
 .git
 .gitignore
 
-# Scripts that don't need to be deployed
-scripts
-
 # Documentation that's not needed in production
 *.md
 !README.md

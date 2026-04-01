@@ -158,6 +158,22 @@ supabase functions deploy suggest-fix
 - [ ] Real-time updates work
 - [ ] No console errors
 
+### Routing Tests (Prevents SPA 404 Regressions)
+
+- [ ] Run local guardrail: `npm run check:vercel-routing`
+- [ ] Verify live root route returns 200:
+  ```bash
+  curl -I https://your-production-domain.com
+  ```
+- [ ] Verify live deep-link route returns 200 (not 404):
+  ```bash
+  curl -I https://your-production-domain.com/dashboard
+  ```
+- [ ] If deep-link route returns 404, check `vercel.json` catch-all rewrite is:
+  ```json
+  { "source": "/(.*)", "destination": "/" }
+  ```
+
 ---
 
 ## Monitoring Setup

@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "check:vercel-routing": "node scripts/validate-vercel-routing.cjs",
+    "prebuild": "npm run check:vercel-routing",
     "build": "vite build",
     "build:analyze": "vite build --mode analyze",
     "build:profile": "npm run build && npm run preview",

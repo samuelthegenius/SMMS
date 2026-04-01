@@ -12,7 +12,8 @@ export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [isPending, startTransition] = useTransition();
+    const [_isPending, startTransition] = useTransition();
+    const [backendUnreachable, setBackendUnreachable] = useState(false);
     
     // Critical: Render children immediately, auth loads in background
     const [authReady, setAuthReady] = useState(false);
@@ -69,13 +70,18 @@ export function AuthProvider({ children }) {
         // Non-blocking auth initialization
         const initializeAuth = async () => {
             try {
-                // Fast session check with lower timeout
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 1500);
+                const { data: { session }, error } = await supabase.auth.getSession();
                 
-                const { data: { session } } = await supabase.auth.getSession();
-                clearTimeout(timeoutId);
-                
+                if (error) {
+                    // AuthRetryableFetchError means Supabase is unreachable (paused project / no network)
+                    const isNetworkErr = 
+                        error.name === 'AuthRetryableFetchError' ||
+                        error.message?.includes('Failed to fetch');
+                    if (isNetworkErr) {
+                        startTransition(() => setBackendUnreachable(true));
+                    }
+                }
+
                 if (mounted && session?.user) {
                     userIdRef.current = session.user.id;
                     startTransition(() => setUser(session.user));
@@ -139,8 +145,13 @@ export function AuthProvider({ children }) {
     const value = {
         user,
         profile,
-        loading: loading || isPending,
+        // Note: do NOT include isPending here. isPending from useTransition is
+        // an internal React scheduling hint that briefly becomes true on every
+        // startTransition call (every auth update). Exposing it as `loading`
+        // causes consumers to see loading=true transiently, triggering remounts.
+        loading,
         initializing: !authReady,
+        backendUnreachable,
         isAdmin: profile?.role === 'admin',
         isTechnician: profile?.role === 'technician',
         isStaff: profile?.role === 'staff',

@@ -1,22 +1,47 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/Card';
+import Loader from '../components/Loader';
+import { useAuth } from '../contexts/useAuth';
 
 // Rate limiting constants
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 const STORAGE_KEY = 'login_attempts';
 
+/** Returns true if the error is a pure network/connectivity failure (not a wrong-creds error) */
+const isNetworkFailure = (error) => {
+    const name = error?.name || '';
+    const msg  = error?.message || '';
+    return (
+        name === 'AuthRetryableFetchError' ||
+        msg.includes('Failed to fetch') ||
+        msg.includes('ERR_CONNECTION') ||
+        msg.includes('ERR_NETWORK') ||
+        msg.includes('ERR_QUIC') ||
+        msg.includes('NetworkError')
+    );
+};
+
 export default function Login() {
+    const { user, initializing } = useAuth();
     const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
+
+    if (initializing) {
+        return <Loader variant="auth-login" />;
+    }
+
+    if (user) {
+        return <Navigate to="/dashboard" replace />;
+    }
 
     // Check rate limit before allowing login attempt
     const checkRateLimit = () => {
@@ -160,6 +185,16 @@ export default function Login() {
             if (import.meta.env.DEV) {
               console.error('Login error:', error);
             }
+
+            // Network failure — the server is unreachable, not a bad password
+            if (isNetworkFailure(error)) {
+                toast.error(
+                    'Cannot connect to the server. Please check your internet connection or try again later.',
+                    { duration: 6000 }
+                );
+                return; // Do NOT record a failed attempt for infrastructure issues
+            }
+
             // Don't expose specific errors to prevent user enumeration
             const remaining = MAX_LOGIN_ATTEMPTS - (JSON.parse(localStorage.getItem(STORAGE_KEY) || '{"attempts":0}').attempts);
             if (remaining <= 0) {

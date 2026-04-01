@@ -8,7 +8,7 @@
  * - Security Layer: Implements ProtectedRoute middleware to guard sensitive pages.
  */
 import { Suspense, useEffect, lazy } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './contexts/useAuth';
 import Layout from './components/Layout';
@@ -33,6 +33,34 @@ const SecurityDashboard = lazy(() => import('./pages/dashboards/SecurityDashboar
 const ReassignTechnician = lazy(() => import('./components/ReassignTechnician'));
 
 /**
+ * @function GlobalLoader
+ * @description Context-aware top-level loader for the global Suspense boundary.
+ * Maps the current URL route to the appropriate loader shape.
+ */
+function GlobalLoader() {
+  const location = useLocation();
+  const path = location.pathname;
+
+  if (path === '/login') return <Loader variant="auth-login" />;
+  if (path === '/signup') return <Loader variant="auth-signup" />;
+  
+  // For protected dashboard routes that haven't mounted Layout yet
+  const isDashboardRoute = 
+    path.startsWith('/dashboard') || 
+    path.startsWith('/new-ticket') || 
+    path.startsWith('/analytics') || 
+    path.startsWith('/history') || 
+    path.startsWith('/jobs');
+
+  if (isDashboardRoute) {
+    return <Loader variant="generic" fullPage />;
+  }
+
+  // Default to landing page skeleton for root and unknown routes
+  return <Loader variant="landing" />;
+}
+
+/**
  * @function DashboardRouter
  * @description Role-Based Access Control (RBAC) Switcher.
  * Dynamically renders the appropriate dashboard component based on the authenticated user's role.
@@ -40,19 +68,31 @@ const ReassignTechnician = lazy(() => import('./components/ReassignTechnician'))
 function DashboardRouter() {
   const { profile } = useAuth();
 
-  if (!profile) return <Loader />;
+  if (!profile) return <Loader variant="simple" />;
 
   switch (profile.role) {
     case 'admin':
-      return <AdminDashboard />;
+      return (
+        <Suspense fallback={<Loader variant="admin" />}>
+          <AdminDashboard />
+        </Suspense>
+      );
     case 'technician':
-      return <TechnicianDashboard />;
+      return (
+        <Suspense fallback={<Loader variant="technician" />}>
+          <TechnicianDashboard />
+        </Suspense>
+      );
     // ROUTING SECURITY: Staff and Students share the "Reporter" view.
     // Technicians and Admins get the "Resolver" view.
     case 'student':
     case 'staff':
     default:
-      return <UserDashboard />;
+      return (
+        <Suspense fallback={<Loader variant="user" />}>
+          <UserDashboard />
+        </Suspense>
+      );
   }
 }
 
@@ -85,7 +125,7 @@ export default function App() {
           Injects authentication state (user, session, RBAC profile) into all child components.
       */}
       <AuthProvider>
-        <Suspense fallback={<Loader />}>
+        <Suspense fallback={<GlobalLoader />}>
           <Routes>
             {/* Public Routes: Accessible without authentication */}
             <Route path="/" element={<LandingPage />} />
@@ -100,10 +140,26 @@ export default function App() {
             <Route element={<ProtectedRoute />}>
               <Route element={<Layout />}>
                 <Route path="/dashboard" element={<DashboardRouter />} />
-                <Route path="/new-ticket" element={<TicketForm />} />
-                <Route path="/analytics" element={<AnalyticsPage />} />
-                <Route path="/history" element={<UserDashboard />} />
-                <Route path="/jobs" element={<TechnicianDashboard />} />
+                <Route path="/new-ticket" element={
+                  <Suspense fallback={<Loader variant="ticket-form" />}>
+                    <TicketForm />
+                  </Suspense>
+                } />
+                <Route path="/analytics" element={
+                  <Suspense fallback={<Loader variant="analytics" />}>
+                    <AnalyticsPage />
+                  </Suspense>
+                } />
+                <Route path="/history" element={
+                  <Suspense fallback={<Loader variant="user" />}>
+                    <UserDashboard />
+                  </Suspense>
+                } />
+                <Route path="/jobs" element={
+                  <Suspense fallback={<Loader variant="technician" />}>
+                    <TechnicianDashboard />
+                  </Suspense>
+                } />
               </Route>
             </Route>
 

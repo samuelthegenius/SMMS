@@ -387,6 +387,78 @@ const AuthFormSkeleton = ({ showRoleFields = false }) => (
     </div>
 );
 
+// Variant: Landing Page (marketing site with hero, features, CTA)
+const LandingPageSkeleton = () => (
+    <div className="min-h-screen flex flex-col bg-white animate-fade-in" role="status" aria-label="Loading homepage" aria-busy="true">
+        {/* Navigation Skeleton */}
+        <nav className="bg-slate-900 border-b border-slate-800">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex justify-between h-16 items-center">
+                    <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 bg-slate-700 rounded-lg animate-pulse"></div>
+                        <div className="hidden md:block">
+                            <div className="h-5 bg-slate-700 rounded w-48 mb-1 animate-pulse"></div>
+                            <div className="h-3 bg-slate-600 rounded w-32 animate-pulse"></div>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <div className="h-4 bg-slate-700 rounded w-16 animate-pulse"></div>
+                        <div className="h-9 bg-amber-500/30 rounded-lg w-24 animate-pulse"></div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        {/* Hero Section Skeleton */}
+        <div className="relative bg-slate-900 pt-16 pb-32 overflow-hidden">
+            <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                {/* Badge */}
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800 mb-8 animate-pulse">
+                    <div className="h-2 w-2 rounded-full bg-slate-600"></div>
+                    <div className="h-3 bg-slate-600 rounded w-40"></div>
+                </div>
+
+                {/* Headline */}
+                <div className="space-y-4 mb-8">
+                    <div className="h-12 md:h-16 bg-slate-700 rounded w-3/4 mx-auto animate-pulse"></div>
+                    <div className="h-12 md:h-16 bg-slate-700/50 rounded w-1/2 mx-auto animate-pulse"></div>
+                </div>
+
+                {/* Subheadline */}
+                <div className="h-6 bg-slate-600 rounded w-2/3 mx-auto mb-10 animate-pulse"></div>
+
+                {/* CTA Buttons */}
+                <div className="flex flex-col sm:flex-row justify-center gap-4">
+                    <div className="h-14 bg-amber-500/30 rounded-xl w-full sm:w-48 animate-pulse"></div>
+                    <div className="h-14 bg-slate-700 rounded-xl w-full sm:w-40 animate-pulse"></div>
+                </div>
+            </div>
+        </div>
+
+        {/* Features Section Skeleton */}
+        <div className="py-24 bg-slate-50">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="text-center mb-16">
+                    <div className="h-8 bg-slate-200 rounded w-48 mx-auto mb-4 animate-pulse"></div>
+                    <div className="h-4 bg-slate-200 rounded w-96 mx-auto animate-pulse"></div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="bg-white rounded-2xl p-8 border border-slate-200 animate-pulse">
+                            <div className="h-12 w-12 bg-slate-200 rounded-xl mb-4"></div>
+                            <div className="h-6 bg-slate-200 rounded w-3/4 mb-2"></div>
+                            <div className="h-4 bg-slate-200 rounded w-full mb-1"></div>
+                            <div className="h-4 bg-slate-200 rounded w-2/3"></div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+        <span className="sr-only">Loading...</span>
+    </div>
+);
+
 const variants = {
     generic: GenericDashboardSkeleton,
     admin: AdminDashboardSkeleton,
@@ -398,6 +470,7 @@ const variants = {
     security: SecurityDashboardSkeleton,
     'auth-login': () => <AuthFormSkeleton showRoleFields={false} />,
     'auth-signup': () => <AuthFormSkeleton showRoleFields={true} />,
+    landing: LandingPageSkeleton,
 };
 
 export default function Loader({ variant = 'generic', fullPage = false }) {
@@ -426,6 +499,7 @@ export {
     AnalyticsSkeleton,
     SimpleContentSkeleton,
     SecurityDashboardSkeleton,
+    LandingPageSkeleton,
     CardSkeleton,
     StatsCardSkeleton,
     JobCardSkeleton,

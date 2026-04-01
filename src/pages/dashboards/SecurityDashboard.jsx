@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Shield, AlertTriangle, Activity, Users, Clock, Eye, TrendingUp, Lock, Database } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
@@ -8,13 +8,18 @@ export default function SecurityDashboard() {
     const [metrics, setMetrics] = useState(null);
     const [recentEvents, setRecentEvents] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(null);
+    const initialLoadDone = useRef(false);
 
     // Fetch security metrics
     useEffect(() => {
         const fetchSecurityData = async () => {
+            // Only show the full-page spinner on the very first load.
+            // Background interval refreshes update data silently.
+            const isInitial = !initialLoadDone.current;
+            if (isInitial) setLoading(true);
+
             try {
-                setLoading(true);
-                
                 // Get security metrics
                 const { data: metricsData, error: metricsError } = await supabase
                     .rpc('get_security_metrics');
@@ -29,18 +34,23 @@ export default function SecurityDashboard() {
                 
                 setMetrics(metricsData);
                 setRecentEvents(eventsData || []);
+                                setLoadError(null);
             } catch (error) {
+                                setLoadError('Could not refresh security data. Showing last known values.');
               if (import.meta.env.DEV) {
                 console.error('Error fetching security data:', error);
               }
             } finally {
-                setLoading(false);
+                if (isInitial) {
+                    initialLoadDone.current = true;
+                    setLoading(false);
+                }
             }
         };
 
         fetchSecurityData();
         
-        // Refresh data every 30 seconds
+        // Refresh data every 30 seconds (silently — no spinner)
         const interval = setInterval(fetchSecurityData, 30000);
         return () => clearInterval(interval);
     }, []);
@@ -85,6 +95,12 @@ export default function SecurityDashboard() {
                     </span>
                 </div>
             </div>
+
+            {loadError && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    {loadError}
+                </div>
+            )}
 
             {/* Security Metrics */}
             {metrics && (

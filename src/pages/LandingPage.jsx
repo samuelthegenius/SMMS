@@ -7,10 +7,22 @@
  * - Responsive Design: Uses Tailwind's grid system to adapt layout from mobile to desktop.
  * - Brand Messaging: Highlights key value propositions (Speed, Efficiency, Intelligence).
  */
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { Wrench, Clock, Sparkles, ArrowRight, CheckCircle, User } from 'lucide-react';
+import Loader from '../components/Loader';
+import { useAuth } from '../contexts/useAuth';
 
 export default function LandingPage() {
+    const { user, initializing } = useAuth();
+
+    if (initializing) {
+        return <Loader variant="landing" />;
+    }
+
+    if (user) {
+        return <Navigate to="/dashboard" replace />;
+    }
+
     return (
         <div className="min-h-screen flex flex-col bg-white">
             {/* Navigation */}

@@ -14,14 +14,16 @@ if (typeof window !== 'undefined') {
   window.URL.revokeObjectURL = vi.fn();
 }
 
-// Mock supabase
 vi.mock('../lib/supabase', () => ({
   supabase: {
     auth: {
       getSession: vi.fn(() => Promise.resolve({ data: { session: null } })),
       getUser: vi.fn(() => Promise.resolve({ data: { user: null } })),
       onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
+      signInWithPassword: vi.fn(() => Promise.resolve({ data: { user: {} }, error: null })),
+      signUp: vi.fn(() => Promise.resolve({ data: { user: {} }, error: null })),
     },
+    rpc: vi.fn(() => Promise.resolve({ data: null, error: null })),
     from: vi.fn(() => ({
       select: vi.fn(() => ({
         eq: vi.fn(() => ({

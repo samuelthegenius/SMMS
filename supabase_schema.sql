@@ -16,6 +16,7 @@ DROP TRIGGER IF EXISTS on_ticket_change ON tickets;
 DROP FUNCTION IF EXISTS auto_assign_logic();
 DROP FUNCTION IF EXISTS handle_ticket_notifications();
 DROP FUNCTION IF EXISTS get_email_by_id(TEXT);
+DROP FUNCTION IF EXISTS register_secure_user(uuid, text, text, text, text, text, text[], text);
 DROP FUNCTION IF EXISTS register_secure_user(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT);
 DROP FUNCTION IF EXISTS check_rate_limit(TEXT, INTEGER, INTEGER);
 
@@ -160,6 +161,13 @@ CREATE INDEX idx_security_events_severity ON security_events(severity);
 -- ============================================================================
 
 -- Rate limit checker
+CREATE OR REPLACE FUNCTION is_admin()
+RETURNS boolean AS $$
+BEGIN
+    RETURN EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin');
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 CREATE OR REPLACE FUNCTION check_rate_limit(
     p_identifier text,
     p_action text,
@@ -213,6 +221,43 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Validate access code publicly without exposing the code table
+CREATE OR REPLACE FUNCTION validate_access_code(
+    p_role text,
+    p_code text
+)
+RETURNS boolean AS $$
+DECLARE
+    expected_code text;
+BEGIN
+    IF p_role NOT IN ('student', 'staff', 'technician') THEN
+        RETURN false;
+    END IF;
+
+    SELECT code INTO expected_code
+    FROM role_access_codes
+    WHERE role = p_role;
+
+    IF expected_code IS NULL THEN RETURN false; END IF;
+    RETURN p_code = expected_code;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Cleanup orphaned auth users
+CREATE OR REPLACE FUNCTION cleanup_orphaned_auth_user(
+    p_email text
+)
+RETURNS void AS $$
+BEGIN
+    DELETE FROM auth.users
+    WHERE email = p_email
+    AND NOT EXISTS (
+        SELECT 1 FROM public.profiles 
+        WHERE profiles.id = auth.users.id
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- Secure user registration
 CREATE OR REPLACE FUNCTION register_secure_user(
     p_id uuid,
@@ -233,20 +278,18 @@ BEGIN
         RAISE EXCEPTION 'Too many signup attempts. Please try again later.';
     END IF;
 
-    -- Validate role
-    IF p_role NOT IN ('student', 'staff_member', 'technician', 'admin') THEN
-        RAISE EXCEPTION 'Invalid role specified';
+    -- Validate role (explicitly prevent admin registration through public API)
+    IF p_role NOT IN ('student', 'staff', 'technician') THEN
+        RAISE EXCEPTION 'Role % registration is not permitted', p_role;
     END IF;
 
-    -- Check access code for staff/technician
-    IF p_role IN ('staff_member', 'technician') THEN
-        SELECT code INTO expected_code
-        FROM role_access_codes
-        WHERE role = p_role;
+    -- Check access code for ALL allowed roles
+    SELECT code INTO expected_code
+    FROM role_access_codes
+    WHERE role = p_role;
 
-        IF expected_code IS NULL OR p_access_code <> expected_code THEN
-            RAISE EXCEPTION 'Invalid access code';
-        END IF;
+    IF expected_code IS NULL OR p_access_code IS NULL OR p_access_code <> expected_code THEN
+        RAISE EXCEPTION 'Invalid access code';
     END IF;
 
     -- Check for duplicate ID number
@@ -430,6 +473,48 @@ CREATE TRIGGER on_ticket_change
     FOR EACH ROW
     EXECUTE FUNCTION handle_ticket_notifications();
 
+CREATE OR REPLACE FUNCTION enforce_ticket_update_rules()
+RETURNS trigger AS $$
+DECLARE
+    v_user_role text;
+    v_uid uuid := auth.uid();
+BEGIN
+    IF v_uid IS NULL THEN RETURN NEW; END IF;
+    SELECT role INTO v_user_role FROM profiles WHERE id = v_uid;
+    IF v_user_role = 'admin' THEN RETURN NEW; END IF;
+
+    IF OLD.created_by = v_uid AND v_user_role IN ('student', 'staff') THEN
+        IF NEW.assigned_to IS DISTINCT FROM OLD.assigned_to THEN
+            RAISE EXCEPTION 'Creators cannot reassign tickets.';
+        END IF;
+        IF NEW.status IS DISTINCT FROM OLD.status THEN
+            IF NOT (OLD.status = 'Pending Verification' AND NEW.status IN ('Resolved', 'In Progress', 'Open')) THEN
+                RAISE EXCEPTION 'Creators cannot arbitrarily change ticket status.';
+            END IF;
+        END IF;
+    END IF;
+
+    IF OLD.assigned_to = v_uid AND v_user_role = 'technician' THEN
+        IF NEW.created_by IS DISTINCT FROM OLD.created_by THEN
+            RAISE EXCEPTION 'Technicians cannot change the ticket creator.';
+        END IF;
+        IF NEW.title IS DISTINCT FROM OLD.title THEN
+            RAISE EXCEPTION 'Technicians cannot change the ticket title.';
+        END IF;
+        IF NEW.description IS DISTINCT FROM OLD.description THEN
+            RAISE EXCEPTION 'Technicians cannot change the ticket description.';
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER enforce_ticket_rules
+    BEFORE UPDATE ON tickets
+    FOR EACH ROW
+    EXECUTE FUNCTION enforce_ticket_update_rules();
+
 -- ============================================================================
 -- 7. ROW LEVEL SECURITY (RLS)
 -- ============================================================================
@@ -445,10 +530,21 @@ ALTER TABLE role_access_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE technician_skills ENABLE ROW LEVEL SECURITY;
 
 -- PROFILES policies
-CREATE POLICY "Profiles viewable by authenticated users"
+CREATE POLICY "Strict profile visibility"
     ON profiles FOR SELECT
     TO authenticated
-    USING (true);
+    USING (
+        id = auth.uid() 
+        OR is_admin()
+        OR id IN (
+            SELECT assigned_to FROM tickets 
+            WHERE created_by = auth.uid() AND assigned_to IS NOT NULL
+        )
+        OR id IN (
+            SELECT created_by FROM tickets 
+            WHERE assigned_to = auth.uid()
+        )
+    );
 
 CREATE POLICY "Users can insert own profile"
     ON profiles FOR INSERT
@@ -469,10 +565,7 @@ CREATE POLICY "Users can update own profile"
 CREATE POLICY "Admins can update all profiles"
     ON profiles FOR UPDATE
     TO authenticated
-    USING (EXISTS (
-        SELECT 1 FROM profiles
-        WHERE id = auth.uid() AND role = 'admin'
-    ));
+    USING (is_admin());
 
 -- TICKETS policies
 CREATE POLICY "Users can view own tickets"
@@ -502,22 +595,13 @@ CREATE POLICY "Creators can update own tickets"
     ON tickets FOR UPDATE
     TO authenticated
     USING (created_by = auth.uid())
-    WITH CHECK (
-        created_by = auth.uid() AND
-        assigned_to = OLD.assigned_to AND
-        status = OLD.status
-    );
+    WITH CHECK (created_by = auth.uid());
 
 CREATE POLICY "Technicians can update assigned tickets"
     ON tickets FOR UPDATE
     TO authenticated
     USING (assigned_to = auth.uid())
-    WITH CHECK (
-        assigned_to = auth.uid() AND
-        created_by = OLD.created_by AND
-        title = OLD.title AND
-        description = OLD.description
-    );
+    WITH CHECK (assigned_to = auth.uid());
 
 CREATE POLICY "Admins have full access to tickets"
     ON tickets FOR ALL

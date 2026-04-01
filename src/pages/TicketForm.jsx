@@ -2,18 +2,18 @@ import { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/useAuth';
-// import { sendEmailNotification } from '../utils/emailService'; // Deprecated in favor of Edge Function
 import { AlertCircle, CheckCircle, Send, MapPin, AlertTriangle, FileText, Tag, Building, Image, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
+import Loader from '../components/Loader';
 import { cn } from '../lib/utils';
 import { FACILITY_TYPES, MAINTENANCE_CATEGORIES } from '../utils/constants';
 
 export default function TicketForm() {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, initializing } = useAuth();
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false); // Can keep local success state for redirect view or replace with Toast + Redirect
 
@@ -235,6 +235,10 @@ export default function TicketForm() {
     const selectClasses = useMemo(() => 
         "flex h-10 w-full rounded-md border-0 ring-1 ring-slate-200 bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 appearance-none", 
     []);
+
+    if (initializing || !user) {
+        return <Loader variant="ticket-form" />;
+    }
 
     if (success) {
         return (

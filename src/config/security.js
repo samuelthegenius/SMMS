@@ -3,31 +3,6 @@
  * This file contains security-related configurations and utilities
  */
 
-// Content Security Policy configuration
-export const CSP_POLICY = {
-  development: "default-src 'self'; script-src 'self' 'unsafe-eval' https://va.vercel-scripts.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' wss://localhost:* ws://localhost:*; frame-ancestors 'none'; base-uri 'self'; form-action 'self';",
-  production: "default-src 'self'; script-src 'self' https://va.vercel-scripts.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
-};
-
-// Security headers for production
-export const SECURITY_HEADERS = {
-  'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'DENY',
-  'X-XSS-Protection': '1; mode=block',
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
-  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload'
-};
-
-// Development headers (without HSTS to avoid local issues)
-export const DEV_SECURITY_HEADERS = {
-  'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'DENY',
-  'X-XSS-Protection': '1; mode=block',
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()'
-};
-
 // Input validation patterns
 export const VALIDATION_PATTERNS = {
   email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
@@ -39,38 +14,6 @@ export const VALIDATION_PATTERNS = {
   xssPattern: /<script|javascript:|on\w+\s*=|expression\(/gi,
   sqlPattern: /union\s+select|drop\s+table|insert\s+into|delete\s+from|'|"|;|--|\/\*/gi,
   pathTraversal: /\.\.\/|\.\.\\|%2e%2e%2f/gi
-};
-
-// File upload constraints
-export const FILE_CONSTRAINTS = {
-  maxSize: 5 * 1024 * 1024, // 5MB
-  allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
-  allowedExtensions: ['.jpg', '.jpeg', '.png', '.webp', '.gif'],
-  // Security patterns for file names
-  dangerousPatterns: [
-    /\.exe$/i, /\.bat$/i, /\.cmd$/i, /\.scr$/i,
-    /\.php$/i, /\.asp$/i, /\.jsp$/i, /\.sh$/i,
-    /\.com$/i, /\.pif$/i, /\.vbs$/i, /\.js$/i,
-    /\.jar$/i, /\.app$/i, /\.deb$/i, /\.rpm$/i,
-    /\.dmg$/i, /\.pkg$/i, /\.msi$/i, /\.msu$/i
-  ]
-};
-
-// Rate limiting configurations
-export const RATE_LIMITS = {
-  login: {
-    maxAttempts: 5,
-    windowMs: 5 * 60 * 1000, // 5 minutes
-    lockoutMs: 5 * 60 * 1000  // 5 minutes
-  },
-  signup: {
-    maxAttempts: 3,
-    windowMs: 15 * 60 * 1000 // 15 minutes
-  },
-  emailLookup: {
-    maxAttempts: 10,
-    windowMs: 5 * 60 * 1000 // 5 minutes
-  }
 };
 
 // Sanitization utilities

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-// import { sendEmailNotification } from '../../utils/emailService'; // Deprecated in favor of Edge Function
 import { Filter, AlertCircle, Clock, Wrench, CheckCircle, Eye, Shield, BarChart3, Users, User, Wrench as WrenchIcon } from 'lucide-react';
 import clsx from 'clsx';
 import Loader from '../../components/Loader';
@@ -8,7 +7,6 @@ import TicketDetails from '../../components/TicketDetails';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import ReassignTechnician from '../../components/ReassignTechnician';
 import { DashboardSkeleton, CardSkeleton, StatsCardSkeleton } from '../../components/SkeletonLoader';
 import { lazy, Suspense } from 'react';
 
@@ -24,7 +22,12 @@ import useSWR from 'swr';
 import { useAuth } from '../../contexts/useAuth';
 
 export default function AdminDashboard() {
-    const { profile, loading } = useAuth();
+    // Note: Do NOT destructure `loading` from useAuth here.
+    // AuthContext's `loading` is `loading || isPending` from useTransition.
+    // Every startTransition call briefly sets isPending=true, which would make
+    // AdminDashboard early-return a <Loader>, unmounting SecurityDashboard.
+    // DashboardRouter already ensures we only render when profile is set.
+    const { profile } = useAuth();
     const [filter, setFilter] = useState('All');
     const [selectedTicket, setSelectedTicket] = useState(null);
     const [activeTab, setActiveTab] = useState('tickets'); // 'tickets' or 'security'
@@ -123,13 +126,14 @@ export default function AdminDashboard() {
         inProgress: tickets.filter(t => t.status === 'In Progress').length,
     };
 
-    // Show skeleton during initial loading, loader only for auth
-    if (loading) return <Loader variant="admin" />;
-    
-    // Show skeleton during data loading
-    if (swrLoading && !tickets.length && !error) return <Loader variant="admin" />;
+    // Safety guards — these CAN early-return because AdminDashboard
+    // (and SecurityDashboard inside it) shouldn't render in these states.
+    // DashboardRouter already ensures profile is set before rendering us,
+    // so these are belt-and-suspenders catches only.
+    if (profile && profile.role !== 'admin') {
+        return <div className="text-red-500 text-center mt-10">Access Denied: You are not an admin.</div>;
+    }
 
-    // Handle SWR errors gracefully
     if (error) {
       if (import.meta.env.DEV) {
         console.error('Failed to fetch tickets:', error);
@@ -142,13 +146,9 @@ export default function AdminDashboard() {
         );
     }
 
-    if (profile && profile.role !== 'admin') {
-        return <div className="text-red-500 text-center mt-10">Access Denied: You are not an admin.</div>;
-    }
-
-    if (!profile) {
-        return <div className="text-red-500 text-center mt-10">No user profile found. Please log in.</div>;
-    }
+    // Do NOT add any loading-based early returns here.
+    // The ticket panel already shows inline StatsCardSkeleton / CardSkeleton
+    // while swrLoading is true. An early return would unmount SecurityDashboard.
 
     return (
         <div className="space-y-8">
@@ -190,113 +190,118 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
-            {/* Tab Content */}
-            {activeTab === 'tickets' ? (
-                <>
-                    {/* Filter for tickets tab */}
-                    <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
-                        <Filter className="w-5 h-5 text-slate-400 ml-2" />
-                        <select
-                            value={filter}
-                            onChange={(e) => setFilter(e.target.value)}
-                            className="border-none focus:ring-0 text-sm text-slate-700 bg-transparent font-medium cursor-pointer outline-none min-w-[150px]"
-                        >
-                            {FACILITY_TYPES.map(type => (
-                                <option key={type} value={type}>{type === 'All' ? 'All Facilities' : type}</option>
-                            ))}
-                        </select>
-                    </div>
+            {/* Tab Content — both panels are always mounted; CSS hides the inactive one
+                 so SecurityDashboard never unmounts and avoids spurious reloads. */}
 
-                    {/* Stats Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        {swrLoading && !tickets.length ? (
-                            Array.from({ length: 4 }).map((_, idx) => <StatsCardSkeleton key={idx} />)
-                        ) : (
-                            [
-                                { label: 'Total Tickets', value: stats.total, icon: AlertCircle, color: 'text-blue-600', bg: 'bg-blue-50' },
-                                { label: 'Pending', value: stats.pending, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
-                                { label: 'In Progress', value: stats.inProgress, icon: Wrench, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-                                { label: 'Resolved', value: stats.resolved, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                            ].map((stat, idx) => (
-                                <Card key={idx} className="hover:shadow-md transition-shadow">
-                                    <CardContent className="p-6 flex justify-between items-start">
+            {/* Tickets panel */}
+            <div className={activeTab === 'tickets' ? undefined : 'hidden'}>
+                {/* Filter for tickets tab */}
+                <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
+                    <Filter className="w-5 h-5 text-slate-400 ml-2" />
+                    <select
+                        value={filter}
+                        onChange={(e) => setFilter(e.target.value)}
+                        className="border-none focus:ring-0 text-sm text-slate-700 bg-transparent font-medium cursor-pointer outline-none min-w-[150px]"
+                    >
+                        {FACILITY_TYPES.map(type => (
+                            <option key={type} value={type}>{type === 'All' ? 'All Facilities' : type}</option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* Stats Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mt-6">
+                    {swrLoading && !tickets.length ? (
+                        Array.from({ length: 4 }).map((_, idx) => <StatsCardSkeleton key={idx} />)
+                    ) : (
+                        [
+                            { label: 'Total Tickets', value: stats.total, icon: AlertCircle, color: 'text-blue-600', bg: 'bg-blue-50' },
+                            { label: 'Pending', value: stats.pending, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
+                            { label: 'In Progress', value: stats.inProgress, icon: Wrench, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+                            { label: 'Resolved', value: stats.resolved, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                        ].map((stat, idx) => (
+                            <Card key={idx} className="hover:shadow-md transition-shadow">
+                                <CardContent className="p-4 md:p-5 flex flex-col gap-3">
+                                    {/* Icon badge */}
+                                    <div className={clsx("w-fit p-2 rounded-lg", stat.bg)}>
+                                        <stat.icon className={clsx("w-5 h-5", stat.color)} />
+                                    </div>
+                                    {/* Number */}
+                                    <p className="text-3xl font-extrabold text-slate-900 leading-none">{stat.value}</p>
+                                    {/* Label */}
+                                    <p className="text-sm font-medium text-slate-500">{stat.label}</p>
+                                </CardContent>
+                            </Card>
+                        ))
+                    )}
+                </div>
+
+                {/* Tickets Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                    {swrLoading && !tickets.length ? (
+                        Array.from({ length: 4 }).map((_, idx) => <CardSkeleton key={idx} />)
+                    ) : (
+                        filteredTickets.map((ticket) => (
+                            <Card key={ticket.id} className="hover:shadow-md transition-all cursor-pointer" onClick={() => setSelectedTicket(ticket)}>
+                                <CardContent className="p-6">
+                                    <div className="flex justify-between items-start mb-4">
                                         <div>
-                                            <p className="text-sm font-medium text-slate-500">{stat.label}</p>
-                                            <p className="text-3xl font-bold text-slate-900 mt-2">{stat.value}</p>
+                                            <h3 className="font-semibold text-slate-900 text-lg">{ticket.title}</h3>
+                                            <p className="text-slate-500 text-sm">{ticket.facility_type} • {ticket.specific_location}</p>
                                         </div>
-                                        <div className={clsx("p-3 rounded-xl", stat.bg)}>
-                                            <stat.icon className={clsx("w-6 h-6", stat.color)} />
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))
-                        )}
-                    </div>
+                                        <span className={clsx(
+                                            "px-3 py-1 rounded-full text-xs font-medium",
+                                            ticket.priority === 'high' ? "bg-red-100 text-red-700" :
+                                            ticket.priority === 'medium' ? "bg-amber-100 text-amber-700" :
+                                            ticket.priority === 'low' ? "bg-green-100 text-green-700" :
+                                            "bg-slate-100 text-slate-700"
+                                        )}>
+                                            {ticket.priority?.toUpperCase()}
+                                        </span>
+                                    </div>
 
-                    {/* Tickets Grid */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {swrLoading && !tickets.length ? (
-                            Array.from({ length: 4 }).map((_, idx) => <CardSkeleton key={idx} />)
-                        ) : (
-                            filteredTickets.map((ticket) => (
-                                <Card key={ticket.id} className="hover:shadow-md transition-all cursor-pointer" onClick={() => setSelectedTicket(ticket)}>
-                                    <CardContent className="p-6">
-                                        <div className="flex justify-between items-start mb-4">
-                                            <div>
-                                                <h3 className="font-semibold text-slate-900 text-lg">{ticket.title}</h3>
-                                                <p className="text-slate-500 text-sm">{ticket.facility_type} • {ticket.specific_location}</p>
+                                    <div className="flex items-center justify-between">
+                                        <div className="space-y-2">
+                                            {/* Reporter Information */}
+                                            <div className="flex items-center gap-4 text-sm text-slate-500">
+                                                <span className="flex items-center gap-1">
+                                                    <User className="w-4 h-4 text-blue-500" />
+                                                    {ticket.reporter?.full_name || 'Unknown Reporter'}
+                                                </span>
+                                                <span className="flex items-center gap-1">
+                                                    <Clock className="w-4 h-4" />
+                                                    {new Date(ticket.created_at).toLocaleDateString()}
+                                                </span>
                                             </div>
-                                            <span className={clsx(
-                                                "px-3 py-1 rounded-full text-xs font-medium",
-                                                ticket.priority === 'high' ? "bg-red-100 text-red-700" :
-                                                ticket.priority === 'medium' ? "bg-amber-100 text-amber-700" :
-                                                ticket.priority === 'low' ? "bg-green-100 text-green-700" :
-                                                "bg-slate-100 text-slate-700"
-                                            )}>
-                                                {ticket.priority?.toUpperCase()}
-                                            </span>
+                                            
+                                            {/* Technician Information */}
+                                            <div className="flex items-center gap-2 text-sm">
+                                                <span className="flex items-center gap-1">
+                                                    <WrenchIcon className="w-4 h-4 text-green-500" />
+                                                    {ticket.technician?.full_name || 'Unassigned'}
+                                                </span>
+                                                {ticket.technician?.department && (
+                                                    <span className="text-slate-400 text-xs">
+                                                        ({ticket.technician.department})
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
+                                        <Eye className="w-5 h-5 text-slate-400" />
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))
+                    )}
+                </div>
+            </div>
 
-                                        <div className="flex items-center justify-between">
-                                            <div className="space-y-2">
-                                                {/* Reporter Information */}
-                                                <div className="flex items-center gap-4 text-sm text-slate-500">
-                                                    <span className="flex items-center gap-1">
-                                                        <User className="w-4 h-4 text-blue-500" />
-                                                        {ticket.reporter?.full_name || 'Unknown Reporter'}
-                                                    </span>
-                                                    <span className="flex items-center gap-1">
-                                                        <Clock className="w-4 h-4" />
-                                                        {new Date(ticket.created_at).toLocaleDateString()}
-                                                    </span>
-                                                </div>
-                                                
-                                                {/* Technician Information */}
-                                                <div className="flex items-center gap-2 text-sm">
-                                                    <span className="flex items-center gap-1">
-                                                        <WrenchIcon className="w-4 h-4 text-green-500" />
-                                                        {ticket.technician?.full_name || 'Unassigned'}
-                                                    </span>
-                                                    {ticket.technician?.department && (
-                                                        <span className="text-slate-400 text-xs">
-                                                            ({ticket.technician.department})
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <Eye className="w-5 h-5 text-slate-400" />
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))
-                        )}
-                    </div>
-                </>
-            ) : (
+            {/* Security panel — always mounted, hidden when tickets tab is active */}
+            <div className={activeTab === 'security' ? undefined : 'hidden'}>
                 <Suspense fallback={<Loader variant="security" />}>
                     <SecurityDashboard />
                 </Suspense>
-            )}
+            </div>
 
             {/* Ticket Details Modal */}
             {selectedTicket && (

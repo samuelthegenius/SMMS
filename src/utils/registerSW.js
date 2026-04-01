@@ -5,6 +5,13 @@ let isReloading = false;
 
 const registerSW = async () => {
   if ('serviceWorker' in navigator) {
+    // Disable SW in development to prevent module caching conflicts
+    if (import.meta.env.DEV) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        for (let reg of regs) reg.unregister();
+      });
+      return;
+    }
     try {
       const registration = await navigator.serviceWorker.register('/sw.js', {
         scope: '/'

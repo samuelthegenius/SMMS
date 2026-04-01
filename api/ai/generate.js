@@ -56,9 +56,9 @@ function createAIGatewayProvider() {
 
 // Get CORS headers
 function getCorsHeaders(origin) {
-  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  const allowedOrigin = origin && ALLOWED_ORIGINS.includes(origin) ? origin : null;
   return {
-    'Access-Control-Allow-Origin': allowedOrigin || '',
+    ...(allowedOrigin ? { 'Access-Control-Allow-Origin': allowedOrigin } : {}),
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
@@ -103,6 +103,11 @@ function checkRateLimit(clientId) {
 
 export default async function handler(req, res) {
   const origin = req.headers.origin || '';
+
+  if (origin && !ALLOWED_ORIGINS.includes(origin)) {
+    return res.status(403).json({ error: 'CORS origin forbidden' });
+  }
+
   const corsHeaders = getCorsHeaders(origin);
   
   // Set CORS and security headers

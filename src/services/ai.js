@@ -31,45 +31,6 @@ export async function generateText(prompt, model = 'anthropic/claude-sonnet-4.6'
 }
 
 /**
- * Fetch available AI models from the gateway
- * @returns {Promise<Array>} List of available models
- */
-export async function fetchAvailableModels() {
-  const response = await fetch(`${API_BASE}/ai/models`);
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch models');
-  }
-
-  const data = await response.json();
-  return data.models || [];
-}
-
-/**
- * Check AI service health
- * @returns {Promise<boolean>} Service status
- */
-export async function checkAIService() {
-  try {
-    const response = await fetch(`${API_BASE}/health`);
-    const data = await response.json();
-    return data.services?.aiGateway === true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Predefined model options
- */
-export const MODEL_OPTIONS = {
-  CLAUDE_SONNET: 'anthropic/claude-sonnet-4.6',
-  CLAUDE_HAIKU: 'anthropic/claude-haiku-4.6',
-  GPT4O: 'openai/gpt-4o',
-  GPT4O_MINI: 'openai/gpt-4o-mini',
-};
-
-/**
  * Get maintenance fix suggestion from AI - FREE TIER
  * Uses Supabase Edge Function with Google Gemini Flash
  * Cost: $0 (1,500 requests/day limit)

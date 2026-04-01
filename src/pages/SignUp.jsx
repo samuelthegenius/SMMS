@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Wrench, Loader2, HardHat, Building, IdCard, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
@@ -8,6 +8,8 @@ import { Input } from '../components/ui/Input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/Card';
 import { cn } from '../lib/utils';
 import { MAINTENANCE_CATEGORIES } from '../utils/constants';
+import Loader from '../components/Loader';
+import { useAuth } from '../contexts/useAuth';
 
 // Rate limiting for signup
 const SIGNUP_STORAGE_KEY = 'signup_attempts';
@@ -21,6 +23,7 @@ const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function SignUp() {
+    const { user, initializing } = useAuth();
     const [formData, setFormData] = useState({
         fullName: '',
         email: '',
@@ -33,6 +36,14 @@ export default function SignUp() {
     });
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
+
+    if (initializing) {
+        return <Loader variant="auth-signup" />;
+    }
+
+    if (user) {
+        return <Navigate to="/dashboard" replace />;
+    }
 
     // Check rate limit
     const checkRateLimit = () => {
@@ -149,17 +160,18 @@ export default function SignUp() {
                 throw new Error('This ID number is already registered. Please sign in or contact support.');
             }
 
-            // 3. Validate access code BEFORE creating auth user (for student/staff/technician)
+            // 3. Validate access code BEFORE creating auth user via secure RPC
             if (formData.role === 'student' || formData.role === 'staff' || formData.role === 'technician') {
-                const { data: accessCodeData } = await supabase
-                    .from('role_access_codes')
-                    .select('code')
-                    .eq('role', formData.role)
-                    .single();
+                const { data: isValidCode, error: validationError } = await supabase.rpc('validate_access_code', {
+                    p_role: formData.role,
+                    p_code: formData.accessCode
+                });
 
-                if (!accessCodeData || formData.accessCode !== accessCodeData.code) {
-                    throw new Error('Invalid access code. Please contact administration.');
+                if (validationError || !isValidCode) {
+                    throw new Error('Invalid access code. Please check and try again.');
                 }
+            } else if (formData.role === 'admin') {
+                throw new Error('Admin registration is not allowed via public signup.');
             }
 
             // 4. Now create the auth user (all validations passed)

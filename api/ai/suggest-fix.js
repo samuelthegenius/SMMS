@@ -54,9 +54,9 @@ function createAIGatewayProvider() {
 
 // Get CORS headers
 function getCorsHeaders(origin) {
-  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  const allowedOrigin = origin && ALLOWED_ORIGINS.includes(origin) ? origin : null;
   return {
-    'Access-Control-Allow-Origin': allowedOrigin || '',
+    ...(allowedOrigin ? { 'Access-Control-Allow-Origin': allowedOrigin } : {}),
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
@@ -221,6 +221,11 @@ function parseStructuredResponse(text) {
 
 export default async function handler(req, res) {
   const origin = req.headers.origin || '';
+
+  if (origin && !ALLOWED_ORIGINS.includes(origin)) {
+    return res.status(403).json({ error: 'CORS origin forbidden' });
+  }
+
   const corsHeaders = getCorsHeaders(origin);
   
   // Set CORS and security headers
@@ -301,7 +306,13 @@ Keep responses concise and professional.`;
     let messages = [{ role: 'system', content: systemPrompt }];
     
     // Handle image if provided
-    if (image_url && validateImageUrl(image_url)) {
+    if (image_url && !validateImageUrl(image_url)) {
+      return res.status(400).json({
+        error: 'Invalid image URL. Only HTTPS URLs from Supabase or Vercel Blob are allowed.'
+      });
+    }
+
+    if (image_url) {
       const imageData = await fetchAndEncodeImage(image_url);
       if (imageData) {
         messages.push({
@@ -312,7 +323,9 @@ Keep responses concise and professional.`;
           ]
         });
       } else {
-        messages.push({ role: 'user', content: userPrompt });
+        return res.status(400).json({
+          error: 'Could not process provided image. Please upload a valid image and try again.'
+        });
       }
     } else {
       messages.push({ role: 'user', content: userPrompt });

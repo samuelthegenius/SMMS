@@ -1,10 +1,10 @@
 // Optimized Service Worker for Maximum Performance
 // Implements Cache-First for static assets and Stale-While-Revalidate for dynamic content
 
-const CACHE_NAME = 'smms-v6';
-const STATIC_CACHE = 'smms-static-v6';
-const API_CACHE = 'smms-api-v6';
-const IMAGE_CACHE = 'smms-images-v6';
+const CACHE_NAME = 'smms-v7';
+const STATIC_CACHE = 'smms-static-v7';
+const API_CACHE = 'smms-api-v7';
+const IMAGE_CACHE = 'smms-images-v7';
 
 // Resources to pre-cache on install
 const PRECACHE_URLS = [
@@ -47,7 +47,9 @@ self.addEventListener('install', (event) => {
           )
         );
       })
-      .then(() => self.skipWaiting())
+      // Do NOT auto-skipWaiting: it fires controllerchange on every client,
+      // which triggers window.location.reload() in registerSW.js.
+      // The SW activates via the explicit SKIP_WAITING message only during real updates.
   );
 });
 
@@ -57,7 +59,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (!cacheName.includes('v6')) {
+          if (!cacheName.includes('v7')) {
             return caches.delete(cacheName);
           }
         })

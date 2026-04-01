@@ -191,7 +191,7 @@ class SecurityLogger {
       const { data, error: _error } = await supabase
         .from('security_logs')
         .select('*')
-        .order('timestamp', { ascending: false })
+        .order('logged_at', { ascending: false })
         .limit(limit);
 
       if (_error) {
@@ -363,16 +363,39 @@ export const securityMonitoring = {
 /**
  * Initialize security monitoring
  */
+/**
+ * Returns true if the error message represents a transient network failure
+ * (Supabase server unreachable, paused project, etc.) rather than a real
+ * security event. These should never be logged as login failures.
+ */
+const isNetworkError = (message) => {
+  const NETWORK_PATTERNS = [
+    'AuthRetryableFetchError',
+    'Failed to fetch',
+    'ERR_CONNECTION_TIMED_OUT',
+    'ERR_NETWORK_CHANGED',
+    'ERR_QUIC_PROTOCOL_ERROR',
+    'net::ERR_',
+    'Lock "lock:', // navigator lock timeout warnings
+    'was not released within',
+  ];
+  return NETWORK_PATTERNS.some(p => message.includes(p));
+};
+
 export const initializeSecurityMonitoring = () => {
-  // Monitor failed login attempts
+  // Monitor failed login attempts — skip pure network/infrastructure errors
   const originalConsoleError = console.error;
   console.error = (...args) => {
-    // Check for login-related errors
     const message = args.join(' ');
-    if (message.includes('login') || message.includes('auth')) {
+
+    // Only log genuine auth security events, not network failures
+    if (
+      (message.includes('login') || message.includes('auth')) &&
+      !isNetworkError(message)
+    ) {
       securityLogger.logEvent(
         SECURITY_EVENTS.LOGIN_FAILURE,
-        { error: message.substring(0, 200) }, // Limit length
+        { error: message.substring(0, 200) },
         SEVERITY_LEVELS.MEDIUM
       );
     }

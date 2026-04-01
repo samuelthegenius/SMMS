@@ -46,9 +46,9 @@ const MAX_UPLOADS_PER_MINUTE = 5;
 
 // Get CORS headers
 function getCorsHeaders(origin) {
-  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  const allowedOrigin = origin && ALLOWED_ORIGINS.includes(origin) ? origin : null;
   return {
-    'Access-Control-Allow-Origin': allowedOrigin || '',
+    ...(allowedOrigin ? { 'Access-Control-Allow-Origin': allowedOrigin } : {}),
     'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
@@ -137,10 +137,20 @@ async function validateAuth(req) {
   }
   
   try {
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Upload API missing server-side Supabase configuration');
+      }
+      return { valid: false, error: 'Upload service misconfigured' };
+    }
+
     // Create a Supabase client to validate the token
     const supabase = createClient(
-      process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY,
+      supabaseUrl,
+      serviceRoleKey,
       {
         auth: {
           autoRefreshToken: false,
@@ -167,6 +177,11 @@ async function validateAuth(req) {
 
 export default async function handler(req, res) {
   const origin = req.headers.origin || '';
+
+  if (origin && !ALLOWED_ORIGINS.includes(origin)) {
+    return res.status(403).json({ error: 'CORS origin forbidden' });
+  }
+
   const corsHeaders = getCorsHeaders(origin);
   
   // Set CORS and security headers

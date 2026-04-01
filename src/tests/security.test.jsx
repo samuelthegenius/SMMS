@@ -6,19 +6,27 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
-import { AuthProvider } from '../contexts/AuthContext';
 import Login from '../pages/Login';
 import TicketForm from '../pages/TicketForm';
 import { validateCSRFToken, generateCSRFToken } from '../utils/csrfProtection';
 import { securityMonitoring } from '../utils/securityMonitoring';
 import { sanitizeInput, validateUrl } from '../config/security';
 
+const authState = vi.hoisted(() => ({
+  user: null,
+  profile: null,
+  loading: false,
+  initializing: false,
+}));
+
+vi.mock('../contexts/useAuth', () => ({
+  useAuth: () => authState,
+}));
+
 // Test wrapper
 const TestWrapper = ({ children }) => (
   <BrowserRouter>
-    <AuthProvider>
-      {children}
-    </AuthProvider>
+    {children}
   </BrowserRouter>
 );
 
@@ -27,6 +35,12 @@ describe('Security Tests', () => {
     // Clear sessionStorage before each test
     sessionStorage.clear();
     localStorage.clear();
+
+    // Default auth state for pages that require anonymous users (e.g., Login)
+    authState.user = null;
+    authState.profile = null;
+    authState.loading = false;
+    authState.initializing = false;
   });
 
   describe('Input Validation & Sanitization', () => {
@@ -132,6 +146,8 @@ describe('Security Tests', () => {
 
   describe('Ticket Form Security', () => {
     it('should validate and sanitize input', async () => {
+      authState.user = { id: 'test-user-id' };
+
       render(
         <TestWrapper>
           <TicketForm />
@@ -151,6 +167,8 @@ describe('Security Tests', () => {
     });
 
     it('should validate file uploads', async () => {
+      authState.user = { id: 'test-user-id' };
+
       render(
         <TestWrapper>
           <TicketForm />

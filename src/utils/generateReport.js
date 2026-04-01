@@ -95,14 +95,21 @@ export const generateTicketReport = async (tickets) => {
         const tableColumn = ["Ticket ID", "Title", "Location", "Priority", "Status", "Assigned To"];
 
         // Map the raw ticket data to an array of arrays (rows)
-        const tableRows = tickets.map(ticket => [
-            ticket.id.substring(0, 8) + '...', // Truncate UUID for readability
-            ticket.title,
-            `${ticket.facility_type} - ${ticket.specific_location}`, // Combine facility and specific location
-            ticket.priority,
-            ticket.status,
-            ticket.assigned_to || 'Unassigned' // Handle null values
-        ]);
+        const tableRows = tickets.map(ticket => {
+            const id = ticket.id || ticket.ticket_id || '';
+            const displayId = id ? `${id.substring(0, 8)}...` : 'N/A';
+            // Handle different data structures from various queries (RPC vs Direct vs Fallback)
+            const assignedName = ticket.technician?.full_name || ticket.technician_full_name || ticket.profiles?.full_name || 'Unassigned';
+            
+            return [
+                displayId,
+                ticket.title || 'Untitled',
+                `${ticket.facility_type || 'N/A'} - ${ticket.specific_location || 'N/A'}`,
+                ticket.priority || 'Unknown',
+                ticket.status || 'Unknown',
+                assignedName
+            ];
+        });
 
         // --- TABLE GENERATION SECTION ---
 

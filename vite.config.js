@@ -16,7 +16,8 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     // Integration of React specific features like Fast Refresh
     react({
-      jsxRuntime: 'automatic'
+      jsxRuntime: 'automatic',
+      include: '**/*.{jsx,tsx}'
     }),
     // Bundle analyzer - only in analyze mode
     mode === 'analyze' && visualizer({
@@ -41,7 +42,7 @@ export default defineConfig(({ mode }) => ({
     historyApiFallback: true,
     // Security Headers for Development - use permissive policy for dev only
     headers: {
-      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co https://va.vercel-scripts.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' http://localhost:* https://localhost:* ws://localhost:* wss://localhost:* https://*.supabase.co https://api.emailjs.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests; object-src 'none'; media-src 'self'; worker-src 'self' blob:;",
+      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co https://va.vercel-scripts.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' http://localhost:* https://localhost:* ws://localhost:* wss://localhost:* https://*.supabase.co wss://*.supabase.co https://api.emailjs.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests; object-src 'none'; media-src 'self'; worker-src 'self' blob:;",
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'DENY',
       'X-XSS-Protection': '1; mode=block',
@@ -67,13 +68,11 @@ export default defineConfig(({ mode }) => ({
           // Core framework + UI utilities - merged to avoid circular dependency
           'vendor-core': [
             'react', 'react-dom', 'react-router-dom',
-            'lucide-react', 'class-variance-authority', 'clsx', 'tailwind-merge', 'sonner'
+            'lucide-react', 'clsx', 'tailwind-merge', 'sonner'
           ],
-          // Animations - lazy loaded when needed
-          'vendor-motion': ['framer-motion'],
           // Data layer
           'vendor-data': ['@supabase/supabase-js', 'swr']
-          // Heavy libs (recharts, jspdf, @google/generative-ai, resend) loaded on-demand via dynamic imports
+          // Heavy libs (for example recharts and jspdf) are loaded on-demand via dynamic imports
         },
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js'
@@ -131,23 +130,15 @@ export default defineConfig(({ mode }) => ({
   
   // Optimize development server
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom', '@supabase/supabase-js', 'lucide-react', 'clsx', 'tailwind-merge', 'class-variance-authority', 'sonner', 'swr'],
-    exclude: ['framer-motion'], // Loaded when animations are needed
-    esbuildOptions: {
-      target: 'es2020',
-      minify: true,
-      legalComments: 'none'
-    },
-    force: false
+    include: ['react', 'react-dom', 'react-router-dom', '@supabase/supabase-js']
   },
   
-  // Define global constants to replace exports-related issues
-  define: {
-    global: 'globalThis'
-  },
+
+
   
   // Resolve module issues
   resolve: {
-    alias: {}
+    alias: {},
+    dedupe: ['react', 'react-dom']
   }
 }))

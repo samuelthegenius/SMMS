@@ -44,6 +44,7 @@ export function AuthProvider({ children }) {
             const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
             if (!error && data) {
+                localStorage.setItem('smms_user_role', data.role);
                 startTransition(() => setProfile(data));
                 cache.set(userId, { data, timestamp: Date.now() });
             } else if (error?.code === 'PGRST116') {
@@ -53,6 +54,7 @@ export function AuthProvider({ children }) {
                     role: 'student',
                     full_name: currentUser?.user_metadata?.full_name || 'Unknown User'
                 };
+                localStorage.setItem('smms_user_role', defaultProfile.role);
                 startTransition(() => setProfile(defaultProfile));
                 cache.set(userId, { data: defaultProfile, timestamp: Date.now() });
             }
@@ -128,6 +130,7 @@ export function AuthProvider({ children }) {
                     }
                 } else {
                     userIdRef.current = null;
+                    localStorage.removeItem('smms_user_role');
                     startTransition(() => {
                         setUser(null);
                         setProfile(null);
@@ -145,6 +148,7 @@ export function AuthProvider({ children }) {
     const value = {
         user,
         profile,
+        initialRoleHint: typeof window !== 'undefined' ? localStorage.getItem('smms_user_role') : null,
         // Note: do NOT include isPending here. isPending from useTransition is
         // an internal React scheduling hint that briefly becomes true on every
         // startTransition call (every auth update). Exposing it as `loading`

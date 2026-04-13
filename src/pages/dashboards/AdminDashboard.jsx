@@ -7,7 +7,6 @@ import TicketDetails from '../../components/TicketDetails';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { DashboardSkeleton, CardSkeleton, StatsCardSkeleton } from '../../components/SkeletonLoader';
 import { lazy, Suspense } from 'react';
 
 // Lazy load security dashboard only when needed
@@ -73,7 +72,7 @@ export default function AdminDashboard() {
     };
 
     // Use SWR for caching with proper loading state handling
-    const { data: tickets = [], mutate, isLoading: swrLoading, error } = useSWR(
+    const { data: tickets, mutate, error } = useSWR(
         profile?.role === 'admin' ? 'admin_tickets' : null, 
         fetchTickets,
         {
@@ -83,7 +82,7 @@ export default function AdminDashboard() {
             errorRetryCount: 2, // Reduced retry attempts
             errorRetryInterval: 5000, // 5 seconds between retries
             refreshInterval: 0, // Disable auto-refresh for better performance
-            suspense: false // Disable suspense to prevent waterfall loading
+            suspense: true // Use concurrent React Suspense to show page-context-aware loader
         }
     );
 
@@ -115,15 +114,17 @@ export default function AdminDashboard() {
         };
     }, [mutate, profile?.id, profile]);
 
+    const safeTickets = tickets || [];
+
     const filteredTickets = filter === 'All'
-        ? tickets
-        : tickets.filter(t => t.facility_type === filter);
+        ? safeTickets
+        : safeTickets.filter(t => t.facility_type === filter);
 
     const stats = {
-        total: tickets.length,
-        pending: tickets.filter(t => t.status === 'Open').length,
-        resolved: tickets.filter(t => t.status === 'Resolved').length,
-        inProgress: tickets.filter(t => t.status === 'In Progress').length,
+        total: safeTickets.length,
+        pending: safeTickets.filter(t => t.status === 'Open').length,
+        resolved: safeTickets.filter(t => t.status === 'Resolved').length,
+        inProgress: safeTickets.filter(t => t.status === 'In Progress').length,
     };
 
     // Safety guards — these CAN early-return because AdminDashboard
@@ -211,37 +212,30 @@ export default function AdminDashboard() {
 
                 {/* Stats Cards */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mt-6">
-                    {swrLoading && !tickets.length ? (
-                        Array.from({ length: 4 }).map((_, idx) => <StatsCardSkeleton key={idx} />)
-                    ) : (
-                        [
-                            { label: 'Total Tickets', value: stats.total, icon: AlertCircle, color: 'text-blue-600', bg: 'bg-blue-50' },
-                            { label: 'Pending', value: stats.pending, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
-                            { label: 'In Progress', value: stats.inProgress, icon: Wrench, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-                            { label: 'Resolved', value: stats.resolved, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                        ].map((stat, idx) => (
-                            <Card key={idx} className="hover:shadow-md transition-shadow">
-                                <CardContent className="p-4 md:p-5 flex flex-col gap-3">
-                                    {/* Icon badge */}
-                                    <div className={clsx("w-fit p-2 rounded-lg", stat.bg)}>
-                                        <stat.icon className={clsx("w-5 h-5", stat.color)} />
-                                    </div>
-                                    {/* Number */}
-                                    <p className="text-3xl font-extrabold text-slate-900 leading-none">{stat.value}</p>
-                                    {/* Label */}
-                                    <p className="text-sm font-medium text-slate-500">{stat.label}</p>
-                                </CardContent>
-                            </Card>
-                        ))
-                    )}
+                    {[
+                        { label: 'Total Tickets', value: stats.total, icon: AlertCircle, color: 'text-blue-600', bg: 'bg-blue-50' },
+                        { label: 'Pending', value: stats.pending, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
+                        { label: 'In Progress', value: stats.inProgress, icon: Wrench, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+                        { label: 'Resolved', value: stats.resolved, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                    ].map((stat, idx) => (
+                        <Card key={idx} className="hover:shadow-md transition-shadow">
+                            <CardContent className="p-4 md:p-5 flex flex-col gap-3">
+                                {/* Icon badge */}
+                                <div className={clsx("w-fit p-2 rounded-lg", stat.bg)}>
+                                    <stat.icon className={clsx("w-5 h-5", stat.color)} />
+                                </div>
+                                {/* Number */}
+                                <p className="text-3xl font-extrabold text-slate-900 leading-none">{stat.value}</p>
+                                {/* Label */}
+                                <p className="text-sm font-medium text-slate-500">{stat.label}</p>
+                            </CardContent>
+                        </Card>
+                    ))}
                 </div>
 
                 {/* Tickets Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-                    {swrLoading && !tickets.length ? (
-                        Array.from({ length: 4 }).map((_, idx) => <CardSkeleton key={idx} />)
-                    ) : (
-                        filteredTickets.map((ticket) => (
+                    {filteredTickets.map((ticket) => (
                             <Card key={ticket.id} className="hover:shadow-md transition-all cursor-pointer" onClick={() => setSelectedTicket(ticket)}>
                                 <CardContent className="p-6">
                                     <div className="flex justify-between items-start mb-4">
@@ -291,8 +285,7 @@ export default function AdminDashboard() {
                                     </div>
                                 </CardContent>
                             </Card>
-                        ))
-                    )}
+                        ))}
                 </div>
             </div>
 

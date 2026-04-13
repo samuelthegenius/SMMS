@@ -60,7 +60,7 @@ export default function UserDashboard() {
         return data;
     };
 
-    const { data: tickets = [], mutate, isLoading } = useSWR(
+    const { data: tickets, mutate } = useSWR(
         user ? ['user_tickets', user.id] : null, 
         fetchTickets,
         {
@@ -70,17 +70,19 @@ export default function UserDashboard() {
             errorRetryCount: 2,
             errorRetryInterval: 5000,
             refreshInterval: 0,
-            suspense: false
+            suspense: true
         }
     );
 
+    const safeTickets = tickets || [];
+
     const handleVerification = async (ticketId, isApproved, reason = null) => {
-        const previousTickets = [...tickets];
+        const previousTickets = [...safeTickets];
         const updates = {
             status: isApproved ? 'Resolved' : 'In Progress',
             rejection_reason: reason
         };
-        const updatedTickets = tickets.map(t => t.id === ticketId ? { ...t, ...updates } : t);
+        const updatedTickets = safeTickets.map(t => t.id === ticketId ? { ...t, ...updates } : t);
 
         // Optimistic update
         mutate(updatedTickets, false);
@@ -121,10 +123,8 @@ export default function UserDashboard() {
         }
     };
 
-    if (isLoading && !tickets.length) return <Loader variant="user" />;
-
     // Filter tickets based on view mode
-    const filteredTickets = tickets.filter(ticket =>
+    const filteredTickets = safeTickets.filter(ticket =>
         isHistoryView
             ? COMPLETED_STATUSES.includes(ticket.status)
             : ACTIVE_STATUSES.includes(ticket.status)

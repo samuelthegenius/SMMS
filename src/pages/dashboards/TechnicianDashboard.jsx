@@ -40,7 +40,7 @@ export default function TechnicianDashboard() {
     };
 
     // Use SWR
-    const { data: jobs = [], mutate, isLoading } = useSWR(
+    const { data: jobs, mutate } = useSWR(
         user ? ['technician_jobs', user.id] : null, 
         fetchJobs,
         {
@@ -50,9 +50,11 @@ export default function TechnicianDashboard() {
             errorRetryCount: 2,
             errorRetryInterval: 5000,
             refreshInterval: 0,
-            suspense: false
+            suspense: true
         }
     );
+
+    const safeJobs = jobs || [];
 
     useEffect(() => {
         if (!user) return;
@@ -81,8 +83,8 @@ export default function TechnicianDashboard() {
     }, [user, mutate]);
 
     const handleStatusUpdate = async (ticketId, newStatus) => {
-        const previousJobs = [...jobs];
-        const updatedJobs = jobs.map(j => j.id === ticketId ? { ...j, status: newStatus } : j);
+        const previousJobs = [...safeJobs];
+        const updatedJobs = safeJobs.map(j => j.id === ticketId ? { ...j, status: newStatus } : j);
 
         // Optimistic update
         mutate(updatedJobs, false);
@@ -97,7 +99,7 @@ export default function TechnicianDashboard() {
 
             // Trigger Email Notification on Completion
             if (newStatus === 'Resolved') {
-                const job = jobs.find(j => j.id === ticketId);
+                const job = safeJobs.find(j => j.id === ticketId);
                 if (job?.reporter?.email) {
                     await supabase.functions.invoke('send-email', {
                         body: {
@@ -170,8 +172,6 @@ export default function TechnicianDashboard() {
         }
     };
 
-    if (isLoading && !jobs.length) return <Loader variant="technician" />;
-
     return (
         <div className="space-y-8">
             <div>
@@ -180,7 +180,7 @@ export default function TechnicianDashboard() {
             </div>
 
             <div className="space-y-6">
-                {jobs.map((job) => (
+                {safeJobs.map((job) => (
                     <Card key={job.id} className="hover:shadow-md transition-shadow border-slate-200">
                         <CardContent className="p-6">
                             <div className="flex flex-col md:flex-row justify-between items-start gap-6">
@@ -335,7 +335,7 @@ export default function TechnicianDashboard() {
                     </Card>
                 ))}
 
-                {jobs.length === 0 && (
+                {safeJobs.length === 0 && (
                     <Card className="border-dashed">
                         <CardContent className="py-16 text-center">
                             <div className="mx-auto h-12 w-12 text-slate-300 mb-3">

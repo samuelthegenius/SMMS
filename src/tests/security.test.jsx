@@ -298,14 +298,14 @@ describe('Security Tests', () => {
       const { sanitizeError } = await import('../config/security');
       
       const sensitiveErrors = [
-        new Error('Database connection failed: password=***REMOVED***'),
+        new Error('Database connection failed: password=secret123'),
         new Error('SQL error: SELECT * FROM users WHERE id = 1'),
         new Error('File not found: /etc/passwd')
       ];
 
       sensitiveErrors.forEach(error => {
         const sanitized = sanitizeError(error, true); // Production mode
-        expect(sanitized).not.toContain('***REMOVED***');
+        expect(sanitized).not.toContain('secret123');
         expect(sanitized).not.toContain('SELECT * FROM users');
         expect(sanitized).not.toContain('/etc/passwd');
         // Should return a generic error message (could be different based on error type)

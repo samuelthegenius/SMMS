@@ -49,16 +49,50 @@
         </div>
       </div>
     </div>
-    <div class="content-skel">
-      <div class="skel-block" style="height:32px;width:192px;margin-bottom:24px" class="skeleton-bg"></div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:24px;margin-bottom:24px">
+    <div class="content-skel" id="skel-main">
+      <div class="skel-block" id="skel-header" style="height:32px;width:192px;margin-bottom:24px" class="skeleton-bg"></div>
+      <div id="skel-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:24px;margin-bottom:24px">
         <div class="skel-card skeleton-bg"></div>
         <div class="skel-card skeleton-bg"></div>
         <div class="skel-card skeleton-bg"></div>
       </div>
-      <div class="skel-card skeleton-bg" style="height:384px"></div>
+      <div id="skel-large" class="skel-card skeleton-bg" style="height:384px"></div>
     </div>
   </div>
+  
+  <!-- Zero-latency Context Aware Reshaping -->
+  <script>
+    (function() {
+      try {
+        var path = window.location.pathname;
+        var isDash = path.startsWith('/dashboard') || path.startsWith('/new-ticket') || path.startsWith('/analytics') || path.startsWith('/history') || path.startsWith('/jobs');
+        
+        if (!isDash) {
+          // Flatten into a generic centered page layout for Auth/Landing routes
+          var sidebar = document.querySelector('.sidebar-skel');
+          if(sidebar) sidebar.style.display = 'none';
+          
+          var main = document.getElementById('skel-main');
+          if(main) {
+            main.style.display = 'flex';
+            main.style.flexDirection = 'column';
+            main.style.alignItems = 'center';
+            main.style.justifyContent = 'center';
+            
+            // Adjust inner blocks to look like a generic centered form / landing hero
+            var header = document.getElementById('skel-header');
+            if(header) { header.style.width = '60%'; header.style.maxWidth = '400px'; header.style.height = '48px'; }
+            
+            var grid = document.getElementById('skel-grid');
+            if(grid) grid.style.display = 'none'; // Hide dashboard cards
+            
+            var large = document.getElementById('skel-large');
+            if(large) { large.style.width = '100%'; large.style.maxWidth = '500px'; large.style.height = '300px'; large.style.borderRadius = '16px'; }
+          }
+        }
+      } catch(e) {}
+    })();
+  </script>
   
   <div id="root"></div>
   

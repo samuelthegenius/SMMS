@@ -40,21 +40,24 @@ const ReassignTechnician = lazy(() => import('./components/ReassignTechnician'))
 function GlobalLoader() {
   const location = useLocation();
   const path = location.pathname;
+  const { profile, initialRoleHint } = useAuth();
 
   if (path === '/login') return <Loader variant="auth-login" />;
   if (path === '/signup') return <Loader variant="auth-signup" />;
   
-  // For protected dashboard routes that haven't mounted Layout yet
-  const isDashboardRoute = 
-    path.startsWith('/dashboard') || 
-    path.startsWith('/new-ticket') || 
-    path.startsWith('/analytics') || 
-    path.startsWith('/history') || 
-    path.startsWith('/jobs');
-
-  if (isDashboardRoute) {
+  // Specific fullPage dashboards with real sidebars
+  if (path.startsWith('/dashboard')) {
+    const activeRole = profile?.role || initialRoleHint;
+    if (activeRole === 'admin') return <Loader variant="admin" fullPage />;
+    if (activeRole === 'technician') return <Loader variant="technician" fullPage />;
+    if (activeRole === 'student' || activeRole === 'staff') return <Loader variant="user" fullPage />;
     return <Loader variant="generic" fullPage />;
   }
+  
+  if (path.startsWith('/new-ticket')) return <Loader variant="ticket-form" fullPage />;
+  if (path.startsWith('/analytics')) return <Loader variant="analytics" fullPage />;
+  if (path.startsWith('/history')) return <Loader variant="user" fullPage />;
+  if (path.startsWith('/jobs')) return <Loader variant="technician" fullPage />;
 
   // Default to landing page skeleton for root and unknown routes
   return <Loader variant="landing" />;

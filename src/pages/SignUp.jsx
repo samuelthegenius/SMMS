@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate, Link, Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Wrench, Loader2, HardHat, Building, IdCard, ShieldAlert } from 'lucide-react';
@@ -131,7 +131,7 @@ export default function SignUp() {
             return;
         }
 
-        try { checkRateLimit(); } catch (err) { toast.error(err.message); return; }
+
 
         setLoading(true);
         signingUpRef.current = true;
@@ -197,7 +197,7 @@ export default function SignUp() {
                 },
             });
 
-            const json = await res.json().catch(() => ({}));
+
 
             // 5. Create profile (should succeed since we validated everything)
             if (authData?.user) {

@@ -43,14 +43,21 @@ export default function NotificationBell() {
         }
     }, [user?.id]);
 
+    // Keep a stable ref to the active channel so we can safely unsubscribe
+    const channelRef = useRef(null);
+
     useEffect(() => {
-        if (!user) return;
+        if (!user?.id) return;
 
         fetchNotifications();
 
-        // Realtime Subscription
-        const subscription = supabase
-            .channel('public:notifications')
+        // Use a unique channel name per user so the Supabase client never
+        // returns an already-subscribed channel on re-render — which would
+        // throw "cannot add postgres_changes callbacks after subscribe()".
+        const channelName = `notifications:${user.id}`;
+
+        const channel = supabase
+            .channel(channelName)
             .on(
                 'postgres_changes',
                 {
@@ -68,18 +75,25 @@ export default function NotificationBell() {
             )
             .subscribe();
 
+        channelRef.current = channel;
+
         function handleClickOutside(event) {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
                 setIsOpen(false);
             }
         }
-        document.addEventListener("mousedown", handleClickOutside);
+        document.addEventListener('mousedown', handleClickOutside);
 
         return () => {
-            subscription.unsubscribe();
-            document.removeEventListener("mousedown", handleClickOutside);
+            if (channelRef.current) {
+                supabase.removeChannel(channelRef.current);
+                channelRef.current = null;
+            }
+            document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [user, fetchNotifications]);
+    // Only re-subscribe when the user ID actually changes, not on every render
+    }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
     const handleToggle = async () => {
         const newIsOpen = !isOpen;

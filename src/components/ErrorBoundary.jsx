@@ -32,16 +32,31 @@ class ErrorBoundary extends Component {
         if (import.meta.env.DEV) {
           console.error('ErrorBoundary caught an error:', error, errorInfo);
         }
-        
-        // Log to error tracking service (e.g., Sentry, LogRocket)
-        // if (process.env.NODE_ENV === 'production') {
-        //     sendToErrorTrackingService(error, errorInfo);
-        // }
 
-        this.setState({
-            error,
-            errorInfo
-        });
+        // ChunkLoadError: after a Vercel deployment the chunk hashes change.
+        // Any user who still has the old HTML loaded will get a 404 on lazy-loaded
+        // chunks → ChunkLoadError. Auto-reload once to get the fresh assets.
+        const isChunkError = (
+            error?.name === 'ChunkLoadError' ||
+            error?.message?.includes('Failed to fetch dynamically imported module') ||
+            error?.message?.includes('Importing a module script failed') ||
+            error?.message?.includes('Loading chunk') ||
+            error?.message?.includes('Loading CSS chunk')
+        );
+
+        if (isChunkError) {
+            const reloadKey = 'chunk_error_reloaded';
+            // Only reload once — avoid infinite loop if the chunk truly doesn't exist
+            if (!sessionStorage.getItem(reloadKey)) {
+                sessionStorage.setItem(reloadKey, '1');
+                window.location.reload();
+                return;
+            }
+            // If we've already reloaded, fall through to show the error UI
+            sessionStorage.removeItem(reloadKey);
+        }
+
+        this.setState({ error, errorInfo });
     }
 
     handleReset = () => {

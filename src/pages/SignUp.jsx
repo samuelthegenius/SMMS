@@ -141,9 +141,15 @@ export default function SignUp() {
             }
 
             // Check if auth user exists using database function
-            const { data: authUserExists } = await supabase.rpc('check_auth_user_exists', {
+            // This catches unconfirmed "ghost" users not visible in the profiles table.
+            const { data: authUserExists, error: rpcCheckError } = await supabase.rpc('check_auth_user_exists', {
                 p_email: formData.email
             });
+
+            if (rpcCheckError && import.meta.env.DEV) {
+                // Log but don't throw — fall through to signUp() which will catch it
+                console.warn('check_auth_user_exists RPC failed (function may not be deployed):', rpcCheckError.message);
+            }
 
             if (authUserExists) {
                 throw new Error('An account with this email already exists. Please sign in instead.');
@@ -188,7 +194,19 @@ export default function SignUp() {
                 },
             });
 
-            if (authError) throw authError;
+            if (authError) {
+                // Supabase returns this when the email exists in auth.users but is
+                // unconfirmed ("ghost" user) — the pre-check RPC may not catch it.
+                const isEmailTaken =
+                    authError.message?.toLowerCase().includes('already registered') ||
+                    authError.message?.toLowerCase().includes('already exists') ||
+                    authError.code === 'user_already_exists';
+
+                if (isEmailTaken) {
+                    throw new Error('An account with this email already exists. Please sign in instead.');
+                }
+                throw authError;
+            }
 
             // 5. Create profile (should succeed since we validated everything)
             if (authData?.user) {
@@ -211,15 +229,27 @@ export default function SignUp() {
                     if (import.meta.env.DEV) {
                       console.error('Profile creation error:', profileError);
                     }
-                    
-                    // Log the orphaned auth user for cleanup
+
+                    // Map specific RPC RAISE EXCEPTION messages to user-friendly text
+                    const msg = profileError.message || '';
+                    if (msg.includes('Too many signup attempts')) {
+                        throw new Error('Too many signup attempts. Please try again later.');
+                    }
+                    if (msg.includes('Invalid access code')) {
+                        throw new Error('Invalid access code. Please check and try again.');
+                    }
+                    if (msg.includes('Identification number already registered') || msg.includes('ID number already registered')) {
+                        throw new Error('This ID number is already registered. Please sign in or contact support.');
+                    }
+
+                    // For unexpected failures: clean up the orphaned auth user then surface generic error
                     try {
                         await supabase.rpc('cleanup_orphaned_auth_user', {
                             p_email: formData.email
                         });
                     } catch (cleanupError) {
                         if (import.meta.env.DEV) {
-                          console.error('Failed to log orphaned auth user:', cleanupError);
+                          console.error('Failed to cleanup orphaned auth user:', cleanupError);
                         }
                     }
                     
@@ -239,7 +269,10 @@ export default function SignUp() {
                 'An account with this email already exists',
                 'This ID number is already registered',
                 'Invalid access code',
-                'Profile setup failed'
+                'Profile setup failed',
+                'Too many signup attempts',
+                'Signup temporarily disabled',
+                'Admin registration is not allowed'
             ];
             const isKnownError = knownErrors.some(known => error.message?.includes(known));
             toast.error(isKnownError ? error.message : 'Failed to create account. Please try again.');

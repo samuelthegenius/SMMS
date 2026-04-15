@@ -20,6 +20,7 @@ export function AuthProvider({ children }) {
 
     const userIdRef = useRef(null);
     const profileCacheRef = useRef(new Map());
+    const fetchingProfileRef = useRef(null); // Guard: track in-flight user ID
 
     const fetchProfile = useCallback(async (userId, currentUser, retryCount = 0) => {
         const cache = profileCacheRef.current;
@@ -30,9 +31,13 @@ export function AuthProvider({ children }) {
             return;
         }
 
+        // Guard against concurrent fetches for the same user (e.g. SIGNED_IN + TOKEN_REFRESHED)
+        if (retryCount === 0 && fetchingProfileRef.current === userId) return;
+        fetchingProfileRef.current = userId;
+
         try {
             const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('timeout')), 3000)
+                setTimeout(() => reject(new Error('timeout')), 5000)
             );
             
             const fetchPromise = supabase
@@ -44,22 +49,42 @@ export function AuthProvider({ children }) {
             const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
             if (!error && data) {
+                // Profile found — use it
                 startTransition(() => setProfile(data));
                 cache.set(userId, { data, timestamp: Date.now() });
-            } else if (error?.code === 'PGRST116') {
+            } else if (!error && !data) {
+                // maybeSingle() returns null data (no error) when no row is found.
+                // Build a fallback from auth user_metadata so the app doesn't hang.
                 const defaultProfile = {
                     id: userId,
-                    email: currentUser?.email || 'unknown@example.com',
-                    role: 'student',
-                    full_name: currentUser?.user_metadata?.full_name || 'Unknown User'
+                    email: currentUser?.email || '',
+                    role: currentUser?.user_metadata?.role || 'student',
+                    full_name: currentUser?.user_metadata?.full_name || 'Unknown User',
+                    department: currentUser?.user_metadata?.department || '',
                 };
                 startTransition(() => setProfile(defaultProfile));
                 cache.set(userId, { data: defaultProfile, timestamp: Date.now() });
+            } else if (error && error.code !== 'PGRST116') {
+                // Actual DB error — don't swallow it; let retry handle it
+                throw error;
             }
         } catch {
             if (retryCount < 1) {
                 await new Promise(r => setTimeout(r, 1000));
                 return fetchProfile(userId, currentUser, retryCount + 1);
+            }
+            // After retries, build minimal fallback so the UI doesn't hang forever
+            const fallback = {
+                id: userId,
+                email: currentUser?.email || '',
+                role: currentUser?.user_metadata?.role || 'student',
+                full_name: currentUser?.user_metadata?.full_name || 'Unknown User',
+                department: currentUser?.user_metadata?.department || '',
+            };
+            startTransition(() => setProfile(fallback));
+        } finally {
+            if (fetchingProfileRef.current === userId) {
+                fetchingProfileRef.current = null;
             }
         }
     }, [startTransition]);

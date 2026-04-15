@@ -135,7 +135,7 @@ export default async function handler(req, res) {
   const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email,
     password,
-    email_confirm: false, // keep email confirmation flow if enabled in Supabase settings
+    email_confirm: true, // server-side registration: skip email confirm, user is already verified via access code
     user_metadata: {
       full_name: fullName,
       role,

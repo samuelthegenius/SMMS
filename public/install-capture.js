@@ -10,15 +10,17 @@ window.__SMMS_INSTALL_DISMISSED__ = localStorage.getItem('smms-install-dismissed
 
 // Capture the event immediately when it fires
 window.addEventListener('beforeinstallprompt', (e) => {
-    // Store it first
+    // ALWAYS prevent default to defer the browser's native banner.
+    // The React component is responsible for deciding when to show the UI
+    // and calling .prompt(). Skipping this causes "Banner not shown" errors.
+    e.preventDefault();
+
+    // Store the deferred prompt for later use
     window.__SMMS_DEFERRED_PROMPT__ = e;
-    
-    // Only prevent default if user hasn't dismissed before
-    if (!window.__SMMS_INSTALL_DISMISSED__) {
-        e.preventDefault();
-        // Dispatch custom event so React component knows it's ready
-        window.dispatchEvent(new CustomEvent('smms:installable'));
-    }
+
+    // Dispatch custom event so the React component knows the prompt is ready.
+    // The component checks __SMMS_INSTALL_DISMISSED__ itself before showing UI.
+    window.dispatchEvent(new CustomEvent('smms:installable'));
 });
 
 // Listen for app installed event

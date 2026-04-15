@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate, Link, Navigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
-import { Wrench, Loader2, HardHat, Building, IdCard, ShieldAlert } from 'lucide-react';
+import { Wrench, Loader2, HardHat, Building, IdCard } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -45,7 +44,10 @@ export default function SignUp() {
         return <Loader variant="auth-signup" />;
     }
 
-    if (user) {
+    // Skip the redirect while the form is actively submitting — the auth
+    // session fires immediately (if email confirmation is disabled) but we
+    // still need to finish profile creation or clean up on failure.
+    if (user && !signingUpRef.current) {
         return <Navigate to="/dashboard" replace />;
     }
 
@@ -137,126 +139,42 @@ export default function SignUp() {
         signingUpRef.current = true;
 
         try {
-            // 1. Check if email already exists (check both auth.users and profiles table)
-            // First check profiles table
-            const { data: existingProfile } = await supabase
-                .from('profiles')
-                .select('email')
-                .eq('email', formData.email)
-                .maybeSingle();
-
-            if (existingProfile) {
-                throw new Error('An account with this email already exists. Please sign in instead.');
-            }
-
-            // Check if auth user exists using database function
-            const { data: authUserExists } = await supabase.rpc('check_auth_user_exists', {
-                p_email: formData.email
+            // All validation + auth user creation + profile creation happen atomically
+            // on the server using the service role key. If the profile insert fails,
+            // the server deletes the auth user so no ghost row is left behind.
+            const res = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email:          formData.email,
+                    password:       formData.password,
+                    fullName:       formData.fullName,
+                    role:           formData.role,
+                    idNumber:       formData.idNumber,
+                    department:     formData.department,
+                    specialization: formData.specialization,
+                    accessCode:     formData.accessCode,
+                }),
             });
 
-            if (authUserExists) {
-                throw new Error('An account with this email already exists. Please sign in instead.');
-            }
+            const json = await res.json().catch(() => ({}));
 
-            // 2. Check if ID number already exists
-            const { data: existingID } = await supabase
-                .from('profiles')
-                .select('identification_number')
-                .eq('identification_number', formData.idNumber)
-                .maybeSingle();
-
-            if (existingID) {
-                throw new Error('This ID number is already registered. Please sign in or contact support.');
-            }
-
-            // 3. Validate access code BEFORE creating auth user via secure RPC
-            if (formData.role === 'student' || formData.role === 'staff' || formData.role === 'technician') {
-                const { data: isValidCode, error: validationError } = await supabase.rpc('validate_access_code', {
-                    p_role: formData.role,
-                    p_code: formData.accessCode
-                });
-
-                if (validationError || !isValidCode) {
-                    throw new Error('Invalid access code. Please check and try again.');
-                }
-            } else if (formData.role === 'admin') {
-                throw new Error('Admin registration is not allowed via public signup.');
-            }
-
-            // 4. Now create the auth user (all validations passed)
-            const { data: authData, error: authError } = await supabase.auth.signUp({
-                email: formData.email,
-                password: formData.password,
-                options: {
-                    data: {
-                        full_name: formData.fullName,
-                        role: formData.role,
-                        department: formData.role === 'technician' ? 'Works Department' : formData.department,
-                    },
-                    emailRedirectTo: `${window.location.origin}/dashboard`,
-                },
-            });
-
-
-
-            // 5. Create profile (should succeed since we validated everything)
-            if (authData?.user) {
-                const skillsPayload = formData.role === 'technician' && formData.specialization
-                    ? [formData.specialization]
-                    : null;
-
-                const { error: profileError } = await supabase.rpc('register_secure_user', {
-                    p_id: authData.user.id,
-                    p_email: formData.email,
-                    p_full_name: formData.fullName,
-                    p_role: formData.role,
-                    p_id_number: formData.idNumber,
-                    p_department: formData.role === 'technician' ? 'Works Department' : formData.department,
-                    p_skills: skillsPayload,
-                    p_access_code: formData.accessCode
-                });
-
-                if (profileError) {
-                    if (import.meta.env.DEV) {
-                      console.error('Profile creation error:', profileError);
-                    }
-                    
-                    // Log the orphaned auth user for cleanup
-                    try {
-                        await supabase.rpc('cleanup_orphaned_auth_user', {
-                            p_email: formData.email
-                        });
-                    } catch (cleanupError) {
-                        if (import.meta.env.DEV) {
-                          console.error('Failed to log orphaned auth user:', cleanupError);
-                        }
-                    }
-                    
-                    throw new Error('Profile setup failed. Please try again.');
-                }
+            if (!res.ok) {
+                throw new Error(json.error || 'Failed to create account. Please try again.');
             }
 
             resetRateLimit();
             toast.success('Account created successfully! Please check your email to verify your account.');
             navigate('/login');
         } catch (error) {
-          if (import.meta.env.DEV) {
-            console.error("SignUp Error:", error);
-          }
-            // Only show specific messages for known validation errors
-            const knownErrors = [
-                'An account with this email already exists',
-                'This ID number is already registered',
-                'Invalid access code',
-                'Profile setup failed'
-            ];
-            const isKnownError = knownErrors.some(known => error.message?.includes(known));
-            toast.error(isKnownError ? error.message : 'Failed to create account. Please try again.');
+            if (import.meta.env.DEV) console.error('SignUp Error:', error);
+            toast.error(error.message || 'Failed to create account. Please try again.');
         } finally {
             signingUpRef.current = false;
             setLoading(false);
         }
     };
+
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });

@@ -51,9 +51,22 @@ export default async function handler(req, res) {
   const truncate = (str, max = 5000) => (str || '').slice(0, max);
 
   try {
-    const supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
+    // Always log to console first — Vercel Runtime Logs capture this
+    // even if the DB insert fails or SUPABASE_URL is not yet set.
+    console.error('[client-error] PAGE:', url);
+    console.error('[client-error] MESSAGE:', message);
+    console.error('[client-error] STACK:', truncate(stack, 2000));
+    console.error('[client-error] COMPONENT:', truncate(componentStack, 2000));
+
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !serviceKey) {
+      console.error('[client-error-log] Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env var — set in Vercel Dashboard');
+      return res.status(200).json({ logged: false, fallback: 'vercel_logs' });
+    }
+
+    const supabase = createClient(supabaseUrl, serviceKey,
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
@@ -67,9 +80,7 @@ export default async function handler(req, res) {
     });
 
     if (dbError) {
-      // Table may not exist yet — fall back to console so Vercel logs capture it
       console.error('[client-error-log] DB insert failed:', dbError.message);
-      console.error('[client-error-log] Error report:', { message, url, timestamp });
       return res.status(200).json({ logged: false, fallback: 'vercel_logs' });
     }
 

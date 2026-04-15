@@ -45,37 +45,60 @@ export default function NotificationBell() {
 
     // Keep a stable ref to the active channel so we can safely unsubscribe
     const channelRef = useRef(null);
+    // Track whether WE created this channel so cleanup only removes ones we own
+    const channelOwnedRef = useRef(false);
 
     useEffect(() => {
         if (!user?.id) return;
 
         fetchNotifications();
 
-        // Use a unique channel name per user so the Supabase client never
-        // returns an already-subscribed channel on re-render — which would
-        // throw "cannot add postgres_changes callbacks after subscribe()".
         const channelName = `notifications:${user.id}`;
 
-        const channel = supabase
-            .channel(channelName)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'notifications',
-                    filter: `user_id=eq.${user.id}`,
-                },
-                (payload) => {
-                    const newNotification = payload.new;
-                    setNotifications((prev) => [newNotification, ...prev]);
-                    setUnreadCount((prev) => prev + 1);
-                    toast.info('New Notification: ' + newNotification.message);
-                }
-            )
-            .subscribe();
+        // supabase.removeChannel() is async — it sends a LEAVE over WebSocket
+        // but resolves asynchronously. If React re-runs this effect before the
+        // previous cleanup finishes, supabase.channel(name) returns the SAME
+        // still-subscribed instance, and calling .on() on it throws:
+        //   "cannot add postgres_changes callbacks after subscribe()"
+        //
+        // Guard: check whether this channel already exists in the client registry.
+        // If it does, reuse it without calling .on() — the listener is still active.
+        const existing = supabase
+            .getChannels()
+            .find(ch => ch.topic === `realtime:${channelName}`);
 
-        channelRef.current = channel;
+        if (existing) {
+            channelRef.current = existing;
+            channelOwnedRef.current = false; // don't remove on cleanup — we didn't create it
+        } else {
+            try {
+                const channel = supabase
+                    .channel(channelName)
+                    .on(
+                        'postgres_changes',
+                        {
+                            event: 'INSERT',
+                            schema: 'public',
+                            table: 'notifications',
+                            filter: `user_id=eq.${user.id}`,
+                        },
+                        (payload) => {
+                            const newNotification = payload.new;
+                            setNotifications((prev) => [newNotification, ...prev]);
+                            setUnreadCount((prev) => prev + 1);
+                            toast.info('New Notification: ' + newNotification.message);
+                        }
+                    )
+                    .subscribe();
+
+                channelRef.current = channel;
+                channelOwnedRef.current = true;
+            } catch (err) {
+                if (import.meta.env.DEV) {
+                    console.error('NotificationBell: failed to subscribe to realtime channel:', err);
+                }
+            }
+        }
 
         function handleClickOutside(event) {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -85,13 +108,16 @@ export default function NotificationBell() {
         document.addEventListener('mousedown', handleClickOutside);
 
         return () => {
-            if (channelRef.current) {
+            // Only remove channels we explicitly created — not ones inherited from
+            // a previous render that hasn't cleaned up yet.
+            if (channelRef.current && channelOwnedRef.current) {
                 supabase.removeChannel(channelRef.current);
                 channelRef.current = null;
+                channelOwnedRef.current = false;
             }
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    // Only re-subscribe when the user ID actually changes, not on every render
+    // Only re-subscribe when the user ID actually changes
     }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
 

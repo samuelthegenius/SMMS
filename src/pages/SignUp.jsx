@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate, Link, Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Wrench, Loader2, HardHat, Building, IdCard, ShieldAlert } from 'lucide-react';
@@ -35,13 +35,20 @@ export default function SignUp() {
         department: ''
     });
     const [loading, setLoading] = useState(false);
+    // Tracks when we are mid-submission so that the session created by
+    // supabase.auth.signUp() doesn't trigger the user-guard redirect before
+    // profile creation has finished (or been rolled back on failure).
+    const signingUpRef = useRef(false);
     const navigate = useNavigate();
 
     if (initializing) {
         return <Loader variant="auth-signup" />;
     }
 
-    if (user) {
+    // Skip the redirect while the form is actively submitting — the auth
+    // session fires immediately (if email confirmation is disabled) but we
+    // still need to finish profile creation or clean up on failure.
+    if (user && !signingUpRef.current) {
         return <Navigate to="/dashboard" replace />;
     }
 
@@ -126,6 +133,7 @@ export default function SignUp() {
         }
 
         setLoading(true);
+        signingUpRef.current = true;
 
         try {
             // 1. Check if email already exists (check both auth.users and profiles table)
@@ -242,8 +250,10 @@ export default function SignUp() {
                         throw new Error('This ID number is already registered. Please sign in or contact support.');
                     }
 
-                    // For unexpected failures: clean up the orphaned auth user then surface generic error
+                    // For unexpected failures: sign out + clean up the orphaned auth
+                    // user so the dangling session can't redirect to /dashboard.
                     try {
+                        await supabase.auth.signOut();
                         await supabase.rpc('cleanup_orphaned_auth_user', {
                             p_email: formData.email
                         });
@@ -277,6 +287,7 @@ export default function SignUp() {
             const isKnownError = knownErrors.some(known => error.message?.includes(known));
             toast.error(isKnownError ? error.message : 'Failed to create account. Please try again.');
         } finally {
+            signingUpRef.current = false;
             setLoading(false);
         }
     };

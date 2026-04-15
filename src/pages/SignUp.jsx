@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate, Link, Navigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
-import { Wrench, Loader2, HardHat, Building, IdCard, ShieldAlert } from 'lucide-react';
+import { Wrench, Loader2, HardHat, Building, IdCard } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -94,198 +93,68 @@ export default function SignUp() {
     const handleSignUp = async (e) => {
         e.preventDefault();
 
-        // Validate password strength
+        // Client-side validation (avoids unnecessary round-trips)
         if (!PASSWORD_REGEX.test(formData.password)) {
             toast.error('Password must be at least 8 characters with uppercase, lowercase, and number');
             return;
         }
-
-        // Validate email format
         if (!EMAIL_REGEX.test(formData.email)) {
             toast.error('Please enter a valid email address');
             return;
         }
-
-        // Validate ID number format
         if (formData.idNumber.length < 5) {
             toast.error('Invalid ID number format');
             return;
         }
-
-        // Check rate limit
-        try {
-            checkRateLimit();
-        } catch (error) {
-            toast.error(error.message);
-            return;
-        }
-
-        // Validate Access Code for all roles
         if (formData.accessCode.length < 4) {
             toast.error('Invalid access code format');
             return;
         }
-
-        // Validate Specialization for Technician
         if (formData.role === 'technician' && !formData.specialization) {
             toast.error('Please select a specialization');
             return;
         }
+        if (formData.role === 'admin') {
+            toast.error('Admin registration is not allowed via public signup.');
+            return;
+        }
+
+        try { checkRateLimit(); } catch (err) { toast.error(err.message); return; }
 
         setLoading(true);
         signingUpRef.current = true;
 
         try {
-            // 1. Check if email already exists (check both auth.users and profiles table)
-            // First check profiles table
-            const { data: existingProfile } = await supabase
-                .from('profiles')
-                .select('email')
-                .eq('email', formData.email)
-                .maybeSingle();
-
-            if (existingProfile) {
-                throw new Error('An account with this email already exists. Please sign in instead.');
-            }
-
-            // Check if auth user exists using database function
-            // This catches unconfirmed "ghost" users not visible in the profiles table.
-            const { data: authUserExists, error: rpcCheckError } = await supabase.rpc('check_auth_user_exists', {
-                p_email: formData.email
+            // All validation + auth user creation + profile creation happen atomically
+            // on the server using the service role key. If the profile insert fails,
+            // the server deletes the auth user so no ghost row is left behind.
+            const res = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email:          formData.email,
+                    password:       formData.password,
+                    fullName:       formData.fullName,
+                    role:           formData.role,
+                    idNumber:       formData.idNumber,
+                    department:     formData.department,
+                    specialization: formData.specialization,
+                    accessCode:     formData.accessCode,
+                }),
             });
 
-            if (rpcCheckError && import.meta.env.DEV) {
-                // Log but don't throw — fall through to signUp() which will catch it
-                console.warn('check_auth_user_exists RPC failed (function may not be deployed):', rpcCheckError.message);
-            }
+            const json = await res.json().catch(() => ({}));
 
-            if (authUserExists) {
-                throw new Error('An account with this email already exists. Please sign in instead.');
-            }
-
-            // 2. Check if ID number already exists
-            const { data: existingID } = await supabase
-                .from('profiles')
-                .select('identification_number')
-                .eq('identification_number', formData.idNumber)
-                .maybeSingle();
-
-            if (existingID) {
-                throw new Error('This ID number is already registered. Please sign in or contact support.');
-            }
-
-            // 3. Validate access code BEFORE creating auth user via secure RPC
-            if (formData.role === 'student' || formData.role === 'staff' || formData.role === 'technician') {
-                const { data: isValidCode, error: validationError } = await supabase.rpc('validate_access_code', {
-                    p_role: formData.role,
-                    p_code: formData.accessCode
-                });
-
-                if (validationError || !isValidCode) {
-                    throw new Error('Invalid access code. Please check and try again.');
-                }
-            } else if (formData.role === 'admin') {
-                throw new Error('Admin registration is not allowed via public signup.');
-            }
-
-            // 4. Now create the auth user (all validations passed)
-            const { data: authData, error: authError } = await supabase.auth.signUp({
-                email: formData.email,
-                password: formData.password,
-                options: {
-                    data: {
-                        full_name: formData.fullName,
-                        role: formData.role,
-                        department: formData.role === 'technician' ? 'Works Department' : formData.department,
-                    },
-                    emailRedirectTo: `${window.location.origin}/dashboard`,
-                },
-            });
-
-            if (authError) {
-                // Supabase returns this when the email exists in auth.users but is
-                // unconfirmed ("ghost" user) — the pre-check RPC may not catch it.
-                const isEmailTaken =
-                    authError.message?.toLowerCase().includes('already registered') ||
-                    authError.message?.toLowerCase().includes('already exists') ||
-                    authError.code === 'user_already_exists';
-
-                if (isEmailTaken) {
-                    throw new Error('An account with this email already exists. Please sign in instead.');
-                }
-                throw authError;
-            }
-
-            // 5. Create profile (should succeed since we validated everything)
-            if (authData?.user) {
-                const skillsPayload = formData.role === 'technician' && formData.specialization
-                    ? [formData.specialization]
-                    : null;
-
-                const { error: profileError } = await supabase.rpc('register_secure_user', {
-                    p_id: authData.user.id,
-                    p_email: formData.email,
-                    p_full_name: formData.fullName,
-                    p_role: formData.role,
-                    p_id_number: formData.idNumber,
-                    p_department: formData.role === 'technician' ? 'Works Department' : formData.department,
-                    p_skills: skillsPayload,
-                    p_access_code: formData.accessCode
-                });
-
-                if (profileError) {
-                    if (import.meta.env.DEV) {
-                      console.error('Profile creation error:', profileError);
-                    }
-
-                    // Map specific RPC RAISE EXCEPTION messages to user-friendly text
-                    const msg = profileError.message || '';
-                    if (msg.includes('Too many signup attempts')) {
-                        throw new Error('Too many signup attempts. Please try again later.');
-                    }
-                    if (msg.includes('Invalid access code')) {
-                        throw new Error('Invalid access code. Please check and try again.');
-                    }
-                    if (msg.includes('Identification number already registered') || msg.includes('ID number already registered')) {
-                        throw new Error('This ID number is already registered. Please sign in or contact support.');
-                    }
-
-                    // For unexpected failures: sign out + clean up the orphaned auth
-                    // user so the dangling session can't redirect to /dashboard.
-                    try {
-                        await supabase.auth.signOut();
-                        await supabase.rpc('cleanup_orphaned_auth_user', {
-                            p_email: formData.email
-                        });
-                    } catch (cleanupError) {
-                        if (import.meta.env.DEV) {
-                          console.error('Failed to cleanup orphaned auth user:', cleanupError);
-                        }
-                    }
-                    
-                    throw new Error('Profile setup failed. Please try again.');
-                }
+            if (!res.ok) {
+                throw new Error(json.error || 'Failed to create account. Please try again.');
             }
 
             resetRateLimit();
             toast.success('Account created successfully! Please check your email to verify your account.');
             navigate('/login');
         } catch (error) {
-          if (import.meta.env.DEV) {
-            console.error("SignUp Error:", error);
-          }
-            // Only show specific messages for known validation errors
-            const knownErrors = [
-                'An account with this email already exists',
-                'This ID number is already registered',
-                'Invalid access code',
-                'Profile setup failed',
-                'Too many signup attempts',
-                'Signup temporarily disabled',
-                'Admin registration is not allowed'
-            ];
-            const isKnownError = knownErrors.some(known => error.message?.includes(known));
-            toast.error(isKnownError ? error.message : 'Failed to create account. Please try again.');
+            if (import.meta.env.DEV) console.error('SignUp Error:', error);
+            toast.error(error.message || 'Failed to create account. Please try again.');
         } finally {
             signingUpRef.current = false;
             setLoading(false);

@@ -16,6 +16,10 @@ const STATUS_STYLES = {
     'Escalated': { bg: 'bg-rose-50', text: 'text-rose-700', icon: AlertCircle, border: 'border-rose-100' },
     'Resolved': { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: CheckCircle, border: 'border-emerald-100' },
     'Closed': { bg: 'bg-slate-50', text: 'text-slate-700', icon: CheckCircle, border: 'border-slate-100' },
+    // Additional statuses used by the backend but not always shown to users
+    'Pending': { bg: 'bg-amber-50', text: 'text-amber-700', icon: Clock, border: 'border-amber-100' },
+    'Assigned': { bg: 'bg-blue-50', text: 'text-blue-700', icon: WrenchIcon, border: 'border-blue-100' },
+    'Completed': { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: CheckCircle, border: 'border-emerald-100' },
 };
 
 import useSWR from 'swr';
@@ -160,7 +164,7 @@ export default function UserDashboard() {
             ) : (
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                     {filteredTickets.map((ticket) => {
-                        const statusStyle = STATUS_STYLES[ticket.status] || STATUS_STYLES['Pending'];
+                        const statusStyle = STATUS_STYLES[ticket.status] ?? STATUS_STYLES['Open'];
                         const StatusIcon = statusStyle.icon;
 
                         return (

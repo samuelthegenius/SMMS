@@ -56,6 +56,22 @@ class ErrorBoundary extends Component {
             sessionStorage.removeItem(reloadKey);
         }
 
+        // Report to server in production so errors are visible in Supabase/Vercel logs
+        if (!import.meta.env.DEV) {
+            fetch('/api/log-error', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message:        error?.message || String(error),
+                    stack:          error?.stack || '',
+                    componentStack: errorInfo?.componentStack || '',
+                    url:            window.location.href,
+                    userAgent:      navigator.userAgent,
+                    timestamp:      new Date().toISOString(),
+                }),
+            }).catch(() => {/* never throw from error reporter */});
+        }
+
         this.setState({ error, errorInfo });
     }
 

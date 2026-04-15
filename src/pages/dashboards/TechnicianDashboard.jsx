@@ -81,8 +81,8 @@ export default function TechnicianDashboard() {
     }, [user, mutate]);
 
     const handleStatusUpdate = async (ticketId, newStatus) => {
-        const previousJobs = [...jobs];
-        const updatedJobs = jobs.map(j => j.id === ticketId ? { ...j, status: newStatus } : j);
+        const previousJobs = [...safeJobs];
+        const updatedJobs = safeJobs.map(j => j.id === ticketId ? { ...j, status: newStatus } : j);
 
         // Optimistic update
         mutate(updatedJobs, false);
@@ -180,7 +180,7 @@ export default function TechnicianDashboard() {
             </div>
 
             <div className="space-y-6">
-                {jobs.map((job) => (
+                {safeJobs.map((job) => (
                     <Card key={job.id} className="hover:shadow-md transition-shadow border-slate-200">
                         <CardContent className="p-6">
                             <div className="flex flex-col md:flex-row justify-between items-start gap-6">
@@ -335,7 +335,7 @@ export default function TechnicianDashboard() {
                     </Card>
                 ))}
 
-                {jobs.length === 0 && (
+                {safeJobs.length === 0 && (
                     <Card className="border-dashed">
                         <CardContent className="py-16 text-center">
                             <div className="mx-auto h-12 w-12 text-slate-300 mb-3">

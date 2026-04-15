@@ -116,8 +116,8 @@ export default function AdminDashboard() {
     }, [mutate, profile?.id, profile]);
 
     const filteredTickets = filter === 'All'
-        ? tickets
-        : tickets.filter(t => t.facility_type === filter);
+        ? safeTickets
+        : safeTickets.filter(t => t.facility_type === filter);
 
     const stats = {
         total: tickets.length,

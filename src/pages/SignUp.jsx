@@ -35,6 +35,10 @@ export default function SignUp() {
         department: ''
     });
     const [loading, setLoading] = useState(false);
+    // Tracks when we are mid-submission so that the session created by
+    // supabase.auth.signUp() doesn't trigger the user-guard redirect before
+    // profile creation has finished (or been rolled back on failure).
+    const signingUpRef = useRef(false);
     const navigate = useNavigate();
 
     if (initializing) {
@@ -118,14 +122,19 @@ export default function SignUp() {
             toast.error('Invalid access code format');
             return;
         }
-
-        // Validate Specialization for Technician
         if (formData.role === 'technician' && !formData.specialization) {
             toast.error('Please select a specialization');
             return;
         }
+        if (formData.role === 'admin') {
+            toast.error('Admin registration is not allowed via public signup.');
+            return;
+        }
+
+        try { checkRateLimit(); } catch (err) { toast.error(err.message); return; }
 
         setLoading(true);
+        signingUpRef.current = true;
 
         try {
             // 1. Check if email already exists (check both auth.users and profiles table)
@@ -188,7 +197,7 @@ export default function SignUp() {
                 },
             });
 
-            if (authError) throw authError;
+            const json = await res.json().catch(() => ({}));
 
             // 5. Create profile (should succeed since we validated everything)
             if (authData?.user) {
@@ -244,6 +253,7 @@ export default function SignUp() {
             const isKnownError = knownErrors.some(known => error.message?.includes(known));
             toast.error(isKnownError ? error.message : 'Failed to create account. Please try again.');
         } finally {
+            signingUpRef.current = false;
             setLoading(false);
         }
     };

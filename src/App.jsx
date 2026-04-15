@@ -66,11 +66,13 @@ function GlobalLoader() {
  * Dynamically renders the appropriate dashboard component based on the authenticated user's role.
  */
 function DashboardRouter() {
-  const { profile } = useAuth();
+  const { profile, initialRoleHint } = useAuth();
+  
+  const activeRole = profile?.role || initialRoleHint;
 
   if (!profile) return <Loader variant="simple" />;
 
-  switch (profile.role) {
+  switch (activeRole) {
     case 'admin':
       return (
         <Suspense fallback={<Loader variant="admin" />}>

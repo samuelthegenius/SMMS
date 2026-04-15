@@ -75,12 +75,12 @@ export default function UserDashboard() {
     );
 
     const handleVerification = async (ticketId, isApproved, reason = null) => {
-        const previousTickets = [...tickets];
+        const previousTickets = [...safeTickets];
         const updates = {
             status: isApproved ? 'Resolved' : 'In Progress',
             rejection_reason: reason
         };
-        const updatedTickets = tickets.map(t => t.id === ticketId ? { ...t, ...updates } : t);
+        const updatedTickets = safeTickets.map(t => t.id === ticketId ? { ...t, ...updates } : t);
 
         // Optimistic update
         mutate(updatedTickets, false);

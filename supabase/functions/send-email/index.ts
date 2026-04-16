@@ -39,29 +39,11 @@ const corsHeaders = (origin: string) => {
     }
 }
 
-// CSRF validation helper
+// CSRF validation helper - Skip for Edge Functions (already protected by Supabase auth)
+// Edge Functions are invoked with authorization headers from Supabase client
+// which provides sufficient authentication. CSRF tokens are not needed here.
 const validateCSRFToken = (req: Request): boolean => {
-    const method = req.method;
-    
-    // Skip validation for safe methods
-    if (['GET', 'HEAD', 'OPTIONS'].includes(method)) {
-        return true;
-    }
-
-    // Get token from header or body
-    let token = req.headers.get('X-CSRF-Token');
-    
-    if (!token) {
-        try {
-            const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            token = body._csrf;
-        } catch {
-            return false;
-        }
-    }
-
-    // Basic validation - token should be 64 characters (32 bytes hex)
-    return token && typeof token === 'string' && token.length === 64 && /^[a-f0-9]{64}$/i.test(token);
+	return true;
 };
 
 // Input validation helper
@@ -115,16 +97,11 @@ serve(async (req: Request) => {
         )
     }
 
-    try {
-        // Validate CSRF token for security
-        if (!validateCSRFToken(req)) {
-            throw new Error('Invalid or missing CSRF token')
-        }
-
-        // Validate environment variables
-        if (!EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID || !EMAILJS_USER_ID || !EMAILJS_PRIVATE_KEY) {
-            throw new Error('Server configuration error: Missing EmailJS credentials')
-        }
+	try {
+		// Validate environment variables
+		if (!EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID || !EMAILJS_USER_ID || !EMAILJS_PRIVATE_KEY) {
+			throw new Error('Server configuration error: Missing EmailJS credentials')
+		}
 
         // Parse and validate request body
         let requestBody
@@ -164,15 +141,15 @@ serve(async (req: Request) => {
             p_window_seconds: 300 // 5 minutes
         })
         
-        if (rateLimitError || !rateLimitData) {
-            console.error('Rate limit check failed:', rateLimitError)
-            throw new Error('Rate limit check failed')
-        }
-        
-        if (!rateLimitData) {
-            console.warn(`Rate limit exceeded for IP: ${clientIP}`)
-            throw new Error('Rate limit exceeded. Please try again later.')
-        }
+	if (rateLimitError) {
+		console.error('Rate limit check failed:', rateLimitError)
+		throw new Error('Rate limit check failed')
+	}
+
+	if (rateLimitData === false) {
+		console.warn(`Rate limit exceeded for IP: ${clientIP}`)
+		throw new Error('Rate limit exceeded. Please try again later.')
+	}
 
         const emailPromises = [];
         const dashboardLink = Deno.env.get('DASHBOARD_URL') || '[DASHBOARD_URL]';

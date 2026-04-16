@@ -1,61 +1,117 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Download, X } from 'lucide-react';
 import { Button } from './ui/Button';
 
 const DISMISSED_KEY = 'smms-install-dismissed';
+// Only suppress for 30 days — after that, offer again
+const DISMISSED_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+function isDismissed() {
+    try {
+        const raw = localStorage.getItem(DISMISSED_KEY);
+        if (!raw) return false;
+        const data = JSON.parse(raw);
+        // Guard against old plain-string format: JSON.parse('true') === true (no throw)
+        // and any other non-object value that lacks a .ts field.
+        if (!data || typeof data !== 'object' || !data.ts) {
+            // Treat legacy / malformed value as expired — clear it
+            localStorage.removeItem(DISMISSED_KEY);
+            window.__SMMS_INSTALL_DISMISSED__ = false;
+            return false;
+        }
+        if (Date.now() - data.ts > DISMISSED_TTL_MS) {
+            localStorage.removeItem(DISMISSED_KEY);
+            window.__SMMS_INSTALL_DISMISSED__ = false;
+            return false;
+        }
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function markDismissed() {
+    localStorage.setItem(DISMISSED_KEY, JSON.stringify({ ts: Date.now() }));
+    window.__SMMS_INSTALL_DISMISSED__ = true;
+}
 
 export default function InstallPrompt() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
     const [isVisible, setIsVisible] = useState(false);
+    // Ref so the native listener can call the same setter without stale closure
+    const promptRef = useRef(null);
+
+    const showPrompt = (evt) => {
+        if (isDismissed()) return;
+        promptRef.current = evt;
+        setDeferredPrompt(evt);
+        setIsVisible(true);
+    };
 
     useEffect(() => {
-        // Check if there's already a captured deferred prompt
-        if (window.__SMMS_DEFERRED_PROMPT__ && !window.__SMMS_INSTALL_DISMISSED__) {
-            setDeferredPrompt(window.__SMMS_DEFERRED_PROMPT__);
-            setIsVisible(true);
+        // 1. Check if install-capture.js already caught the event before React mounted
+        if (window.__SMMS_DEFERRED_PROMPT__) {
+            showPrompt(window.__SMMS_DEFERRED_PROMPT__);
         }
 
-        // Listen for the custom event fired by install-capture.js
+        // 2. Listen for the forwarded event from install-capture.js
+        //    (fires when beforeinstallprompt fires AFTER React mounts)
         const handleInstallable = () => {
-            if (window.__SMMS_DEFERRED_PROMPT__ && !window.__SMMS_INSTALL_DISMISSED__) {
-                setDeferredPrompt(window.__SMMS_DEFERRED_PROMPT__);
-                setIsVisible(true);
+            if (window.__SMMS_DEFERRED_PROMPT__) {
+                showPrompt(window.__SMMS_DEFERRED_PROMPT__);
             }
         };
 
+        // 3. DIRECT native listener — belt-and-suspenders fallback.
+        //    Catches the event if install-capture.js was bypassed (e.g. CSP,
+        //    caching, or the script loaded after the event already fired).
+        const handleNative = (e) => {
+            // Must prevent default here too so browser's mini-infobar stays hidden
+            e.preventDefault();
+            // Also store globally so other parts of the app can access it
+            window.__SMMS_DEFERRED_PROMPT__ = e;
+            showPrompt(e);
+        };
+
         window.addEventListener('smms:installable', handleInstallable);
+        window.addEventListener('beforeinstallprompt', handleNative);
 
         return () => {
             window.removeEventListener('smms:installable', handleInstallable);
+            window.removeEventListener('beforeinstallprompt', handleNative);
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleDismiss = () => {
-        localStorage.setItem(DISMISSED_KEY, 'true');
-        window.__SMMS_INSTALL_DISMISSED__ = true;
+        markDismissed();
         setIsVisible(false);
         setDeferredPrompt(null);
+        promptRef.current = null;
     };
 
     const handleInstall = async () => {
-        if (!deferredPrompt) return;
+        const prompt = promptRef.current || deferredPrompt;
+        if (!prompt) return;
 
-        // Show the install prompt
-        deferredPrompt.prompt();
+        try {
+            // Show the native install dialog
+            await prompt.prompt();
+            const { outcome } = await prompt.userChoice;
 
-        // Wait for the user to respond to the prompt
-        const { outcome } = await deferredPrompt.userChoice;
-
-        // If installed, clear the dismissed flag
-        if (outcome === 'accepted') {
-            localStorage.removeItem(DISMISSED_KEY);
-            window.__SMMS_INSTALL_DISMISSED__ = false;
+            if (outcome === 'accepted') {
+                localStorage.removeItem(DISMISSED_KEY);
+                window.__SMMS_INSTALL_DISMISSED__ = false;
+            }
+        } catch (err) {
+            // prompt() can throw if called more than once or after a navigation
+            console.warn('[InstallPrompt] prompt() failed:', err);
+        } finally {
+            window.__SMMS_DEFERRED_PROMPT__ = null;
+            promptRef.current = null;
+            setDeferredPrompt(null);
+            setIsVisible(false);
         }
-
-        // We've used the prompt, and can't use it again, throw it away
-        window.__SMMS_DEFERRED_PROMPT__ = null;
-        setDeferredPrompt(null);
-        setIsVisible(false);
     };
 
     if (!isVisible) return null;

@@ -30,47 +30,53 @@ export default function ReassignTechnician({ ticket, onReassign }) {
         fetchTechnicians();
     }, []);
 
-    const handleReassign = async () => {
-        if (!selectedTech || selectedTech === ticket.assigned_to) return;
+	const handleReassign = async () => {
+		if (!selectedTech || selectedTech === ticket.assigned_to) return;
 
-        setLoading(true);
-        try {
-            // 1. Get New Tech Details
-            const newTech = technicians.find(t => t.id === selectedTech);
-            if (!newTech) throw new Error("Technician not found");
+		setLoading(true);
+		try {
+			// 1. Get New Tech Details
+			const newTech = technicians.find(t => t.id === selectedTech);
+			if (!newTech) throw new Error("Technician not found");
 
-            // 2. Update Database
-            const { error } = await supabase
-                .from('tickets')
-                .update({ assigned_to: selectedTech })
-                .eq('id', ticket.id);
+			// 2. Update Database
+			const { error } = await supabase
+				.from('tickets')
+				.update({ assigned_to: selectedTech })
+				.eq('id', ticket.id);
 
-            if (error) throw error;
+			if (error) throw error;
 
-            // 3. Send Notification via Edge Function
-            await supabase.functions.invoke('send-email', {
-                body: {
-                    type: 'ticket_reassigned',
-                    technician_email: newTech.email,
-                    technician_name: newTech.full_name,
-                    ticket_title: ticket.title,
-                    ticket_description: ticket.description,
-                    ticket_location: ticket.specific_location,
-                    ticket_priority: ticket.priority
-                }
-            });
+			// 3. Send Notification via Edge Function
+			try {
+				await supabase.functions.invoke('send-email', {
+					body: {
+						type: 'ticket_reassigned',
+						technician_email: newTech.email,
+						technician_name: newTech.full_name,
+						ticket_title: ticket.title,
+						ticket_description: ticket.description,
+						ticket_location: ticket.specific_location,
+						ticket_priority: ticket.priority
+					}
+				});
+			} catch (emailError) {
+				if (import.meta.env.DEV) {
+					console.warn('Email notification failed:', emailError);
+				}
+			}
 
-            toast.success('Technician reassigned successfully');
-            if (onReassign) onReassign(); // Callback to refresh parent list
-        } catch (error) {
-          if (import.meta.env.DEV) {
-            console.error('Reassign Error:', error);
-          }
-            toast.error('Failed to reassign technician');
-        } finally {
-            setLoading(false);
-        }
-    };
+			toast.success('Technician reassigned successfully');
+			if (onReassign) onReassign();
+		} catch (error) {
+			if (import.meta.env.DEV) {
+				console.error('Reassign Error:', error);
+			}
+			toast.error('Failed to reassign technician');
+		} finally {
+			setLoading(false);
+		}
+	};
 
     return (
         <div className="flex items-center gap-2 mt-2">

@@ -68,13 +68,18 @@ export default async function handler(req, res) {
     { auth: { autoRefreshToken: false, persistSession: false } }
   );
 
-  // ── Parse & validate request body ────────────────────────────────────────
-  let body;
-  try {
-    body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-  } catch {
-    return res.status(400).json({ error: 'Invalid JSON body' });
-  }
+	// ── Parse & validate request body ────────────────────────────────────────
+	const contentType = req.headers['content-type'];
+	if (!contentType || !contentType.includes('application/json')) {
+		return res.status(400).json({ error: 'Content-Type must be application/json' });
+	}
+
+	let body;
+	try {
+		body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+	} catch {
+		return res.status(400).json({ error: 'Invalid JSON body' });
+	}
 
   const { email, password, fullName, role, idNumber, department, specialization, accessCode } = body || {};
 

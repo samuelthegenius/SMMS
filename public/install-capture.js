@@ -6,7 +6,31 @@
 
 // Store the deferred prompt globally
 window.__SMMS_DEFERRED_PROMPT__ = null;
-window.__SMMS_INSTALL_DISMISSED__ = localStorage.getItem('smms-install-dismissed') === 'true';
+
+// TTL-aware dismissed check (30 days) — matches InstallPrompt.jsx logic
+(function () {
+    var DISMISSED_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+    try {
+        var raw = localStorage.getItem('smms-install-dismissed');
+        if (!raw) { window.__SMMS_INSTALL_DISMISSED__ = false; return; }
+        var data = JSON.parse(raw);
+        // Guard: JSON.parse('true') returns boolean true (no throw), not an object.
+        // Treat any non-object or missing .ts as a legacy/malformed entry — clear it.
+        if (!data || typeof data !== 'object' || !data.ts) {
+            localStorage.removeItem('smms-install-dismissed');
+            window.__SMMS_INSTALL_DISMISSED__ = false;
+            return;
+        }
+        if (Date.now() - data.ts > DISMISSED_TTL_MS) {
+            localStorage.removeItem('smms-install-dismissed');
+            window.__SMMS_INSTALL_DISMISSED__ = false;
+        } else {
+            window.__SMMS_INSTALL_DISMISSED__ = true;
+        }
+    } catch (e) {
+        window.__SMMS_INSTALL_DISMISSED__ = false;
+    }
+}());
 
 // Capture the event immediately when it fires
 window.addEventListener('beforeinstallprompt', (e) => {

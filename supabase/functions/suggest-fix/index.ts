@@ -9,13 +9,13 @@ const ALLOWED_ORIGINS = [
 ]
 
 const corsHeaders = (origin: string) => {
-    const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
-    return {
-        'Access-Control-Allow-Origin': allowedOrigin,
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Max-Age': '86400',
-    }
+	const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : null
+	return {
+		'Access-Control-Allow-Origin': allowedOrigin || '',
+		'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+		'Access-Control-Allow-Methods': 'POST, OPTIONS',
+		'Access-Control-Max-Age': '86400',
+	}
 }
 
 // Input sanitization
@@ -128,9 +128,9 @@ serve(async (req: Request) => {
                         })
                     }
                 }
-            } catch (imgError) {
-                // Silently handle image errors
-            }
+	} catch (imgError) {
+				console.warn('Image processing failed:', imgError instanceof Error ? imgError.message : 'Unknown error')
+			}
         }
 
         // Add Text Prompts with clear structure

@@ -87,33 +87,34 @@ export default function AdminDashboard() {
         }
     );
 
-    useEffect(() => {
-        if (!profile || profile.role !== 'admin') return;
-        
-        const subscription = supabase
-            .channel(`admin_tickets_${profile.id}`)
-            .on('postgres_changes', 
-                { 
-                    event: '*', 
-                    schema: 'public', 
-                    table: 'tickets',
-                    filter: `created_at=gt.${new Date(Date.now() - 60000).toISOString()}` // Only listen for recent changes
-                }, 
-                () => {
-                    // Debounce rapid mutations
-                    const timeoutId = setTimeout(() => {
-                        mutate();
-                    }, 1000);
-                    
-                    return () => clearTimeout(timeoutId);
-                }
-            )
-            .subscribe();
+	useEffect(() => {
+		if (!profile || profile.role !== 'admin') return;
 
-        return () => {
-            subscription.unsubscribe();
-        };
-    }, [mutate, profile?.id, profile]);
+		let timeoutId = null;
+
+		const subscription = supabase
+			.channel(`admin_tickets_${profile.id}`)
+			.on('postgres_changes',
+				{
+					event: '*',
+					schema: 'public',
+					table: 'tickets',
+					filter: `created_at=gt.${new Date(Date.now() - 60000).toISOString()}`
+				},
+				() => {
+					if (timeoutId) clearTimeout(timeoutId);
+					timeoutId = setTimeout(() => {
+						mutate();
+					}, 1000);
+				}
+			)
+			.subscribe();
+
+		return () => {
+			if (timeoutId) clearTimeout(timeoutId);
+			subscription.unsubscribe();
+		};
+	}, [mutate, profile?.id, profile]);
 
     const filteredTickets = filter === 'All'
         ? tickets

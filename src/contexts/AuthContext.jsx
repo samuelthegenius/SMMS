@@ -89,83 +89,88 @@ export function AuthProvider({ children }) {
         }
     }, [startTransition]);
 
-    useEffect(() => {
-        let mounted = true;
-        
-        // Non-blocking auth initialization
-        const initializeAuth = async () => {
-            try {
-                const { data: { session }, error } = await supabase.auth.getSession();
-                
-                if (error) {
-                    // AuthRetryableFetchError means Supabase is unreachable (paused project / no network)
-                    const isNetworkErr = 
-                        error.name === 'AuthRetryableFetchError' ||
-                        error.message?.includes('Failed to fetch');
-                    if (isNetworkErr) {
-                        startTransition(() => setBackendUnreachable(true));
-                    }
-                }
+	useEffect(() => {
+		let mounted = true;
+		let authInitialized = false;
 
-                if (mounted && session?.user) {
-                    userIdRef.current = session.user.id;
-                    startTransition(() => setUser(session.user));
-                    fetchProfile(session.user.id, session.user);
-                }
-            } catch {
-                // Silent fail - app works without auth
-            } finally {
-                if (mounted) {
-                    startTransition(() => setAuthReady(true));
-                }
-            }
-        };
+		// Non-blocking auth initialization
+		const initializeAuth = async () => {
+			if (authInitialized) return;
+			authInitialized = true;
 
-        // Use requestIdleCallback for non-critical auth check
-        if ('requestIdleCallback' in window) {
-            requestIdleCallback(() => initializeAuth(), { timeout: 2000 });
-        } else {
-            setTimeout(initializeAuth, 100);
-        }
+			try {
+				const { data: { session }, error } = await supabase.auth.getSession();
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (event, session) => {
-                if (!mounted) return;
-                
-                if (event === 'TOKEN_REFRESHED' && session?.user) {
-                    startTransition(() => {
-                        setUser(session.user);
-                        setLoading(false);
-                    });
-                    return;
-                }
+				if (error) {
+					// AuthRetryableFetchError means Supabase is unreachable (paused project / no network)
+					const isNetworkErr =
+						error.name === 'AuthRetryableFetchError' ||
+						error.message?.includes('Failed to fetch');
+					if (isNetworkErr && mounted) {
+						startTransition(() => setBackendUnreachable(true));
+					}
+				}
 
-                if (session?.user) {
-                    const currentId = userIdRef.current;
-                    const newId = session.user.id;
-                    
-                    if (currentId !== newId) {
-                        userIdRef.current = newId;
-                        startTransition(() => setUser(session.user));
-                        fetchProfile(newId, session.user);
-                    } else {
-                        startTransition(() => setUser(session.user));
-                    }
-                } else {
-                    userIdRef.current = null;
-                    startTransition(() => {
-                        setUser(null);
-                        setProfile(null);
-                    });
-                }
-            }
-        );
+				if (mounted && session?.user) {
+					userIdRef.current = session.user.id;
+					startTransition(() => setUser(session.user));
+					fetchProfile(session.user.id, session.user);
+				}
+			} catch {
+				// Silent fail - app works without auth
+			} finally {
+				if (mounted) {
+					startTransition(() => setAuthReady(true));
+				}
+			}
+		};
 
-        return () => {
-            mounted = false;
-            subscription.unsubscribe();
-        };
-    }, [fetchProfile, startTransition]);
+		// Use requestIdleCallback for non-critical auth check
+		if ('requestIdleCallback' in window) {
+			requestIdleCallback(() => initializeAuth(), { timeout: 2000 });
+		} else {
+			setTimeout(initializeAuth, 100);
+		}
+
+		const { data: { subscription } } = supabase.auth.onAuthStateChange(
+			async (event, session) => {
+				if (!mounted) return;
+
+				if (event === 'TOKEN_REFRESHED' && session?.user) {
+					startTransition(() => {
+						setUser(session.user);
+						setLoading(false);
+					});
+					return;
+				}
+
+				if (session?.user) {
+					const currentId = userIdRef.current;
+					const newId = session.user.id;
+
+					if (currentId !== newId) {
+						userIdRef.current = newId;
+						startTransition(() => setUser(session.user));
+						fetchProfile(newId, session.user);
+					} else {
+						startTransition(() => setUser(session.user));
+					}
+				} else {
+					userIdRef.current = null;
+					startTransition(() => {
+						setUser(null);
+						setProfile(null);
+					});
+				}
+			}
+		);
+
+		return () => {
+			mounted = false;
+			authInitialized = false;
+			subscription.unsubscribe();
+		};
+	}, [fetchProfile, startTransition]);
 
     const value = {
         user,

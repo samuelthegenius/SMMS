@@ -174,45 +174,49 @@ export const validateSecurity = {
     }
   },
 
-  /**
-   * Rate limit validation helper
-   */
-  checkRateLimit(action, maxAttempts = 5, windowMs = 300000) {
-    const storageKey = `rate_limit_${action}`;
-    const now = Date.now();
-    
-    try {
-      const stored = localStorage.getItem(storageKey);
-      const data = stored ? JSON.parse(stored) : { attempts: 0, resetTime: now + windowMs };
-      
-      // Reset if window expired
-      if (now > data.resetTime) {
-        data.attempts = 0;
-        data.resetTime = now + windowMs;
-      }
-      
-      if (data.attempts >= maxAttempts) {
-        const resetIn = Math.ceil((data.resetTime - now) / 1000 / 60);
-        throw new Error(`Rate limit exceeded. Try again in ${resetIn} minutes.`);
-      }
-      
-      // Increment and store
-      data.attempts++;
-      localStorage.setItem(storageKey, JSON.stringify(data));
-      
-      return {
-        attempts: data.attempts,
-        remaining: maxAttempts - data.attempts,
-        resetTime: data.resetTime
-      };
-    } catch {
-      // If localStorage fails, allow the request but log it in development only
-      if (import.meta.env.DEV) {
-        console.warn('Rate limit check failed');
-      }
-      return { attempts: 0, remaining: maxAttempts, resetTime: now + windowMs };
-    }
-  },
+	/**
+	 * Rate limit validation helper
+	 */
+	checkRateLimit(action, maxAttempts = 5, windowMs = 300000) {
+		if (typeof localStorage === 'undefined') {
+			return { attempts: 0, remaining: maxAttempts, resetTime: Date.now() + windowMs };
+		}
+
+		const storageKey = `rate_limit_${action}`;
+		const now = Date.now();
+
+		try {
+			const stored = localStorage.getItem(storageKey);
+			const data = stored ? JSON.parse(stored) : { attempts: 0, resetTime: now + windowMs };
+
+			// Reset if window expired
+			if (now > data.resetTime) {
+				data.attempts = 0;
+				data.resetTime = now + windowMs;
+			}
+
+			if (data.attempts >= maxAttempts) {
+				const resetIn = Math.ceil((data.resetTime - now) / 1000 / 60);
+				throw new Error(`Rate limit exceeded. Try again in ${resetIn} minutes.`);
+			}
+
+			// Increment and store
+			data.attempts++;
+			localStorage.setItem(storageKey, JSON.stringify(data));
+
+			return {
+				attempts: data.attempts,
+				remaining: maxAttempts - data.attempts,
+				resetTime: data.resetTime
+			};
+		} catch {
+			// If localStorage fails, allow the request but log it in development only
+			if (import.meta.env.DEV) {
+				console.warn('Rate limit check failed');
+			}
+			return { attempts: 0, remaining: maxAttempts, resetTime: now + windowMs };
+		}
+	},
 
   /**
    * Clear rate limit for an action

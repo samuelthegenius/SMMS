@@ -71,24 +71,9 @@ export default function SignUp() {
         return true;
     };
 
-    const _recordFailedAttempt = () => {
-        const now = Date.now();
-        const stored = localStorage.getItem(SIGNUP_STORAGE_KEY);
-        const { attempts = 0 } = stored ? JSON.parse(stored) : { attempts: 0 };
-        const newAttempts = attempts + 1;
-        
-        localStorage.setItem(
-            SIGNUP_STORAGE_KEY,
-            JSON.stringify({
-                attempts: newAttempts,
-                lockoutTime: newAttempts >= MAX_SIGNUP_ATTEMPTS ? now + SIGNUP_LOCKOUT_MS : null
-            })
-        );
-    };
-
-    const resetRateLimit = () => {
-        localStorage.removeItem(SIGNUP_STORAGE_KEY);
-    };
+	const resetRateLimit = () => {
+		localStorage.removeItem(SIGNUP_STORAGE_KEY);
+	};
 
     const handleSignUp = async (e) => {
         e.preventDefault();

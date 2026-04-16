@@ -111,15 +111,16 @@ export default function TicketForm() {
             return;
         }
 
-        // Additional security: Check for dangerous file extensions
-        const fileName = file.name.toLowerCase();
-        const hasDangerousExtension = DANGEROUS_EXTENSIONS.some(ext => fileName.endsWith(ext));
-        
-        if (hasDangerousExtension) {
-            toast.error('Invalid file type');
-            e.target.value = '';
-            return;
-        }
+		// Additional security: Check for dangerous file extensions
+		const fileName = file.name.toLowerCase();
+		const fileExt = fileName.split('.').pop();
+		const hasDangerousExtension = DANGEROUS_EXTENSIONS.some(ext => ext.slice(1) === fileExt);
+
+		if (hasDangerousExtension) {
+			toast.error('Invalid file type');
+			e.target.value = '';
+			return;
+		}
 
         // Check for suspicious file names
         if (fileName.includes('../') || fileName.includes('..\\') || fileName.includes('%2e%2e')) {

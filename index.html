@@ -27,39 +27,10 @@
     #root{min-height:100vh}
     .skeleton-bg{background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}
     @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-    #initial-loader{position:fixed;inset:0;background:#fff;z-index:9999;display:flex}
-    .sidebar-skel{width:256px;background:#f8fafc;border-right:1px solid #e2e8f0;display:none}
-    @media(min-width:768px){.sidebar-skel{display:block}}
-    .content-skel{flex:1;padding:24px}
-    .skel-block{height:24px;background:#e2e8f0;border-radius:4px;margin-bottom:16px}
-    .skel-card{height:128px;background:#f1f5f9;border-radius:12px;margin-bottom:16px}
-    #initial-loader.hidden{display:none}
   </style>
 </head>
 
 <body>
-  <div id="initial-loader">
-    <div class="sidebar-skel">
-      <div style="padding:24px">
-        <div class="skel-block" style="height:32px;width:128px;margin-bottom:24px" class="skeleton-bg"></div>
-        <div style="margin-top:24px">
-          <div class="skel-block skeleton-bg"></div>
-          <div class="skel-block skeleton-bg"></div>
-          <div class="skel-block skeleton-bg"></div>
-        </div>
-      </div>
-    </div>
-    <div class="content-skel">
-      <div class="skel-block" style="height:32px;width:192px;margin-bottom:24px" class="skeleton-bg"></div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:24px;margin-bottom:24px">
-        <div class="skel-card skeleton-bg"></div>
-        <div class="skel-card skeleton-bg"></div>
-        <div class="skel-card skeleton-bg"></div>
-      </div>
-      <div class="skel-card skeleton-bg" style="height:384px"></div>
-    </div>
-  </div>
-  
   <div id="root"></div>
   
   <!-- Capture PWA install prompt early (before React mounts) -->

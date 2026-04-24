@@ -14,24 +14,11 @@ import ErrorBoundary from './components/ErrorBoundary.jsx'
 import './index.css'
 import App from './App.jsx'
 
-// Hide skeleton loader immediately when script runs
-const hideLoader = () => {
-  const loader = document.getElementById('initial-loader')
-  if (loader) {
-    loader.style.opacity = '0'
-    loader.style.transition = 'opacity 0.3s ease-out'
-    setTimeout(() => loader.remove(), 300)
-  }
-}
-
 // React 18 Concurrency Model - create root immediately
 const root = createRoot(document.getElementById('root'))
 
 // Mark start of React render
 performance.mark('react-render-start')
-
-// Hide loader as soon as React starts mounting (before actual render)
-hideLoader()
 
 root.render(
   <StrictMode>

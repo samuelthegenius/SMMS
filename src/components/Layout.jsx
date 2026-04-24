@@ -1,6 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import { useState } from 'react';
-import { Wrench, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import Sidebar from './Sidebar';
 import NotificationBell from './NotificationBell';
 
@@ -10,10 +10,17 @@ export default function Layout() {
     return (
         <div className="min-h-screen bg-background flex overflow-hidden">
             {/* Mobile Header - Visible only on small screens */}
-            <div className="md:hidden fixed top-0 left-0 right-0 bg-primary text-white p-4 flex items-center justify-between z-50 shadow-md">
-                <div className="flex items-center gap-2 font-bold text-lg">
-                    <Wrench className="w-6 h-6 text-accent" />
-                    <span className="tracking-tight">SMMS</span>
+            <div className="md:hidden fixed top-0 left-0 right-0 bg-gradient-to-r from-primary-500 to-primary-600 text-white p-4 flex items-center justify-between z-50 shadow-lg">
+                <div className="flex items-center gap-3 font-bold text-lg">
+                    <img 
+                        src="/mtulogo.jpg" 
+                        alt="MTU Logo" 
+                        className="w-8 h-8 object-contain rounded bg-white/10 p-1"
+                    />
+                    <div className="flex flex-col">
+                        <span className="tracking-tight text-sm">MTU</span>
+                        <span className="text-[10px] font-normal text-white/70">Maintenance Portal</span>
+                    </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <NotificationBell />

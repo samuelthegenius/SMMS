@@ -153,21 +153,21 @@ export default function AdminDashboard() {
 
     return (
         <div className="space-y-8">
-            {/* Header with Tabs */}
+            {/* Header with Tabs - Bento Style */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Admin Dashboard</h1>
-                    <p className="text-slate-500 mt-2 text-lg">Manage maintenance and security</p>
+                    <h1 className="text-3xl font-bold text-surface-900 tracking-tight">Admin Dashboard</h1>
+                    <p className="text-surface-500 mt-2 text-lg">Manage maintenance and security operations</p>
                 </div>
 
-                {/* Tab Navigation */}
-                <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
+                {/* Tab Navigation - Modern Pill Style */}
+                <div className="flex items-center gap-1 bg-surface-100 p-1.5 rounded-2xl">
                     <button
                         onClick={() => setActiveTab('tickets')}
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                        className={`px-5 py-2.5 rounded-xl font-semibold transition-all duration-200 ${
                             activeTab === 'tickets'
-                                ? 'bg-indigo-600 text-white'
-                                : 'text-slate-600 hover:bg-slate-100'
+                                ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/25'
+                                : 'text-surface-600 hover:bg-white hover:shadow-sm'
                         }`}
                     >
                         <div className="flex items-center gap-2">
@@ -177,10 +177,10 @@ export default function AdminDashboard() {
                     </button>
                     <button
                         onClick={() => setActiveTab('security')}
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                        className={`px-5 py-2.5 rounded-xl font-semibold transition-all duration-200 ${
                             activeTab === 'security'
-                                ? 'bg-indigo-600 text-white'
-                                : 'text-slate-600 hover:bg-slate-100'
+                                ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/25'
+                                : 'text-surface-600 hover:bg-white hover:shadow-sm'
                         }`}
                     >
                         <div className="flex items-center gap-2">
@@ -196,13 +196,15 @@ export default function AdminDashboard() {
 
             {/* Tickets panel */}
             <div className={activeTab === 'tickets' ? undefined : 'hidden'}>
-                {/* Filter for tickets tab */}
-                <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
-                    <Filter className="w-5 h-5 text-slate-400 ml-2" />
+                {/* Filter for tickets tab - Modern Style */}
+                <div className="flex items-center gap-3 bg-white p-3 rounded-2xl border border-surface-200 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="bg-primary-50 p-2 rounded-xl">
+                        <Filter className="w-5 h-5 text-primary-600" />
+                    </div>
                     <select
                         value={filter}
                         onChange={(e) => setFilter(e.target.value)}
-                        className="border-none focus:ring-0 text-sm text-slate-700 bg-transparent font-medium cursor-pointer outline-none min-w-[150px]"
+                        className="border-none focus:ring-0 text-sm text-surface-700 bg-transparent font-semibold cursor-pointer outline-none min-w-[150px]"
                     >
                         {FACILITY_TYPES.map(type => (
                             <option key={type} value={type}>{type === 'All' ? 'All Facilities' : type}</option>
@@ -210,85 +212,93 @@ export default function AdminDashboard() {
                     </select>
                 </div>
 
-                {/* Stats Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mt-6">
+                {/* Stats Cards - Bento Grid Style */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 mt-6">
                     {swrLoading && !tickets.length ? (
                         Array.from({ length: 4 }).map((_, idx) => <StatsCardSkeleton key={idx} />)
                     ) : (
                         [
-                            { label: 'Total Tickets', value: stats.total, icon: AlertCircle, color: 'text-blue-600', bg: 'bg-blue-50' },
-                            { label: 'Pending', value: stats.pending, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
-                            { label: 'In Progress', value: stats.inProgress, icon: Wrench, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-                            { label: 'Resolved', value: stats.resolved, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                            { label: 'Total Tickets', value: stats.total, icon: AlertCircle, color: 'text-primary-600', bg: 'bg-primary-50', border: 'border-primary-100' },
+                            { label: 'Pending', value: stats.pending, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100' },
+                            { label: 'In Progress', value: stats.inProgress, icon: Wrench, color: 'text-secondary-600', bg: 'bg-secondary-50', border: 'border-secondary-100' },
+                            { label: 'Resolved', value: stats.resolved, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
                         ].map((stat, idx) => (
-                            <Card key={idx} className="hover:shadow-md transition-shadow">
-                                <CardContent className="p-4 md:p-5 flex flex-col gap-3">
+                            <Card key={idx} className={clsx("hover:shadow-lg transition-all duration-300 border", stat.border)}>
+                                <CardContent className="p-5 flex flex-col gap-3">
                                     {/* Icon badge */}
-                                    <div className={clsx("w-fit p-2 rounded-lg", stat.bg)}>
+                                    <div className={clsx("w-fit p-2.5 rounded-xl", stat.bg)}>
                                         <stat.icon className={clsx("w-5 h-5", stat.color)} />
                                     </div>
                                     {/* Number */}
-                                    <p className="text-3xl font-extrabold text-slate-900 leading-none">{stat.value}</p>
+                                    <p className="text-3xl font-extrabold text-surface-900 leading-none">{stat.value}</p>
                                     {/* Label */}
-                                    <p className="text-sm font-medium text-slate-500">{stat.label}</p>
+                                    <p className="text-sm font-semibold text-surface-500">{stat.label}</p>
                                 </CardContent>
                             </Card>
                         ))
                     )}
                 </div>
 
-                {/* Tickets Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                {/* Tickets Grid - Modern Card Style */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-6">
                     {swrLoading && !tickets.length ? (
                         Array.from({ length: 4 }).map((_, idx) => <CardSkeleton key={idx} />)
                     ) : (
                         filteredTickets.map((ticket) => (
-                            <Card key={ticket.id} className="hover:shadow-md transition-all cursor-pointer" onClick={() => setSelectedTicket(ticket)}>
+                            <Card key={ticket.id} className="hover:shadow-xl transition-all duration-300 cursor-pointer group border-surface-200" onClick={() => setSelectedTicket(ticket)}>
                                 <CardContent className="p-6">
                                     <div className="flex justify-between items-start mb-4">
-                                        <div>
-                                            <h3 className="font-semibold text-slate-900 text-lg">{ticket.title}</h3>
-                                            <p className="text-slate-500 text-sm">{ticket.facility_type} • {ticket.specific_location}</p>
+                                        <div className="flex-1 min-w-0 mr-4">
+                                            <h3 className="font-bold text-surface-900 text-lg leading-tight mb-1 group-hover:text-primary-600 transition-colors">{ticket.title}</h3>
+                                            <p className="text-surface-500 text-sm">{ticket.facility_type} • {ticket.specific_location}</p>
                                         </div>
                                         <span className={clsx(
-                                            "px-3 py-1 rounded-full text-xs font-medium",
-                                            ticket.priority === 'high' ? "bg-red-100 text-red-700" :
-                                            ticket.priority === 'medium' ? "bg-amber-100 text-amber-700" :
-                                            ticket.priority === 'low' ? "bg-green-100 text-green-700" :
-                                            "bg-slate-100 text-slate-700"
+                                            "px-3 py-1.5 rounded-full text-xs font-bold shrink-0",
+                                            ticket.priority === 'high' ? "bg-red-100 text-red-700 border border-red-200" :
+                                            ticket.priority === 'medium' ? "bg-amber-100 text-amber-700 border border-amber-200" :
+                                            ticket.priority === 'low' ? "bg-emerald-100 text-emerald-700 border border-emerald-200" :
+                                            "bg-surface-100 text-surface-700 border border-surface-200"
                                         )}>
                                             {ticket.priority?.toUpperCase()}
                                         </span>
                                     </div>
 
-                                    <div className="flex items-center justify-between">
+                                    <div className="flex items-center justify-between pt-4 border-t border-surface-100">
                                         <div className="space-y-2">
                                             {/* Reporter Information */}
-                                            <div className="flex items-center gap-4 text-sm text-slate-500">
-                                                <span className="flex items-center gap-1">
-                                                    <User className="w-4 h-4 text-blue-500" />
+                                            <div className="flex items-center gap-4 text-sm text-surface-500">
+                                                <span className="flex items-center gap-1.5">
+                                                    <div className="bg-primary-50 p-1 rounded">
+                                                        <User className="w-3.5 h-3.5 text-primary-600" />
+                                                    </div>
                                                     {ticket.reporter?.full_name || 'Unknown Reporter'}
                                                 </span>
-                                                <span className="flex items-center gap-1">
-                                                    <Clock className="w-4 h-4" />
+                                                <span className="flex items-center gap-1.5">
+                                                    <Clock className="w-3.5 h-3.5 text-surface-400" />
                                                     {new Date(ticket.created_at).toLocaleDateString()}
                                                 </span>
                                             </div>
                                             
                                             {/* Technician Information */}
                                             <div className="flex items-center gap-2 text-sm">
-                                                <span className="flex items-center gap-1">
-                                                    <WrenchIcon className="w-4 h-4 text-green-500" />
-                                                    {ticket.technician?.full_name || 'Unassigned'}
+                                                <span className="flex items-center gap-1.5">
+                                                    <div className="bg-secondary-50 p-1 rounded">
+                                                        <WrenchIcon className="w-3.5 h-3.5 text-secondary-600" />
+                                                    </div>
+                                                    <span className="text-secondary-700 font-medium">
+                                                        {ticket.technician?.full_name || 'Unassigned'}
+                                                    </span>
                                                 </span>
                                                 {ticket.technician?.department && (
-                                                    <span className="text-slate-400 text-xs">
+                                                    <span className="text-surface-400 text-xs">
                                                         ({ticket.technician.department})
                                                     </span>
                                                 )}
                                             </div>
                                         </div>
-                                        <Eye className="w-5 h-5 text-slate-400" />
+                                        <div className="bg-surface-50 p-2 rounded-lg group-hover:bg-primary-50 transition-colors">
+                                            <Eye className="w-5 h-5 text-surface-400 group-hover:text-primary-500" />
+                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>

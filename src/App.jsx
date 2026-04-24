@@ -35,7 +35,7 @@ const ReassignTechnician = lazy(() => import('./components/ReassignTechnician'))
 /**
  * @function GlobalLoader
  * @description Context-aware top-level loader for the global Suspense boundary.
- * Maps the current URL route to the appropriate loader shape.
+ * Maps the current URL route to the appropriate loader shape based on path.
  */
 function GlobalLoader() {
   const location = useLocation();
@@ -43,21 +43,18 @@ function GlobalLoader() {
 
   if (path === '/login') return <Loader variant="auth-login" />;
   if (path === '/signup') return <Loader variant="auth-signup" />;
-  
-  // For protected dashboard routes that haven't mounted Layout yet
-  const isDashboardRoute = 
-    path.startsWith('/dashboard') || 
-    path.startsWith('/new-ticket') || 
-    path.startsWith('/analytics') || 
-    path.startsWith('/history') || 
-    path.startsWith('/jobs');
-
-  if (isDashboardRoute) {
-    return <Loader variant="generic" fullPage />;
+  if (path === '/new-ticket') return <Loader variant="ticket-form" />;
+  if (path === '/analytics') return <Loader variant="analytics" />;
+  if (path === '/jobs') return <Loader variant="technician" />;
+  if (path === '/history' || path.startsWith('/dashboard')) {
+    // Dashboard could be user, admin, or technician - use simple loader until role is known
+    // DashboardRouter will show the correct variant immediately after
+    return <Loader variant="simple" />;
   }
 
-  // Default to landing page skeleton for root and unknown routes
-  return <Loader variant="landing" />;
+  // No loader for root path - LandingPage is eagerly loaded and renders immediately.
+  // This prevents showing a skeleton that doesn't match the actual content state.
+  return null;
 }
 
 /**
@@ -127,48 +124,46 @@ export default function App() {
           Injects authentication state (user, session, RBAC profile) into all child components.
       */}
       <AuthProvider>
-        <Suspense fallback={<GlobalLoader />}>
-          <Routes>
-            {/* Public Routes: Accessible without authentication */}
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<SignUp />} />
+        <Routes>
+          {/* Public Routes: Eagerly loaded, no Suspense needed */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<SignUp />} />
 
-            {/* 
-              Protected Routes:
-              Wrapped in ProtectedRoute to ensure only authenticated users can access.
-              Nested inside Layout for consistent UI (Sidebar/Navbar).
+          {/*
+            Protected Routes:
+            Wrapped in Suspense for code-split pages, ProtectedRoute for auth,
+            and Layout for consistent UI.
           */}
-            <Route element={<ProtectedRoute />}>
-              <Route element={<Layout />}>
-                <Route path="/dashboard" element={<DashboardRouter />} />
-                <Route path="/new-ticket" element={
-                  <Suspense fallback={<Loader variant="ticket-form" />}>
-                    <TicketForm />
-                  </Suspense>
-                } />
-                <Route path="/analytics" element={
-                  <Suspense fallback={<Loader variant="analytics" />}>
-                    <AnalyticsPage />
-                  </Suspense>
-                } />
-                <Route path="/history" element={
-                  <Suspense fallback={<Loader variant="user" />}>
-                    <UserDashboard />
-                  </Suspense>
-                } />
-                <Route path="/jobs" element={
-                  <Suspense fallback={<Loader variant="technician" />}>
-                    <TechnicianDashboard />
-                  </Suspense>
-                } />
-              </Route>
+          <Route element={<Suspense fallback={<GlobalLoader />}><ProtectedRoute /></Suspense>}>
+            <Route element={<Layout />}>
+              <Route path="/dashboard" element={<DashboardRouter />} />
+              <Route path="/new-ticket" element={
+                <Suspense fallback={<Loader variant="ticket-form" />}>
+                  <TicketForm />
+                </Suspense>
+              } />
+              <Route path="/analytics" element={
+                <Suspense fallback={<Loader variant="analytics" />}>
+                  <AnalyticsPage />
+                </Suspense>
+              } />
+              <Route path="/history" element={
+                <Suspense fallback={<Loader variant="user" />}>
+                  <UserDashboard />
+                </Suspense>
+              } />
+              <Route path="/jobs" element={
+                <Suspense fallback={<Loader variant="technician" />}>
+                  <TechnicianDashboard />
+                </Suspense>
+              } />
             </Route>
+          </Route>
 
-            {/* Catch-all Redirect: Handles 404s by sending users back to the landing page */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Suspense>
+          {/* Catch-all Redirect */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </AuthProvider>
       <InstallPrompt />
       <Toaster position="top-right" richColors closeButton />

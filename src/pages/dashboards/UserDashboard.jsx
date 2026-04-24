@@ -10,16 +10,16 @@ import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 
 const STATUS_STYLES = {
-    'Open': { bg: 'bg-amber-50', text: 'text-amber-700', icon: Clock, border: 'border-amber-100' },
-    'In Progress': { bg: 'bg-indigo-50', text: 'text-indigo-700', icon: WrenchIcon, border: 'border-indigo-100' },
-    'Pending Verification': { bg: 'bg-purple-50', text: 'text-purple-700', icon: Clock, border: 'border-purple-100' },
-    'Escalated': { bg: 'bg-rose-50', text: 'text-rose-700', icon: AlertCircle, border: 'border-rose-100' },
-    'Resolved': { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: CheckCircle, border: 'border-emerald-100' },
-    'Closed': { bg: 'bg-slate-50', text: 'text-slate-700', icon: CheckCircle, border: 'border-slate-100' },
+    'Open': { bg: 'bg-amber-50', text: 'text-amber-700', icon: Clock, border: 'border-amber-200' },
+    'In Progress': { bg: 'bg-secondary-50', text: 'text-secondary-700', icon: WrenchIcon, border: 'border-secondary-200' },
+    'Pending Verification': { bg: 'bg-primary-50', text: 'text-primary-700', icon: Clock, border: 'border-primary-200' },
+    'Escalated': { bg: 'bg-rose-50', text: 'text-rose-700', icon: AlertCircle, border: 'border-rose-200' },
+    'Resolved': { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: CheckCircle, border: 'border-emerald-200' },
+    'Closed': { bg: 'bg-surface-50', text: 'text-surface-700', icon: CheckCircle, border: 'border-surface-200' },
     // Additional statuses used by the backend but not always shown to users
-    'Pending': { bg: 'bg-amber-50', text: 'text-amber-700', icon: Clock, border: 'border-amber-100' },
-    'Assigned': { bg: 'bg-blue-50', text: 'text-blue-700', icon: WrenchIcon, border: 'border-blue-100' },
-    'Completed': { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: CheckCircle, border: 'border-emerald-100' },
+    'Pending': { bg: 'bg-amber-50', text: 'text-amber-700', icon: Clock, border: 'border-amber-200' },
+    'Assigned': { bg: 'bg-primary-50', text: 'text-primary-700', icon: WrenchIcon, border: 'border-primary-200' },
+    'Completed': { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: CheckCircle, border: 'border-emerald-200' },
 };
 
 import useSWR from 'swr';
@@ -137,24 +137,24 @@ export default function UserDashboard() {
     return (
         <div className="space-y-8">
             <div>
-                <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+                <h1 className="text-3xl font-bold text-surface-900 tracking-tight">
                     {viewTitle}
                 </h1>
-                <p className="text-slate-500 mt-2 text-lg">
+                <p className="text-surface-500 mt-2 text-lg">
                     {viewDescription}
                 </p>
             </div>
 
             {filteredTickets.length === 0 ? (
-                <Card className="border-dashed">
+                <Card className="border-dashed border-surface-300 bg-surface-50/50">
                     <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                        <div className="mx-auto h-12 w-12 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                            <AlertCircle className="h-6 w-6 text-slate-400" />
+                        <div className="mx-auto h-14 w-14 bg-primary-50 rounded-2xl flex items-center justify-center mb-4">
+                            <AlertCircle className="h-7 w-7 text-primary-500" />
                         </div>
-                        <h3 className="text-lg font-semibold text-slate-900">
+                        <h3 className="text-lg font-bold text-surface-900">
                             {isHistoryView ? 'No completed tickets yet' : 'No active tickets'}
                         </h3>
-                        <p className="mt-2 text-slate-500 max-w-sm">
+                        <p className="mt-2 text-surface-500 max-w-sm">
                             {isHistoryView
                                 ? 'Completed tickets will appear here once they are resolved.'
                                 : 'Get started by creating a new maintenance request using the "New Ticket" button.'}
@@ -168,7 +168,7 @@ export default function UserDashboard() {
                         const StatusIcon = statusStyle.icon;
 
                         return (
-                            <Card key={ticket.id} className="hover:shadow-xl transition-shadow duration-300 border-slate-200/60">
+                            <Card key={ticket.id} className="hover:shadow-xl transition-all duration-300 border-surface-200 group">
                                 <CardContent className="p-6 h-full flex flex-col">
                                     <div className="flex justify-between items-start mb-4">
                                         <span className={clsx(
@@ -180,47 +180,47 @@ export default function UserDashboard() {
                                             <StatusIcon className="w-3.5 h-3.5" />
                                             {ticket.status}
                                         </span>
-                                        <span className="text-xs font-medium text-slate-400 flex items-center gap-1">
+                                        <span className="text-xs font-medium text-surface-400 flex items-center gap-1">
                                             <Calendar className="w-3.5 h-3.5" />
                                             {new Date(ticket.created_at).toLocaleDateString()}
                                         </span>
                                     </div>
 
-                                    <h3 className="text-lg font-bold text-slate-900 mb-2 line-clamp-1">
+                                    <h3 className="text-lg font-bold text-surface-900 mb-2 line-clamp-1 group-hover:text-primary-600 transition-colors">
                                         {ticket.title}
                                     </h3>
-                                    <p className="text-sm text-slate-600 mb-6 line-clamp-2 flex-1 leading-relaxed">
+                                    <p className="text-sm text-surface-600 mb-6 line-clamp-2 flex-1 leading-relaxed">
                                         {ticket.description}
                                     </p>
 
-                                    <div className="pt-4 border-t border-slate-100 mt-auto space-y-3">
-                                        <div className="flex items-center gap-2 text-sm text-slate-500 font-medium">
-                                            <MapPin className="w-4 h-4 text-slate-400" />
+                                    <div className="pt-4 border-t border-surface-100 mt-auto space-y-3">
+                                        <div className="flex items-center gap-2 text-sm text-surface-500 font-medium">
+                                            <MapPin className="w-4 h-4 text-surface-400" />
                                             <span className="truncate">{ticket.facility_type} • {ticket.specific_location}</span>
                                         </div>
 
                                         {/* Technician Information */}
                                         <div className="flex items-center gap-2 text-sm">
-                                            <span className="flex items-center gap-1 font-medium text-green-600 bg-green-50 px-2 py-1 rounded-md border border-green-100">
+                                            <span className="flex items-center gap-1.5 font-medium text-secondary-700 bg-secondary-50 px-2.5 py-1.5 rounded-lg border border-secondary-200">
                                                 <WrenchIcon className="w-3.5 h-3.5" />
                                                 {ticket.technician?.full_name || 'Unassigned'}
                                             </span>
                                             {ticket.technician?.department && (
-                                                <span className="text-xs text-green-500">
+                                                <span className="text-xs text-secondary-600">
                                                     ({ticket.technician.department})
                                                 </span>
                                             )}
                                         </div>
 
                                         {ticket.status === 'Pending Verification' && (
-                                            <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+                                            <div className="bg-surface-50 p-4 rounded-xl border border-surface-200 animate-in fade-in zoom-in-95 duration-200">
                                                 {rejectingId === ticket.id ? (
                                                     <div className="space-y-3">
                                                         <textarea
                                                             value={rejectionReason}
                                                             onChange={(e) => setRejectionReason(e.target.value)}
                                                             placeholder="Why is the issue not resolved?"
-                                                            className="w-full text-sm p-2 rounded-md border-slate-200 focus:ring-rose-500 focus:border-rose-500"
+                                                            className="w-full text-sm p-3 rounded-lg border-surface-300 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 bg-white"
                                                             rows={2}
                                                             autoFocus
                                                         />
@@ -240,28 +240,29 @@ export default function UserDashboard() {
                                                                     setRejectingId(null);
                                                                     setRejectionReason('');
                                                                 }}
-                                                                className="px-2"
+                                                                className="px-3"
                                                             >
                                                                 <X className="w-4 h-4" />
                                                             </Button>
                                                         </div>
                                                     </div>
                                                 ) : (
-                                                    <div className="space-y-2">
-                                                        <p className="text-sm font-medium text-slate-700">Evaluate Fix:</p>
+                                                    <div className="space-y-3">
+                                                        <p className="text-sm font-semibold text-surface-700">Evaluate Fix:</p>
                                                         <div className="flex gap-2">
                                                             <Button
                                                                 onClick={() => handleVerification(ticket.id, true)}
-                                                                className="bg-emerald-600 hover:bg-emerald-700 flex-1 text-sm h-9"
+                                                                className="bg-emerald-600 hover:bg-emerald-700 flex-1 text-sm h-10"
                                                             >
-                                                                <ThumbsUp className="w-3.5 h-3.5 mr-1.5" />
+                                                                <ThumbsUp className="w-4 h-4 mr-2" />
                                                                 Confirm Fix
                                                             </Button>
                                                             <Button
                                                                 onClick={() => setRejectingId(ticket.id)}
-                                                                className="bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 hover:border-rose-300 flex-1 text-sm h-9"
+                                                                variant="outline"
+                                                                className="text-rose-600 border-rose-200 hover:bg-rose-50 hover:border-rose-300 flex-1 text-sm h-10"
                                                             >
-                                                                <ThumbsDown className="w-3.5 h-3.5 mr-1.5" />
+                                                                <ThumbsDown className="w-4 h-4 mr-2" />
                                                                 Reject
                                                             </Button>
                                                         </div>

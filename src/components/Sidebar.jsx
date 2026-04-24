@@ -5,10 +5,10 @@ import {
     LayoutDashboard,
     PlusCircle,
     LogOut,
-    Wrench,
     History,
     BarChart,
-    Settings
+    Settings,
+    Wrench
 } from 'lucide-react';
 import clsx from 'clsx';
 import { Button } from './ui/Button';
@@ -39,25 +39,29 @@ export default function Sidebar({ isOpen, onClose }) {
         <>
             {/* Sidebar Container */}
             <aside className={clsx(
-                "fixed inset-y-0 left-0 z-40 w-64 bg-gradient-to-b from-primary to-slate-900 text-white transform transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:flex flex-col shadow-2xl pt-24 md:pt-0",
+                "fixed inset-y-0 left-0 z-40 w-64 bg-gradient-to-b from-primary-500 to-primary-700 text-white transform transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:flex flex-col shadow-2xl pt-24 md:pt-0",
                 isOpen ? "translate-x-0" : "-translate-x-full"
             )}>
                 {/* Header */}
                 <div className="p-6 border-b border-white/10 hidden md:block">
                     <div className="flex items-center gap-3">
                         <div className="bg-white/10 p-2 rounded-xl backdrop-blur-sm">
-                            <Wrench className="w-6 h-6 text-accent" />
+                            <img 
+                                src="/mtulogo.jpg" 
+                                alt="MTU Logo" 
+                                className="w-8 h-8 object-contain rounded"
+                            />
                         </div>
                         <div>
-                            <h1 className="text-lg font-bold leading-none tracking-tight">SMMS</h1>
-                            <p className="text-xs text-slate-400 mt-1">Mountain Top Univ.</p>
+                            <h1 className="text-lg font-bold leading-none tracking-tight">MTU</h1>
+                            <p className="text-xs text-white/70 mt-1">Maintenance Portal</p>
                         </div>
                     </div>
                 </div>
 
                 {/* Navigation */}
                 <div className="flex-1 overflow-y-auto py-6 px-4 space-y-1">
-                    <p className="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Menu</p>
+                    <p className="px-4 text-xs font-semibold text-white/50 uppercase tracking-wider mb-4">Menu</p>
                     {filteredNavItems.map((item) => {
                         const Icon = item.icon;
                         const isActive = location.pathname === item.path;
@@ -69,12 +73,12 @@ export default function Sidebar({ isOpen, onClose }) {
                                 className={clsx(
                                     'flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group relative overflow-hidden',
                                     isActive
-                                        ? 'text-white bg-white/10 shadow-lg shadow-black/10'
-                                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                                        ? 'text-white bg-white/15 shadow-lg shadow-black/10 border-l-4 border-accent-400'
+                                        : 'text-white/70 hover:text-white hover:bg-white/10'
                                 )}
                             >
                                 {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-accent rounded-r-full" />}
-                                <Icon className={clsx("w-5 h-5 transition-colors", isActive ? "text-accent" : "text-slate-500 group-hover:text-accent")} />
+                                <Icon className={clsx("w-5 h-5 transition-colors", isActive ? "text-accent-400" : "text-white/50 group-hover:text-accent-400")} />
                                 {item.label}
                             </Link>
                         );
@@ -82,16 +86,16 @@ export default function Sidebar({ isOpen, onClose }) {
                 </div>
 
                 {/* User Profile & Logout */}
-                <div className="p-4 border-t border-white/10 bg-black/20 backdrop-blur-sm">
-                    <div className="flex items-center gap-3 px-4 py-3 mb-4 rounded-xl bg-white/5 border border-white/5">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent to-orange-600 flex items-center justify-center text-white font-bold shadow-md">
+                <div className="p-4 border-t border-white/10 bg-primary-600/50 backdrop-blur-sm">
+                    <div className="flex items-center gap-3 px-4 py-3 mb-4 rounded-xl bg-white/10 border border-white/10">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-secondary-400 to-secondary-600 flex items-center justify-center text-white font-bold shadow-md">
                             {profile?.full_name?.[0] || 'U'}
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-white truncate">
                                 {profile?.full_name}
                             </p>
-                            <p className="text-xs text-slate-400 truncate capitalize">
+                            <p className="text-xs text-white/60 truncate capitalize">
                                 {profile?.role?.replace('_', ' ')}
                             </p>
                         </div>
@@ -110,7 +114,7 @@ export default function Sidebar({ isOpen, onClose }) {
             {/* Mobile Overlay */}
             {isOpen && (
                 <div
-                    className="fixed inset-0 bg-slate-900/60 z-30 md:hidden backdrop-blur-sm transition-opacity"
+                    className="fixed inset-0 bg-primary-900/60 z-30 md:hidden backdrop-blur-sm transition-opacity"
                     onClick={onClose}
                 />
             )}

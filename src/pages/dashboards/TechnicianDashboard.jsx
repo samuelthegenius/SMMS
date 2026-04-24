@@ -175,47 +175,47 @@ export default function TechnicianDashboard() {
     return (
         <div className="space-y-8">
             <div>
-                <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Assigned Jobs</h1>
-                <p className="text-slate-500 mt-2 text-lg">Manage and resolve your maintenance tasks</p>
+                <h1 className="text-3xl font-bold text-surface-900 tracking-tight">Assigned Jobs</h1>
+                <p className="text-surface-500 mt-2 text-lg">Manage and resolve your maintenance tasks</p>
             </div>
 
             <div className="space-y-6">
                 {jobs.map((job) => (
-                    <Card key={job.id} className="hover:shadow-md transition-shadow border-slate-200">
+                    <Card key={job.id} className="hover:shadow-lg transition-all duration-300 border-surface-200 group">
                         <CardContent className="p-6">
                             <div className="flex flex-col md:flex-row justify-between items-start gap-6">
                                 <div className="flex-1 space-y-4">
                                     <div className="flex items-center gap-3">
                                         <span className={clsx(
-                                            'px-2.5 py-1 text-xs font-bold rounded-full flex items-center gap-1.5 uppercase tracking-wide border',
+                                            'px-3 py-1.5 text-xs font-bold rounded-full flex items-center gap-1.5 uppercase tracking-wide border',
                                             job.priority === 'High'
-                                                ? 'bg-rose-50 text-rose-700 border-rose-100'
-                                                : 'bg-slate-50 text-slate-700 border-slate-200'
+                                                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                                : 'bg-surface-50 text-surface-700 border-surface-200'
                                         )}>
                                             {job.priority === 'High' && <AlertTriangle className="w-3 h-3" />}
                                             {job.priority} Priority
                                         </span>
-                                        <span className="text-xs font-semibold text-slate-500 bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
+                                        <span className="text-xs font-semibold text-surface-500 bg-primary-50 px-2.5 py-1.5 rounded-lg border border-primary-100">
                                             {job.category}
                                         </span>
                                     </div>
 
                                     <div>
-                                        <h3 className="text-xl font-bold text-slate-900">{job.title}</h3>
-                                        <p className="text-slate-600 mt-2 leading-relaxed">{job.description}</p>
+                                        <h3 className="text-xl font-bold text-surface-900 group-hover:text-primary-600 transition-colors">{job.title}</h3>
+                                        <p className="text-surface-600 mt-2 leading-relaxed">{job.description}</p>
                                     </div>
 
-                                    <div className="inline-flex items-center gap-2 text-sm text-slate-500 font-medium bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100/50">
-                                        <MapPin className="w-4 h-4 text-slate-400" />
+                                    <div className="inline-flex items-center gap-2 text-sm text-surface-500 font-medium bg-surface-50 px-3 py-1.5 rounded-xl border border-surface-200">
+                                        <MapPin className="w-4 h-4 text-surface-400" />
                                         <span>{job.facility_type} • {job.specific_location}</span>
                                     </div>
 
                                     {/* Reporter Information */}
-                                    <div className="inline-flex items-center gap-2 text-sm text-slate-500 font-medium bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100/50">
-                                        <User className="w-4 h-4 text-blue-500" />
+                                    <div className="inline-flex items-center gap-2 text-sm text-primary-700 font-medium bg-primary-50 px-3 py-1.5 rounded-xl border border-primary-100">
+                                        <User className="w-4 h-4 text-primary-500" />
                                         <span>{job.reporter?.full_name || 'Unknown Reporter'}</span>
                                         {job.reporter?.department && (
-                                            <span className="text-blue-400 text-xs">
+                                            <span className="text-primary-500 text-xs">
                                                 ({job.reporter.department})
                                             </span>
                                         )}
@@ -262,53 +262,53 @@ export default function TechnicianDashboard() {
                                 </div>
                             </div>
 
-                            <div className="mt-6 pt-6 border-t border-slate-100">
+                            <div className="mt-6 pt-6 border-t border-surface-100">
                                 <button
                                     onClick={() => getAiHelp(job)}
-                                    className="flex items-center gap-2 text-indigo-600 text-sm font-bold hover:text-indigo-800 transition-colors group"
+                                    className="flex items-center gap-2 text-primary-600 text-sm font-bold hover:text-primary-700 transition-colors group/ai"
                                 >
-                                    <div className="p-1.5 bg-indigo-50 rounded-lg group-hover:bg-indigo-100 transition-colors">
+                                    <div className="p-1.5 bg-primary-50 rounded-lg group-hover/ai:bg-primary-100 transition-colors">
                                         <Bot className="w-4 h-4" />
                                     </div>
                                     {aiSuggestion.ticketId === job.id ? 'Close AI Suggestion' : 'Ask AI for Repair Guide'}
                                 </button>
 
                                 {aiSuggestion.ticketId === job.id && (
-                                    <div className="mt-4 p-5 bg-indigo-50/50 rounded-xl border border-indigo-100 text-sm text-indigo-900 shadow-sm animate-in fade-in slide-in-from-top-2">
+                                    <div className="mt-4 p-5 bg-primary-50/30 rounded-xl border border-primary-100 text-sm text-surface-900 shadow-sm animate-in fade-in slide-in-from-top-2">
                                         {aiSuggestion.loading ? (
                                             <div className="flex items-center gap-3">
-                                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-indigo-600 border-t-transparent"></div>
+                                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary-600 border-t-transparent"></div>
                                                 <span className="font-medium">Analyzing ticket details...</span>
                                             </div>
                                         ) : aiSuggestion.data?.error ? (
-                                            <div className="text-red-600 font-medium">
+                                            <div className="text-rose-600 font-medium">
                                                 Error: {aiSuggestion.data.error}
                                             </div>
                                         ) : (
                                             <div className="space-y-4">
                                                 <div>
-                                                    <h3 className="font-semibold text-slate-900 mb-2 flex items-center gap-2">
-                                                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <h3 className="font-semibold text-surface-900 mb-2 flex items-center gap-2">
+                                                        <svg className="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1v-7.686a3 3 0 1 0-5.828 0M4.75 12a3.25 3.25 0 1 0 6.5 0 3.25 3.25 0 0 0-6.5 0M12 17.25h.008"></path>
                                                         </svg>
                                                         Technical Diagnosis
                                                     </h3>
-                                                    <p className="text-slate-700 leading-relaxed bg-blue-50 p-3 rounded-lg border border-blue-100">
+                                                    <p className="text-surface-700 leading-relaxed bg-primary-50 p-3 rounded-lg border border-primary-100">
                                                         {aiSuggestion.data?.technical_diagnosis}
                                                     </p>
                                                 </div>
                                                 
                                                 <div>
-                                                    <h3 className="font-semibold text-slate-900 mb-2 flex items-center gap-2">
-                                                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <h3 className="font-semibold text-surface-900 mb-2 flex items-center gap-2">
+                                                        <svg className="w-4 h-4 text-secondary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.121 14.121L19 19m-7-7l-7 7m-7-7l7 7m6.5-3.5a2.121 2.121 0 0 1 3 3L12 15l3-3m6.5-3.5a2.121 2.121 0 0 1 3 3L12 15l3-3"></path>
                                                         </svg>
                                                         Tools Required
                                                     </h3>
-                                                    <ul className="space-y-1 bg-green-50 p-3 rounded-lg border border-green-100">
+                                                    <ul className="space-y-1 bg-secondary-50 p-3 rounded-lg border border-secondary-100">
                                                         {(aiSuggestion.data?.tools_required || []).map((tool, i) => (
-                                                            <li key={i} className="flex items-center gap-2 text-slate-700">
-                                                                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                                                            <li key={i} className="flex items-center gap-2 text-surface-700">
+                                                                <span className="w-2 h-2 bg-secondary-500 rounded-full"></span>
                                                                 {tool}
                                                             </li>
                                                         ))}
@@ -316,13 +316,13 @@ export default function TechnicianDashboard() {
                                                 </div>
                                                 
                                                 <div>
-                                                    <h3 className="font-semibold text-slate-900 mb-2 flex items-center gap-2">
-                                                        <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <h3 className="font-semibold text-surface-900 mb-2 flex items-center gap-2">
+                                                        <svg className="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 2.502-3.181V8c0-1.51-1.963-2.58-3.181-2.581A2.25 2.25 0 0 0 11.938 6H8.062a2.25 2.25 0 0 0-2.181 2.419C5.62 8.62 4 9.629 4 11v2.5c0 1.514 1.962 2.58 3.181 2.581h5.876c1.54 0 2.502-1.667 2.502-3.181Z"></path>
                                                         </svg>
                                                         Safety Precaution
                                                     </h3>
-                                                    <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded-lg font-medium">
+                                                    <div className="bg-rose-50 border border-rose-200 text-rose-800 p-3 rounded-lg font-medium">
                                                         {aiSuggestion.data?.safety_precaution}
                                                     </div>
                                                 </div>

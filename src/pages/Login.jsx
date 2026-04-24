@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link, Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -208,25 +207,31 @@ export default function Login() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 flex flex-col items-center p-4">
+        <div className="min-h-screen bg-surface-50 flex flex-col items-center p-4 relative overflow-hidden">
             {/* Decorative Background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-br from-primary-500/5 via-secondary-500/5 to-accent-500/5 pointer-events-none" />
+            <div className="absolute top-0 right-0 w-96 h-96 bg-primary-400/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-96 h-96 bg-secondary-400/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
 
-            <div className="w-full max-w-md my-auto flex flex-col">
-                <Card className="w-full relative z-10 border-slate-200/60 shadow-xl">
-                    <CardHeader className="space-y-2 text-center pb-8 border-b-0">
-                        <div className="mx-auto w-12 h-12 bg-primary rounded-xl flex items-center justify-center mb-2 shadow-lg shadow-primary/20">
-                            <Wrench className="w-6 h-6 text-accent" />
+            <div className="w-full max-w-md my-auto flex flex-col relative z-10">
+                <Card className="w-full border-surface-200/60 shadow-2xl bg-white/80 backdrop-blur-sm">
+                    <CardHeader className="space-y-3 text-center pb-8 border-b-0">
+                        <div className="mx-auto w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl flex items-center justify-center mb-2 shadow-lg shadow-primary-500/25 p-2">
+                            <img 
+                                src="/mtulogo.jpg" 
+                                alt="MTU Logo" 
+                                className="w-12 h-12 object-contain rounded"
+                            />
                         </div>
-                        <CardTitle className="text-2xl font-bold text-slate-900">Welcome Back</CardTitle>
-                        <CardDescription className="text-base">
-                            Sign in to the Smart Maintenance System
+                        <CardTitle className="text-2xl font-bold text-surface-900">Welcome Back</CardTitle>
+                        <CardDescription className="text-base text-surface-600">
+                            Sign in to MTU Maintenance Portal
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <form onSubmit={handleLogin} className="space-y-4">
                             <div className="space-y-2">
-                                <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="identifier">
+                                <label className="text-sm font-semibold text-surface-700 leading-none" htmlFor="identifier">
                                     Email or ID Number
                                 </label>
                                 <Input
@@ -236,12 +241,12 @@ export default function Login() {
                                     value={identifier}
                                     onChange={(e) => setIdentifier(e.target.value)}
                                     required
-                                    className="bg-slate-50/50"
+                                    className="bg-surface-50"
                                     autoComplete="username"
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="password">
+                                <label className="text-sm font-semibold text-surface-700 leading-none" htmlFor="password">
                                     Password
                                 </label>
                                 <Input
@@ -250,7 +255,7 @@ export default function Login() {
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
-                                    className="bg-slate-50/50"
+                                    className="bg-surface-50"
                                     autoComplete="current-password"
                                 />
                             </div>
@@ -262,22 +267,22 @@ export default function Login() {
                     <CardFooter className="flex flex-col space-y-4 text-center text-sm pt-0">
                         <div className="relative w-full">
                             <div className="absolute inset-0 flex items-center">
-                                <span className="w-full border-t border-slate-200" />
+                                <span className="w-full border-t border-surface-200" />
                             </div>
                             <div className="relative flex justify-center text-xs uppercase">
-                                <span className="bg-white px-2 text-slate-500">Or</span>
+                                <span className="bg-white px-2 text-surface-500">Or</span>
                             </div>
                         </div>
-                        <div className="text-slate-500">
+                        <div className="text-surface-600">
                             Don't have an account?{' '}
-                            <Link to="/signup" className="text-primary font-semibold hover:text-accent transition-colors">
+                            <Link to="/signup" className="text-primary-600 font-semibold hover:text-primary-700 transition-colors">
                                 Create Account
                             </Link>
                         </div>
                     </CardFooter>
                 </Card>
 
-                <div className="mt-8 text-center text-xs text-slate-400">
+                <div className="mt-8 text-center text-xs text-surface-400">
                     &copy; {new Date().getFullYear()} Mountain Top University. All rights reserved.
                 </div>
             </div>

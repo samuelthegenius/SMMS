@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate, Link, Navigate } from 'react-router-dom';
-import { Wrench, Loader2, HardHat, Building, IdCard } from 'lucide-react';
+import { Loader2, HardHat, Building, IdCard } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -168,24 +168,30 @@ export default function SignUp() {
     const inputClasses = "flex h-10 w-full rounded-md border-0 ring-1 ring-slate-200 bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200";
 
     return (
-        <div className="min-h-screen bg-slate-50 flex flex-col items-center p-4">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 pointer-events-none" />
+        <div className="min-h-screen bg-surface-50 flex flex-col items-center p-4 relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary-500/5 via-secondary-500/5 to-accent-500/5 pointer-events-none" />
+            <div className="absolute top-0 right-0 w-96 h-96 bg-primary-400/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-96 h-96 bg-secondary-400/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
 
-            <div className="w-full max-w-md my-auto flex flex-col">
-                <Card className="w-full relative z-10 border-slate-200/60 shadow-xl">
-                    <CardHeader className="space-y-2 text-center pb-8 border-b-0">
-                        <div className="mx-auto w-12 h-12 bg-primary rounded-xl flex items-center justify-center mb-2 shadow-lg shadow-primary/20">
-                            <Wrench className="w-6 h-6 text-accent" />
+            <div className="w-full max-w-md my-auto flex flex-col relative z-10">
+                <Card className="w-full border-surface-200/60 shadow-2xl bg-white/80 backdrop-blur-sm">
+                    <CardHeader className="space-y-3 text-center pb-8 border-b-0">
+                        <div className="mx-auto w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl flex items-center justify-center mb-2 shadow-lg shadow-primary-500/25 p-2">
+                            <img 
+                                src="/mtulogo.jpg" 
+                                alt="MTU Logo" 
+                                className="w-12 h-12 object-contain rounded"
+                            />
                         </div>
-                        <CardTitle className="text-2xl font-bold text-slate-900">Create Account</CardTitle>
-                        <CardDescription className="text-base">
-                            Join the Smart Maintenance System
+                        <CardTitle className="text-2xl font-bold text-surface-900">Create Account</CardTitle>
+                        <CardDescription className="text-base text-surface-600">
+                            Join MTU Maintenance Portal
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <form onSubmit={handleSignUp} className="space-y-4">
                             <div className="space-y-2">
-                                <label className="text-sm font-medium leading-none" htmlFor="fullName">Full Name</label>
+                                <label className="text-sm font-semibold text-surface-700 leading-none" htmlFor="fullName">Full Name</label>
                                 <Input
                                     id="fullName"
                                     name="fullName"
@@ -194,7 +200,7 @@ export default function SignUp() {
                                     value={formData.fullName}
                                     onChange={handleChange}
                                     required
-                                    className="bg-slate-50/50"
+                                    className="bg-surface-50"
                                 />
                             </div>
                             <div className="space-y-2">
@@ -207,7 +213,7 @@ export default function SignUp() {
                                     value={formData.email}
                                     onChange={handleChange}
                                     required
-                                    className="bg-slate-50/50"
+                                    className="bg-surface-50"
                                 />
                             </div>
                             <div className="space-y-2">
@@ -217,7 +223,7 @@ export default function SignUp() {
                                     name="role"
                                     value={formData.role}
                                     onChange={handleChange}
-                                    className={cn(inputClasses, "bg-slate-50/50 cursor-pointer")}
+                                    className={cn(inputClasses, "bg-surface-50 cursor-pointer")}
                                 >
                                     {[
                                         { label: 'Student', value: 'student' },
@@ -233,7 +239,7 @@ export default function SignUp() {
 
                             {/* ID Number - Shown for everyone (Student ID or Staff ID) */}
                             <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                                <label className="text-sm font-medium leading-none" htmlFor="idNumber">
+                                <label className="text-sm font-semibold text-surface-700 leading-none" htmlFor="idNumber">
                                     {formData.role === 'student' ? 'Student ID / Matric No' : 'Staff ID / File No'}
                                 </label>
                                 <div className="relative">
@@ -248,7 +254,7 @@ export default function SignUp() {
                                         value={formData.idNumber}
                                         onChange={handleChange}
                                         required
-                                        className="pl-10 bg-slate-50/50"
+                                        className="pl-10 bg-surface-50"
                                     />
                                 </div>
                             </div>
@@ -256,7 +262,7 @@ export default function SignUp() {
                             {/* Department - Shown for Student and Staff Only (Technicians are auto-assigned) */}
                             {formData.role !== 'technician' && (
                                 <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                                    <label className="text-sm font-medium leading-none" htmlFor="department">
+                                    <label className="text-sm font-semibold text-surface-700 leading-none" htmlFor="department">
                                         Department
                                     </label>
                                     <div className="relative">
@@ -271,7 +277,7 @@ export default function SignUp() {
                                             value={formData.department}
                                             onChange={handleChange}
                                             required
-                                            className="pl-10 bg-slate-50/50"
+                                            className="pl-10 bg-surface-50"
                                         />
                                     </div>
                                 </div>
@@ -280,7 +286,7 @@ export default function SignUp() {
                             {/* Specialization Dropdown for Technicians */}
                             {formData.role === 'technician' && (
                                 <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                                    <label className="text-sm font-medium leading-none text-slate-700" htmlFor="specialization">
+                                    <label className="text-sm font-semibold text-surface-700 leading-none" htmlFor="specialization">
                                         Specialization
                                     </label>
                                     <div className="relative">
@@ -293,9 +299,9 @@ export default function SignUp() {
                                             value={formData.specialization}
                                             onChange={handleChange}
                                             required
-                                            className={cn(inputClasses, "pl-10 bg-slate-50/50 cursor-pointer")}
+                                            className={cn("flex h-10 w-full rounded-md border border-surface-200 bg-surface-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent", "bg-surface-50")}
                                         >
-                                            <option value="" disabled>Select a Trade</option>
+                                            <option value="">Select maintenance category</option>
                                             {MAINTENANCE_CATEGORIES.map((category) => (
                                                 <option key={category} value={category}>
                                                     {category}
@@ -326,7 +332,7 @@ export default function SignUp() {
                             )}
 
                             <div className="space-y-2">
-                                <label className="text-sm font-medium leading-none" htmlFor="password">Password</label>
+                                <label className="text-sm font-semibold text-surface-700 leading-none" htmlFor="password">Password</label>
                                 <Input
                                     id="password"
                                     name="password"
@@ -334,7 +340,7 @@ export default function SignUp() {
                                     value={formData.password}
                                     onChange={handleChange}
                                     required
-                                    className="bg-slate-50/50"
+                                    className="bg-surface-50"
                                 />
                             </div>
                             <Button className="w-full mt-4" type="submit" isLoading={loading}>
@@ -345,22 +351,22 @@ export default function SignUp() {
                     <CardFooter className="flex flex-col space-y-4 text-center text-sm pt-0">
                         <div className="relative w-full">
                             <div className="absolute inset-0 flex items-center">
-                                <span className="w-full border-t border-slate-200" />
+                                <span className="w-full border-t border-surface-200" />
                             </div>
                             <div className="relative flex justify-center text-xs uppercase">
-                                <span className="bg-white px-2 text-slate-500">Or</span>
+                                <span className="bg-white px-2 text-surface-500">Or</span>
                             </div>
                         </div>
-                        <div className="text-slate-500">
+                        <div className="text-surface-600">
                             Already have an account?{' '}
-                            <Link to="/login" className="text-primary font-semibold hover:text-accent transition-colors">
+                            <Link to="/login" className="text-primary-600 font-semibold hover:text-primary-700 transition-colors">
                                 Sign In
                             </Link>
                         </div>
                     </CardFooter>
                 </Card>
 
-                <div className="mt-8 text-center text-xs text-slate-400">
+                <div className="mt-8 text-center text-xs text-surface-400">
                     &copy; {new Date().getFullYear()} Mountain Top University. All rights reserved.
                 </div>
             </div>

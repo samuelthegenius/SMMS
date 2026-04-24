@@ -9,6 +9,7 @@ export default function SecurityDashboard() {
     const [recentEvents, setRecentEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(null);
+    const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
     const initialLoadDone = useRef(false);
 
     // Fetch security metrics
@@ -76,6 +77,29 @@ export default function SecurityDashboard() {
         }
     };
 
+    const getEventDescription = (type) => {
+        const descriptions = {
+            'login_failure': 'Someone tried to log in but failed',
+            'suspicious_input': 'Unusual data detected in a form',
+            'xss_attempt': 'Potential attack blocked on a form',
+            'unauthorized_access': 'Someone tried to access a restricted area',
+            'brute_force_detected': 'Multiple failed login attempts detected'
+        };
+        return descriptions[type] || 'Security event detected';
+    };
+
+    const getActionGuidance = (severity, type) => {
+        if (severity === 'critical') {
+            return 'Contact IT support immediately';
+        }
+        if (severity === 'high') {
+            return type === 'brute_force_detected' || type === 'login_failure'
+                ? 'Check if this was an authorized user'
+                : 'Monitor for additional events';
+        }
+        return 'No action needed - automatically blocked';
+    };
+
     if (loading) {
         return <Loader variant="security" />;
     }
@@ -86,13 +110,21 @@ export default function SecurityDashboard() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Security Dashboard</h1>
-                    <p className="text-gray-600">Real-time security monitoring and threat detection</p>
+                    <p className="text-gray-600">System protection status and security alerts</p>
                 </div>
-                <div className="flex items-center space-x-2">
-                    <Shield className="w-6 h-6 text-indigo-600" />
-                    <span className="text-sm font-medium text-gray-600">
-                        Protected by SMMS Security
-                    </span>
+                <div className="flex items-center space-x-4">
+                    <button
+                        onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
+                        className="text-sm text-gray-500 hover:text-gray-700 underline"
+                    >
+                        {showTechnicalDetails ? 'Hide technical details' : 'Show technical details'}
+                    </button>
+                    <div className="flex items-center space-x-2">
+                        <Shield className="w-6 h-6 text-indigo-600" />
+                        <span className="text-sm font-medium text-gray-600">
+                            Protected by SMMS Security
+                        </span>
+                    </div>
                 </div>
             </div>
 
@@ -182,23 +214,29 @@ export default function SecurityDashboard() {
                             {recentEvents.map((event, index) => (
                                 <div
                                     key={event.id || index}
-                                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                                    className="flex items-start justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
                                 >
-                                    <div className="flex items-center space-x-3">
-                                        <div className={`p-2 rounded-full ${getSeverityColor(event.severity)}`}>
+                                    <div className="flex items-start space-x-3">
+                                        <div className={`p-2 rounded-full ${getSeverityColor(event.severity)} mt-0.5`}>
                                             {getEventIcon(event.type)}
                                         </div>
                                         <div>
-                                            <div className="font-medium text-gray-900 capitalize">
-                                                {event.type.replace(/_/g, ' ')}
+                                            <div className="font-medium text-gray-900">
+                                                {getEventDescription(event.type)}
                                             </div>
-                                            <div className="text-sm text-gray-600">
-                                                {event.ip && `IP: ${event.ip}`}
-                                                {event.details?.userAgent && ` • ${event.details.userAgent.split(' ')[0]}`}
+                                            <div className="text-sm text-gray-600 mt-1">
+                                                <span className="font-medium">What to do:</span> {getActionGuidance(event.severity, event.type)}
                                             </div>
+                                            {showTechnicalDetails && (
+                                                <div className="text-xs text-gray-500 mt-2 font-mono">
+                                                    {event.ip && `IP: ${event.ip}`}
+                                                    {event.details?.userAgent && ` • ${event.details.userAgent.split(' ')[0]}`}
+                                                    {event.type && ` • ${event.type}`}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-                                    <div className="text-right">
+                                    <div className="text-right flex-shrink-0">
                                         <div className={`text-xs font-medium px-2 py-1 rounded-full ${getSeverityColor(event.severity)}`}>
                                             {event.severity?.toUpperCase()}
                                         </div>

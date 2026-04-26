@@ -1,7 +1,7 @@
 {
-  "name": "Smart Maintenance Management System",
-  "short_name": "SMMS",
-  "description": "The official maintenance portal for Mountain Top University.",
+  "name": "MTU SMMS",
+  "short_name": "MTU SMMS",
+  "description": "Smart Maintenance Management System for Mountain Top University.",
   "theme_color": "#0f172a",
   "background_color": "#0f172a",
   "display": "standalone",

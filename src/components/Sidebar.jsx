@@ -14,26 +14,39 @@ import clsx from 'clsx';
 import { Button } from './ui/Button';
 
 export default function Sidebar({ isOpen, onClose }) {
-    const { profile } = useAuth();
+    const { profile, user } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+    const homePath = user ? '/dashboard' : '/';
+
+    // Debug: Log role detection issues
+    if (import.meta.env.DEV && profile?._isFallback) {
+        console.warn('[Sidebar] Using fallback profile - row missing in profiles table for user:', profile.id, 'Role defaulted to:', profile.role);
+    }
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
         navigate('/login');
     };
 
+    const isStudentAffairs = profile?.department === 'Student Affairs';
+
     const navItems = [
         { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-        { label: 'Analytics', path: '/analytics', icon: BarChart, roles: ['admin'] },
-        { label: 'New Ticket', path: '/new-ticket', icon: PlusCircle, roles: ['student', 'staff', 'admin'] },
-        { label: 'My History', path: '/history', icon: History, roles: ['student', 'staff'] },
+        { label: 'Analytics', path: '/analytics', icon: BarChart, roles: ['admin', 'src', 'staff'], departmentAccess: 'Student Affairs' },
+        { label: 'New Ticket', path: '/new-ticket', icon: PlusCircle, roles: ['student', 'staff', 'admin', 'src', 'porter'] },
+        { label: 'My History', path: '/history', icon: History, roles: ['student', 'staff', 'src'] },
         { label: 'Jobs', path: '/jobs', icon: Wrench, roles: ['technician'] },
+        { label: 'Verify Complaints', path: '/jobs', icon: Wrench, roles: ['porter', 'src', 'staff'] },
     ];
 
-    const filteredNavItems = navItems.filter(item =>
-        !item.roles || item.roles.includes(profile?.role)
-    );
+    const filteredNavItems = navItems.filter(item => {
+        if (!item.roles) return true;
+        // Check role OR department access
+        const hasRoleAccess = item.roles.includes(profile?.role);
+        const hasDeptAccess = item.departmentAccess && profile?.department === item.departmentAccess;
+        return hasRoleAccess || hasDeptAccess;
+    });
 
     return (
         <>
@@ -44,7 +57,7 @@ export default function Sidebar({ isOpen, onClose }) {
             )}>
                 {/* Header */}
                 <div className="p-6 border-b border-white/10 hidden md:block">
-                    <div className="flex items-center gap-3">
+                    <Link to={homePath} className="flex items-center gap-3 cursor-pointer">
                         <div className="bg-white/10 p-2 rounded-xl backdrop-blur-sm">
                             <img 
                                 src="/mtulogo.jpg" 
@@ -53,10 +66,10 @@ export default function Sidebar({ isOpen, onClose }) {
                             />
                         </div>
                         <div>
-                            <h1 className="text-lg font-bold leading-none tracking-tight">MTU</h1>
-                            <p className="text-xs text-white/70 mt-1">Maintenance Portal</p>
+                            <h1 className="text-lg font-bold leading-none tracking-tight">MTU SMMS</h1>
+                            <p className="text-xs text-white/70 mt-1">Smart Maintenance System</p>
                         </div>
-                    </div>
+                    </Link>
                 </div>
 
                 {/* Navigation */}
@@ -67,7 +80,7 @@ export default function Sidebar({ isOpen, onClose }) {
                         const isActive = location.pathname === item.path;
                         return (
                             <Link
-                                key={item.path}
+                                key={item.label}
                                 to={item.path}
                                 onClick={onClose}
                                 className={clsx(
@@ -100,6 +113,19 @@ export default function Sidebar({ isOpen, onClose }) {
                             </p>
                         </div>
                     </div>
+                    <Link
+                        to="/settings"
+                        onClick={onClose}
+                        className={clsx(
+                            'flex items-center gap-3 px-4 py-3 mb-2 text-sm font-medium rounded-xl transition-all duration-200',
+                            location.pathname === '/settings'
+                                ? 'text-white bg-white/15 shadow-lg'
+                                : 'text-white/70 hover:text-white hover:bg-white/10'
+                        )}
+                    >
+                        <Settings className="w-4 h-4" />
+                        Settings
+                    </Link>
                     <Button
                         onClick={handleLogout}
                         variant="ghost"

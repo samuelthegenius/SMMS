@@ -6,7 +6,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/Card';
 import { cn } from '../lib/utils';
-import { MAINTENANCE_CATEGORIES } from '../utils/constants';
+import { MAINTENANCE_CATEGORIES, ACADEMIC_DEPARTMENTS, SERVICE_DEPARTMENTS } from '../utils/constants';
 import Loader from '../components/Loader';
 import { useAuth } from '../contexts/useAuth';
 
@@ -176,16 +176,17 @@ export default function SignUp() {
             <div className="w-full max-w-md my-auto flex flex-col relative z-10">
                 <Card className="w-full border-surface-200/60 shadow-2xl bg-white/80 backdrop-blur-sm">
                     <CardHeader className="space-y-3 text-center pb-8 border-b-0">
-                        <div className="mx-auto w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl flex items-center justify-center mb-2 shadow-lg shadow-primary-500/25 p-2">
+                        <Link to="/" className="mx-auto w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl flex items-center justify-center mb-2 shadow-lg shadow-primary-500/25 p-2 cursor-pointer hover:scale-105 transition-transform">
                             <img 
                                 src="/mtulogo.jpg" 
                                 alt="MTU Logo" 
                                 className="w-12 h-12 object-contain rounded"
                             />
-                        </div>
+                        </Link>
                         <CardTitle className="text-2xl font-bold text-surface-900">Create Account</CardTitle>
                         <CardDescription className="text-base text-surface-600">
-                            Join MTU Maintenance Portal
+                            Join MTU SMMS<br/>
+                            <span className="text-xs text-surface-400">Smart Maintenance Management System</span>
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -228,7 +229,9 @@ export default function SignUp() {
                                     {[
                                         { label: 'Student', value: 'student' },
                                         { label: 'Staff', value: 'staff' },
-                                        { label: 'Technician', value: 'technician' }
+                                        { label: 'Technician', value: 'technician' },
+                                        { label: 'SRC', value: 'src' },
+                                        { label: 'Hostel Porter', value: 'porter' }
                                     ].map(role => (
                                         <option key={role.value} value={role.value}>
                                             {role.label}
@@ -269,16 +272,27 @@ export default function SignUp() {
                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                             <Building className="h-4 w-4 text-slate-400" />
                                         </div>
-                                        <Input
+                                        <select
                                             id="department"
                                             name="department"
-                                            type="text"
-                                            placeholder="e.g., Computer Science"
                                             value={formData.department}
                                             onChange={handleChange}
                                             required
-                                            className="pl-10 bg-surface-50"
-                                        />
+                                            className={cn("flex h-10 w-full rounded-md border border-surface-200 bg-surface-50 px-3 py-2 text-sm pl-10 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent", "bg-surface-50")}
+                                        >
+                                            <option value="">Select your department</option>
+                                            {formData.role === 'student'
+                                            ? ACADEMIC_DEPARTMENTS.map((dept) => (
+                                                <option key={dept} value={dept}>
+                                                    {dept}
+                                                </option>
+                                            ))
+                                            : SERVICE_DEPARTMENTS.map((dept) => (
+                                                <option key={dept} value={dept}>
+                                                    {dept}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
                             )}
@@ -299,7 +313,7 @@ export default function SignUp() {
                                             value={formData.specialization}
                                             onChange={handleChange}
                                             required
-                                            className={cn("flex h-10 w-full rounded-md border border-surface-200 bg-surface-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent", "bg-surface-50")}
+                                            className={cn("flex h-10 w-full rounded-md border border-surface-200 bg-surface-50 pl-10 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent", "bg-surface-50")}
                                         >
                                             <option value="">Select maintenance category</option>
                                             {MAINTENANCE_CATEGORIES.map((category) => (
@@ -316,7 +330,7 @@ export default function SignUp() {
                             {formData.role && (
                                 <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
                                     <label className="text-sm font-medium leading-none text-indigo-600" htmlFor="accessCode">
-                                        Access Code (Required for {formData.role === 'student' ? 'Student' : formData.role === 'staff' ? 'Staff' : formData.role.charAt(0).toUpperCase() + formData.role.slice(1)})
+                                        Access Code (Required for {formData.role === 'student' ? 'Student' : formData.role === 'staff' ? 'Staff' : formData.role === 'src' ? 'SRC' : formData.role.charAt(0).toUpperCase() + formData.role.slice(1)})
                                     </label>
                                     <Input
                                         id="accessCode"

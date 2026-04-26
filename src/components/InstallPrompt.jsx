@@ -123,8 +123,8 @@ export default function InstallPrompt() {
                     <Download className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                    <h3 className="font-bold text-sm">Install SMMS App</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">Add to Home Screen for quick access</p>
+                    <h3 className="font-bold text-sm">Install MTU SMMS App</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Smart Maintenance Management System</p>
                 </div>
             </div>
             <div className="flex items-center gap-2">

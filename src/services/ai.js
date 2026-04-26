@@ -113,3 +113,380 @@ export async function smartSuggestFix(ticketDescription, ticketCategory = 'Gener
     return { ...result, source: 'ai-gateway-fallback' };
   }
 }
+
+/**
+ * AI-Powered Ticket Categorization & Department Assignment - FREE TIER
+ * Uses Supabase Edge Function with Gemini Flash (1,500 requests/day free)
+ * 
+ * @param {string} title - Ticket title
+ * @param {string} description - Ticket description
+ * @param {string} facilityType - Type of facility
+ * @returns {Promise<{category: string, department: string, confidence: number, reasoning: string, suggested: boolean}>} Categorization result
+ */
+export async function categorizeTicket(title, description = '', facilityType = 'Other') {
+  const { data, error } = await supabase.functions.invoke('categorize-ticket', {
+    body: {
+      title,
+      description,
+      facilityType,
+    },
+  });
+
+  if (error) {
+    throw new Error(error.message || 'Failed to categorize ticket');
+  }
+
+  return data;
+}
+
+/**
+ * AI-Powered Ticket Categorization - PREMIUM TIER (Fallback)
+ * Uses Vercel AI Gateway when Supabase free tier is unavailable
+ * 
+ * @param {string} title - Ticket title
+ * @param {string} description - Ticket description
+ * @param {string} facilityType - Type of facility
+ * @returns {Promise<{category: string, department: string, confidence: number, reasoning: string, suggested: boolean}>} Categorization result
+ */
+export async function categorizeTicketViaGateway(title, description = '', facilityType = 'Other') {
+  const response = await fetch(`${API_BASE}/ai/categorize`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ title, description, facilityType }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to categorize ticket');
+  }
+
+  return response.json();
+}
+
+/**
+ * Auto-categorize with fallback - tries Supabase (FREE) first, falls back to Vercel (PAID) if needed
+ * @param {string} title - Ticket title
+ * @param {string} description - Ticket description
+ * @param {string} facilityType - Type of facility
+ * @param {number} confidenceThreshold - Minimum confidence to accept AI suggestion (default 0.7)
+ * @returns {Promise<{category: string, department: string, confidence: number, autoAssigned: boolean, reasoning: string}>}
+ */
+export async function autoCategorizeWithFallback(title, description = '', facilityType = 'Other', confidenceThreshold = 0.7) {
+  try {
+    // Try free tier (Supabase Edge Function with Gemini) first
+    const result = await categorizeTicket(title, description, facilityType);
+    
+    // Only auto-assign if confidence is high enough
+    const autoAssigned = result.confidence >= confidenceThreshold && result.suggested;
+    
+    return {
+      category: result.category,
+      department: result.department,
+      confidence: result.confidence,
+      autoAssigned,
+      reasoning: result.reasoning,
+      source: 'gemini-free'
+    };
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.warn('Supabase categorization failed, trying Vercel Gateway:', error);
+    }
+    
+    // Fallback to Vercel AI Gateway (paid)
+    try {
+      const result = await categorizeTicketViaGateway(title, description, facilityType);
+      const autoAssigned = result.confidence >= confidenceThreshold && result.suggested;
+      
+      return {
+        category: result.category,
+        department: result.department,
+        confidence: result.confidence,
+        autoAssigned,
+        reasoning: result.reasoning,
+        source: 'ai-gateway-fallback'
+      };
+    } catch (fallbackError) {
+      if (import.meta.env.DEV) {
+        console.warn('Vercel fallback also failed:', fallbackError);
+      }
+      
+      // Return null to indicate manual selection needed
+      return {
+        category: null,
+        department: null,
+        confidence: 0,
+        autoAssigned: false,
+        reasoning: 'AI categorization unavailable',
+        source: 'failed'
+      };
+    }
+  }
+}
+
+// ============================================================================
+// AI CHAT ASSISTANT FUNCTIONS
+// ============================================================================
+
+/**
+ * Send a message to the AI chat assistant
+ * @param {string} ticketId - The ticket ID for context
+ * @param {string} message - The user's message
+ * @param {Array} chatHistory - Recent chat history for context
+ * @returns {Promise<{response: string, message_id: string, context: object}>}
+ */
+export async function askAIAssistant(ticketId, message, chatHistory = []) {
+  const { data, error } = await supabase.functions.invoke('ai-chat-assistant', {
+    body: {
+      ticket_id: ticketId,
+      message,
+      chat_history: chatHistory,
+      action: 'chat',
+    },
+  });
+
+  if (error) {
+    throw new Error(error.message || 'Failed to get AI response');
+  }
+
+  return data;
+}
+
+/**
+ * Get AI fix suggestion for a ticket via chat interface
+ * @param {string} ticketId - The ticket ID
+ * @returns {Promise<{suggestion: string}>}
+ */
+export async function getAIFixSuggestion(ticketId) {
+  const { data, error } = await supabase.functions.invoke('ai-chat-assistant', {
+    body: {
+      ticket_id: ticketId,
+      message: 'suggest_fix',
+      action: 'suggest_fix',
+    },
+  });
+
+  if (error) {
+    throw new Error(error.message || 'Failed to get AI fix suggestion');
+  }
+
+  return data;
+}
+
+/**
+ * Summarize chat history with AI
+ * @param {string} ticketId - The ticket ID
+ * @returns {Promise<{summary: string}>}
+ */
+export async function summarizeChat(ticketId) {
+  const { data, error } = await supabase.functions.invoke('ai-chat-assistant', {
+    body: {
+      ticket_id: ticketId,
+      action: 'summarize',
+    },
+  });
+
+  if (error) {
+    throw new Error(error.message || 'Failed to summarize chat');
+  }
+
+  return data;
+}
+
+/**
+ * Smart AI chat with fallback
+ * Tries Supabase Edge Function first, falls back to API route if needed
+ * @param {string} ticketId - The ticket ID
+ * @param {string} message - The user's message
+ * @param {Array} chatHistory - Recent chat history
+ * @param {boolean} preferGateway - Use AI Gateway directly
+ * @returns {Promise<{response: string, source: string}>}
+ */
+export async function smartAIChat(ticketId, message, chatHistory = [], preferGateway = false) {
+  if (preferGateway) {
+    // Use API route directly
+    const response = await fetch(`${API_BASE}/ai/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ticketId, message, chatHistory }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to get AI response');
+    }
+
+    const result = await response.json();
+    return { ...result, source: 'ai-gateway' };
+  }
+
+  try {
+    // Try free tier first
+    const result = await askAIAssistant(ticketId, message, chatHistory);
+    return { ...result, source: 'gemini-free' };
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.warn('Supabase AI chat failed, trying API route:', error);
+    }
+
+    // Fallback to API route
+    try {
+      const response = await fetch(`${API_BASE}/ai/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ticketId, message, chatHistory }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to get AI response');
+      }
+
+      const result = await response.json();
+      return { ...result, source: 'api-fallback' };
+    } catch (fallbackError) {
+      if (import.meta.env.DEV) {
+        console.warn('API fallback also failed:', fallbackError);
+      }
+      throw new Error('AI assistant temporarily unavailable');
+    }
+  }
+}
+
+// ============================================================================
+// TICKET MANAGEMENT FUNCTIONS
+// ============================================================================
+
+/**
+ * Update ticket category with AI suggestion
+ * @param {string} ticketId - The ticket ID
+ * @param {string} newCategory - New category
+ * @param {string} reason - Reason for change
+ * @param {string} aiSuggestion - AI suggestion context
+ * @returns {Promise<{success: boolean, ticket: object, new_repair_guide?: object}>}
+ */
+export async function updateTicketCategory(ticketId, newCategory, reason = '', aiSuggestion = '') {
+  const response = await fetch(`${API_BASE}/ticket-management`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      ticket_id: ticketId,
+      action: 'recategorize',
+      new_value: newCategory,
+      reason,
+      ai_suggestion: aiSuggestion,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to update ticket category');
+  }
+
+  return response.json();
+}
+
+/**
+ * Update ticket priority
+ * @param {string} ticketId - The ticket ID
+ * @param {string} newPriority - New priority (Low, Medium, High)
+ * @param {string} reason - Reason for change
+ * @returns {Promise<{success: boolean, ticket: object}>}
+ */
+export async function updateTicketPriority(ticketId, newPriority, reason = '') {
+  const response = await fetch(`${API_BASE}/ticket-management`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      ticket_id: ticketId,
+      action: 'reprioritize',
+      new_value: newPriority,
+      reason,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to update ticket priority');
+  }
+
+  return response.json();
+}
+
+/**
+ * Update ticket status
+ * @param {string} ticketId - The ticket ID
+ * @param {string} newStatus - New status
+ * @param {string} reason - Reason for change
+ * @returns {Promise<{success: boolean, ticket: object}>}
+ */
+export async function updateTicketStatus(ticketId, newStatus, reason = '') {
+  const response = await fetch(`${API_BASE}/ticket-management`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      ticket_id: ticketId,
+      action: 'change_status',
+      new_value: newStatus,
+      reason,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to update ticket status');
+  }
+
+  return response.json();
+}
+
+/**
+ * Get AI suggestion for ticket categorization
+ * @param {string} ticketId - The ticket ID
+ * @returns {Promise<{suggestion: string, action_type: string}>}
+ */
+export async function getAICategorizationSuggestion(ticketId) {
+  const { data, error } = await supabase.functions.invoke('ai-chat-assistant', {
+    body: {
+      ticket_id: ticketId,
+      action: 'suggest_categorization',
+    },
+  });
+
+  if (error) {
+    throw new Error(error.message || 'Failed to get AI categorization suggestion');
+  }
+
+  return data;
+}
+
+/**
+ * Get AI suggestion for status change
+ * @param {string} ticketId - The ticket ID
+ * @returns {Promise<{suggestion: string, action_type: string}>}
+ */
+export async function getAIStatusSuggestion(ticketId) {
+  const { data, error } = await supabase.functions.invoke('ai-chat-assistant', {
+    body: {
+      ticket_id: ticketId,
+      action: 'suggest_status_change',
+    },
+  });
+
+  if (error) {
+    throw new Error(error.message || 'Failed to get AI status suggestion');
+  }
+
+  return data;
+}

@@ -1,22 +1,21 @@
 
-// @ts-ignore: Deno URL imports are not resolved by standard VS Code extension
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+// deno-lint-ignore no-import-prefix
+import { serve } from "jsr:@std/http@0.224.0/server"
+// deno-lint-ignore no-import-prefix
+import { createClient } from "npm:@supabase/supabase-js@2"
 
-// @ts-ignore: Deno namespace
 const EMAILJS_SERVICE_ID = Deno.env.get('EMAILJS_SERVICE_ID')
-// @ts-ignore: Deno namespace
 const EMAILJS_TEMPLATE_ID = Deno.env.get('EMAILJS_TEMPLATE_ID')
-// @ts-ignore: Deno namespace
 const EMAILJS_USER_ID = Deno.env.get('EMAILJS_USER_ID') // Public Key
-// @ts-ignore: Deno namespace
 const EMAILJS_PRIVATE_KEY = Deno.env.get('EMAILJS_PRIVATE_KEY') // Private Key
 
 // Initialize Supabase client
-const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-)
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('Missing Supabase configuration')
+}
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 // Security: Restrict CORS to your actual domain in production
 const ALLOWED_ORIGINS = [
@@ -42,7 +41,7 @@ const corsHeaders = (origin: string) => {
 // CSRF validation helper - Skip for Edge Functions (already protected by Supabase auth)
 // Edge Functions are invoked with authorization headers from Supabase client
 // which provides sufficient authentication. CSRF tokens are not needed here.
-const validateCSRFToken = (req: Request): boolean => {
+const _validateCSRFToken = (_req: Request): boolean => {
 	return true;
 };
 
@@ -118,7 +117,7 @@ serve(async (req: Request) => {
             throw new Error('Missing required field: type')
         }
 
-        if (!['ticket_created', 'ticket_reassigned', 'ticket_completed'].includes(type)) {
+        if (!['ticket_created', 'ticket_reassigned', 'ticket_completed', 'ticket_escalation'].includes(type)) {
             throw new Error('Invalid email type')
         }
 
@@ -230,6 +229,58 @@ serve(async (req: Request) => {
             ));
         }
 
+        // 4. Ticket Escalation -> Notify relevant parties about delayed ticket
+        if (type === 'ticket_escalation') {
+            const { hours_pending, escalation_count, admin_email } = requestBody;
+            const urgencyLevel = hours_pending >= 8 ? 'CRITICAL' : hours_pending >= 4 ? 'URGENT' : 'ATTENTION';
+            const subjectPrefix = hours_pending >= 8 ? '🚨' : hours_pending >= 4 ? '⚠️' : '⏰';
+            
+            // Notify technician if assigned
+            if (technician_email && ticket_title) {
+                emailPromises.push(sendViaEmailJS(
+                    technician_email,
+                    `${subjectPrefix} ${urgencyLevel}: Action Required - ${ticket_title}`,
+                    `<div style="font-family: sans-serif; color: #333; max-width: 600px;">
+                        <h2 style="color: #dc2626;">${subjectPrefix} ${urgencyLevel} ESCALATION</h2>
+                        <p>Hello <strong>${technician_name || 'Technician'}</strong>,</p>
+                        <p style="color: #dc2626; font-weight: bold;">This ticket requires immediate attention!</p>
+                        <div style="background: #fef2f2; border-left: 4px solid #dc2626; padding: 15px; margin: 15px 0;">
+                            <p><strong>Ticket:</strong> ${ticket_title}</p>
+                            <p><strong>Location:</strong> ${ticket_location || 'N/A'}</p>
+                            <p><strong>Priority:</strong> ${ticket_priority || 'N/A'}</p>
+                            <p><strong>Time Pending:</strong> ${hours_pending || 'Unknown'} hours</p>
+                            <p><strong>Previous Alerts:</strong> ${escalation_count || 0}</p>
+                        </div>
+                        <p>Please take action on this ticket immediately. Management has been notified.</p>
+                        <a href="${dashboardLink}" style="display: inline-block; background: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 10px;">View Ticket Now</a>
+                    </div>`
+                ));
+            }
+            
+            // Notify admin about escalation
+            if (admin_email && ticket_title) {
+                emailPromises.push(sendViaEmailJS(
+                    admin_email,
+                    `${subjectPrefix} ESCALATION: ${ticket_title} (${hours_pending}h pending)`,
+                    `<div style="font-family: sans-serif; color: #333; max-width: 600px;">
+                        <h2 style="color: #dc2626;">${subjectPrefix} Ticket Escalation</h2>
+                        <p>Hello Admin,</p>
+                        <p>A verified ticket has been pending without resolution and requires management intervention.</p>
+                        <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                            <p><strong>Ticket:</strong> ${ticket_title}</p>
+                            <p><strong>Location:</strong> ${ticket_location || 'N/A'}</p>
+                            <p><strong>Priority:</strong> ${ticket_priority || 'N/A'}</p>
+                            <p><strong>Assigned To:</strong> ${technician_name || 'Unassigned'}</p>
+                            <p><strong>Time Since Verification:</strong> ${hours_pending || 'Unknown'} hours</p>
+                            <p><strong>Escalation Count:</strong> ${(escalation_count || 0) + 1}</p>
+                        </div>
+                        <p>Please review and take appropriate action.</p>
+                        <a href="${dashboardLink}" style="display: inline-block; background: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 10px;">View Dashboard</a>
+                    </div>`
+                ));
+            }
+        }
+
         if (emailPromises.length === 0) {
             throw new Error('No valid recipients for email')
         }
@@ -241,11 +292,12 @@ serve(async (req: Request) => {
             status: 200,
         })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const errMsg = error instanceof Error ? error.message : String(error)
         console.error('send-email error:', error)
-        return new Response(JSON.stringify({ error: error.message || 'Internal server error' }), {
+        return new Response(JSON.stringify({ error: errMsg || 'Internal server error' }), {
             headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
-            status: error.message?.includes('Rate limit') ? 429 : 400,
+            status: errMsg?.includes('Rate limit') ? 429 : 400,
         })
     }
 })

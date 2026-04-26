@@ -95,20 +95,22 @@ export default function AnalyticsPage() {
         }
     }, []);
 
+    const hasAdminAccess = profile?.role === 'admin' || profile?.department === 'Student Affairs' || profile?.role === 'src';
+
     useEffect(() => {
-        // Only fetch data if user is admin and we haven't fetched for this profile yet
-        if (profile?.role === 'admin' && profile.id !== fetchedProfileId.current) {
+        // Only fetch data if user has admin access and we haven't fetched for this profile yet
+        if (hasAdminAccess && profile.id !== fetchedProfileId.current) {
             fetchedProfileId.current = profile.id;
             hasFetched.current = true;
             fetchTickets();
-        } else if (profile && profile.role !== 'admin' && !loading) {
+        } else if (profile && !hasAdminAccess && !loading) {
             setError('Access denied: Admin role required');
             setLoading(false);
         } else if (!authLoading && !profile && !loading) {
             setError('Please log in to access analytics');
             setLoading(false);
         }
-    }, [profile, authLoading, fetchTickets, loading]);
+    }, [profile, authLoading, fetchTickets, loading, hasAdminAccess]);
 
     // Show loader during authentication or data loading
     if (authLoading || loading) return <Loader variant="analytics" />;
@@ -124,7 +126,7 @@ export default function AnalyticsPage() {
     }
 
     // Handle non-admin users
-    if (profile && profile.role !== 'admin') {
+    if (profile && !hasAdminAccess) {
         return (
             <div className="text-red-500 text-center mt-10">
                 <p className="text-lg font-medium">Access Denied</p>

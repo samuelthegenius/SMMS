@@ -96,6 +96,7 @@ CREATE TABLE tickets (
     category text,
     facility_type text,
     specific_location text,
+    department text REFERENCES departments(name) ON DELETE SET NULL, -- AI-derived department assignment
     priority text DEFAULT 'Medium'::text CHECK (priority IN ('Low', 'Medium', 'High')),
     status text DEFAULT 'Open'::text CHECK (status IN ('Open', 'In Progress', 'Resolved', 'Closed', 'Escalated', 'Pending Verification')),
     assigned_to uuid REFERENCES profiles(id),
@@ -148,6 +149,7 @@ CREATE TABLE IF NOT EXISTS security_events (
 CREATE INDEX idx_tickets_created_by ON tickets(created_by);
 CREATE INDEX idx_tickets_assigned_to ON tickets(assigned_to);
 CREATE INDEX idx_tickets_status ON tickets(status);
+CREATE INDEX idx_tickets_department ON tickets(department);
 CREATE INDEX idx_tickets_created_at ON tickets(created_at DESC);
 CREATE INDEX idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX idx_notifications_is_read ON notifications(is_read);
@@ -230,7 +232,7 @@ RETURNS boolean AS $$
 DECLARE
     expected_code text;
 BEGIN
-    IF p_role NOT IN ('student', 'staff', 'technician') THEN
+    IF p_role NOT IN ('student', 'staff', 'technician', 'src', 'porter') THEN
         RETURN false;
     END IF;
 
@@ -279,7 +281,7 @@ BEGIN
     END IF;
 
     -- Validate role (explicitly prevent admin registration through public API)
-    IF p_role NOT IN ('student', 'staff', 'technician') THEN
+    IF p_role NOT IN ('student', 'staff', 'technician', 'src', 'porter') THEN
         RAISE EXCEPTION 'Role % registration is not permitted', p_role;
     END IF;
 
@@ -473,6 +475,51 @@ CREATE TRIGGER on_ticket_change
     FOR EACH ROW
     EXECUTE FUNCTION handle_ticket_notifications();
 
+-- Auto-assign technician when porter verifies a ticket (updates from Open to In Progress)
+CREATE OR REPLACE FUNCTION auto_assign_on_verification()
+RETURNS trigger AS $$
+DECLARE
+    selected_tech_id uuid;
+BEGIN
+    -- Only run when status changes from Open to In Progress and no technician assigned
+    IF OLD.status = 'Open' AND NEW.status = 'In Progress' AND NEW.assigned_to IS NULL THEN
+        -- Find technician with matching skill and lowest workload
+        SELECT id INTO selected_tech_id
+        FROM profiles p
+        WHERE p.role = 'technician'
+          AND (NEW.category = ANY(
+                SELECT skill FROM technician_skills WHERE profile_id = p.id
+              ))
+        ORDER BY (
+            SELECT COUNT(*)
+            FROM tickets t
+            WHERE t.assigned_to = p.id
+              AND t.status IN ('Open', 'Assigned', 'In Progress', 'Pending Verification')
+        ) ASC
+        LIMIT 1;
+
+        IF selected_tech_id IS NOT NULL THEN
+            NEW.assigned_to := selected_tech_id;
+            NEW.status := 'Assigned';
+
+            INSERT INTO notifications (user_id, ticket_id, message)
+            VALUES (
+                selected_tech_id,
+                NEW.id,
+                'New Task Assigned: ' || NEW.title || ' at ' || COALESCE(NEW.specific_location, 'Unknown')
+            );
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_ticket_verified
+    BEFORE UPDATE ON tickets
+    FOR EACH ROW
+    EXECUTE FUNCTION auto_assign_on_verification();
+
 CREATE OR REPLACE FUNCTION enforce_ticket_update_rules()
 RETURNS trigger AS $$
 DECLARE
@@ -615,6 +662,59 @@ CREATE POLICY "Admins have full access to tickets"
         WHERE id = auth.uid() AND role = 'admin'
     ));
 
+-- SRC can view all tickets (to identify patterns and escalate issues)
+CREATE POLICY "SRC can view all tickets"
+    ON tickets FOR SELECT
+    TO authenticated
+    USING (EXISTS (
+        SELECT 1 FROM profiles
+        WHERE id = auth.uid() AND role = 'src'
+    ));
+
+-- SRC can escalate tickets (update priority/status)
+CREATE POLICY "SRC can escalate tickets"
+    ON tickets FOR UPDATE
+    TO authenticated
+    USING (EXISTS (
+        SELECT 1 FROM profiles
+        WHERE id = auth.uid() AND role = 'src'
+    ))
+    WITH CHECK (EXISTS (
+        SELECT 1 FROM profiles
+        WHERE id = auth.uid() AND role = 'src'
+    ));
+
+-- Porters can view all hostel-related tickets
+CREATE POLICY "Porters can view hostel tickets"
+    ON tickets FOR SELECT
+    TO authenticated
+    USING (
+        facility_type = 'Hostel'
+        AND EXISTS (
+            SELECT 1 FROM profiles
+            WHERE id = auth.uid() AND role = 'porter'
+        )
+    );
+
+-- Porters can self-assign and update hostel tickets
+CREATE POLICY "Porters can update hostel tickets"
+    ON tickets FOR UPDATE
+    TO authenticated
+    USING (
+        facility_type = 'Hostel'
+        AND EXISTS (
+            SELECT 1 FROM profiles
+            WHERE id = auth.uid() AND role = 'porter'
+        )
+    )
+    WITH CHECK (
+        facility_type = 'Hostel'
+        AND EXISTS (
+            SELECT 1 FROM profiles
+            WHERE id = auth.uid() AND role = 'porter'
+        )
+    );
+
 -- NOTIFICATIONS policies
 CREATE POLICY "Users can view own notifications"
     ON notifications FOR SELECT
@@ -736,7 +836,8 @@ CREATE POLICY "Security events viewable by admins only"
 INSERT INTO departments (name) VALUES
     ('Works Department'),
     ('Administration'),
-    ('Academic')
+    ('Academic'),
+    ('Student Affairs')
 ON CONFLICT (name) DO NOTHING;
 
 -- Insert default facility types

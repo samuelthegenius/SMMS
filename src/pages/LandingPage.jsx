@@ -1,6 +1,6 @@
 /**
  * @file src/pages/LandingPage.jsx
- * @description Public-facing landing page for the MTU Maintenance Portal.
+ * @description Public-facing landing page for MTU SMMS.
  * 
  * Key Features:
  * - Conversion Funnel: Directs different user types (Students vs. Staff) to appropriate entry points.
@@ -29,7 +29,7 @@ export default function LandingPage() {
             <nav className="bg-gradient-to-r from-primary-500 to-primary-600 border-b border-primary-400">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between h-16 items-center">
-                        <div className="flex items-center gap-3">
+                        <Link to="/" className="flex items-center gap-3 cursor-pointer">
                             <div className="bg-white/15 p-2 rounded-lg backdrop-blur-sm border border-white/10">
                                 <img 
                                     src="/mtulogo.jpg" 
@@ -38,11 +38,11 @@ export default function LandingPage() {
                                 />
                             </div>
                             <div>
-                                <h1 className="text-xl font-bold text-white tracking-tight hidden md:block">MTU Maintenance Portal</h1>
-                                <h1 className="text-xl font-bold text-white tracking-tight md:hidden">MTU</h1>
+                                <h1 className="text-xl font-bold text-white tracking-tight hidden md:block">MTU SMMS</h1>
+                                <h1 className="text-xl font-bold text-white tracking-tight md:hidden">MTU SMMS</h1>
                                 <p className="text-xs text-white/70 font-medium tracking-wide uppercase">Mountain Top University</p>
                             </div>
-                        </div>
+                        </Link>
                         <div className="flex items-center gap-4">
                             {/* UX Routing: Primary Calls to Action */}
                             <Link
@@ -75,7 +75,7 @@ export default function LandingPage() {
                 <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
                     <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20 text-white text-xs font-semibold uppercase tracking-wider mb-8 backdrop-blur-sm">
                         <span className="flex h-2 w-2 rounded-full bg-accent-400 animate-pulse"></span>
-                        Management • Maintenance • Monitoring
+                        Smart Maintenance Management System
                     </div>
 
                     <h1 className="text-4xl md:text-6xl font-extrabold text-white tracking-tight mb-6 leading-tight">
@@ -112,7 +112,7 @@ export default function LandingPage() {
             <div className="py-24 bg-surface-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center mb-16">
-                        <h2 className="text-3xl md:text-4xl font-bold text-surface-900">Why use MTU Maintenance Portal?</h2>
+                        <h2 className="text-3xl md:text-4xl font-bold text-surface-900">Why use MTU SMMS?</h2>
                         <p className="mt-4 text-lg text-surface-600 max-w-2xl mx-auto">A unified platform for students, staff, and administrators to streamline campus operations.</p>
                     </div>
 
@@ -169,7 +169,7 @@ export default function LandingPage() {
                                 </div>
                                 <div>
                                     <h3 className="text-xl font-bold mb-1">Ready for 2025 Academic Session</h3>
-                                    <p className="text-white/80 text-sm">Join thousands of students and staff already using MTU Maintenance Portal.</p>
+                                    <p className="text-white/80 text-sm">Join thousands of students and staff already using MTU SMMS.</p>
                                 </div>
                             </div>
                         </div>
@@ -188,8 +188,8 @@ export default function LandingPage() {
                                 className="h-8 w-8 object-contain rounded"
                             />
                             <div className="flex flex-col">
-                                <span className="text-surface-700 font-semibold">MTU Maintenance Portal</span>
-                                <span className="text-surface-500 text-xs">Management • Maintenance • Monitoring</span>
+                                <span className="text-surface-700 font-semibold">MTU SMMS</span>
+                                <span className="text-surface-500 text-xs">Smart Maintenance Management System</span>
                             </div>
                         </div>
                         <p className="text-surface-400 text-sm">

@@ -4,12 +4,16 @@
     "deno.enablePaths": [
         "supabase/functions"
     ],
-    "deno.config": "./supabase/functions/deno.json",
-    "deno.unstable": true,
+    "deno.unstable": ["bare-node-builtins", "byonm", "sloppy-imports"],
     "deno.lint": true,
     "deno.suggest.imports.hosts": {
         "https://deno.land": true
     },
-    "typescript.validate.enable": false,
-    "javascript.validate.enable": false
+    "js/ts.validate.enable": false,
+    "json.schemas": [
+        {
+            "fileMatch": ["**/deno.json"],
+            "url": "https://deno.land/x/deno/cli/schemas/config-file.v1.json"
+        }
+    ]
 }

@@ -1,5 +1,7 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+// deno-lint-ignore no-import-prefix
+import { serve } from "jsr:@std/http@0.224.0/server"
+// deno-lint-ignore no-import-prefix
+import { createClient } from "npm:@supabase/supabase-js@2"
 
 // Security: Restrict CORS to allowed origins only
 const ALLOWED_ORIGINS = [
@@ -150,7 +152,7 @@ serve(async (req: Request) => {
 
             // Fetch Admin Email
             const getAdminEmail = async () => {
-                const { data, error } = await supabase
+                const { data, error: _error } = await supabase
                     .from('profiles')
                     .select('email')
                     .eq('role', 'admin')
@@ -202,9 +204,10 @@ serve(async (req: Request) => {
             status: 200,
         })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const errMsg = error instanceof Error ? error.message : String(error)
         console.error("Edge Function Error:", error)
-        return new Response(JSON.stringify({ error: error.message || 'Internal server error' }), {
+        return new Response(JSON.stringify({ error: errMsg || 'Internal server error' }), {
             headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
             status: 400,
         })

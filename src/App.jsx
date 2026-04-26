@@ -16,6 +16,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Loader from './components/Loader';
 import InstallPrompt from './components/InstallPrompt';
 import { Toaster } from 'sonner';
+import { AlertTriangle } from 'lucide-react';
 // Eagerly load public pages for immediate render (homepage SEO + previews)
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
@@ -27,6 +28,7 @@ const UserDashboard = lazy(() => import('./pages/dashboards/UserDashboard'));
 const TechnicianDashboard = lazy(() => import('./pages/dashboards/TechnicianDashboard'));
 const AdminDashboard = lazy(() => import('./pages/dashboards/AdminDashboard'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
 // Lazy load admin-specific components
 const SecurityDashboard = lazy(() => import('./pages/dashboards/SecurityDashboard'));
@@ -66,31 +68,76 @@ function DashboardRouter() {
   const { profile } = useAuth();
   
   const activeRole = profile?.role;
+  const department = profile?.department;
+  // Student Affairs department members get admin-level access
+  const isStudentAffairs = department === 'Student Affairs';
 
   if (!profile) return <Loader variant="simple" />;
 
-  switch (activeRole) {
-    case 'admin':
-      return (
+  // Debug: Log profile data for role detection troubleshooting
+  if (import.meta.env.DEV) {
+    console.log('[DashboardRouter] Profile data:', { 
+      id: profile?.id, 
+      role: activeRole, 
+      department, 
+      isStudentAffairs,
+      isFallback: profile?._isFallback 
+    });
+  }
+
+  // Warn if using fallback profile (missing profiles table row)
+  if (profile._isFallback && import.meta.env.DEV) {
+    console.warn(`[DashboardRouter] Fallback profile detected. Role: ${activeRole}, Expected: Check profiles table for user ${profile.id}`);
+  }
+
+  const FallbackWarning = profile?._isFallback ? (
+    <div className="bg-amber-50 border-l-4 border-amber-500 p-4 mb-4">
+      <div className="flex">
+        <AlertTriangle className="h-5 w-5 text-amber-500" />
+        <div className="ml-3">
+          <p className="text-sm text-amber-700">
+            <strong>Profile Warning:</strong> Your user profile is missing from the database. 
+            Role defaulted to &quot;{activeRole}&quot;. Please contact support to fix your profile.
+          </p>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  // Admin, Student Affairs staff, and SRC get admin dashboard
+  if (activeRole === 'admin' || isStudentAffairs || activeRole === 'src') {
+    return (
+      <>
+        {FallbackWarning}
         <Suspense fallback={<Loader variant="admin" />}>
           <AdminDashboard />
         </Suspense>
-      );
-    case 'technician':
-      return (
-        <Suspense fallback={<Loader variant="technician" />}>
-          <TechnicianDashboard />
-        </Suspense>
-      );
-    // ROUTING SECURITY: Staff and Students share the "Reporter" view.
-    // Technicians and Admins get the "Resolver" view.
-    case 'student':
+      </>
+    );
+  }
+
+  switch (activeRole) {
+    // Staff verify tickets in their department
     case 'staff':
+    case 'technician':
+    case 'porter':
+      return (
+        <>
+          {FallbackWarning}
+          <Suspense fallback={<Loader variant="technician" />}>
+            <TechnicianDashboard />
+          </Suspense>
+        </>
+      );
+    case 'student':
     default:
       return (
-        <Suspense fallback={<Loader variant="user" />}>
-          <UserDashboard />
-        </Suspense>
+        <>
+          {FallbackWarning}
+          <Suspense fallback={<Loader variant="user" />}>
+            <UserDashboard />
+          </Suspense>
+        </>
       );
   }
 }
@@ -156,6 +203,11 @@ export default function App() {
               <Route path="/jobs" element={
                 <Suspense fallback={<Loader variant="technician" />}>
                   <TechnicianDashboard />
+                </Suspense>
+              } />
+              <Route path="/settings" element={
+                <Suspense fallback={<Loader variant="simple" />}>
+                  <SettingsPage />
                 </Suspense>
               } />
             </Route>

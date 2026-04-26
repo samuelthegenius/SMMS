@@ -92,7 +92,7 @@ export default async function handler(req, res) {
   if (!PASSWORD_REGEX.test(password)) {
     return res.status(400).json({ error: 'Password must be at least 8 characters with uppercase, lowercase, and number' });
   }
-  if (!['student', 'staff', 'technician'].includes(role)) {
+  if (!['student', 'staff', 'technician', 'src', 'porter'].includes(role)) {
     return res.status(400).json({ error: 'Invalid role' });
   }
   if (idNumber.length < 5) {

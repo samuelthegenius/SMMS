@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import useSWR from 'swr';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/useAuth';
@@ -21,8 +22,6 @@ const STATUS_STYLES = {
     'Assigned': { bg: 'bg-primary-50', text: 'text-primary-700', icon: WrenchIcon, border: 'border-primary-200' },
     'Completed': { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: CheckCircle, border: 'border-emerald-200' },
 };
-
-import useSWR from 'swr';
 
 const ACTIVE_STATUSES = ['Open', 'In Progress', 'Escalated', 'Pending Verification'];
 const COMPLETED_STATUSES = ['Resolved', 'Closed'];

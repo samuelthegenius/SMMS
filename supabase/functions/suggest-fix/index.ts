@@ -1,4 +1,5 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+// deno-lint-ignore no-import-prefix
+import { serve } from "jsr:@std/http@0.224.0/server"
 
 // Security: Restrict CORS to your actual domain
 const ALLOWED_ORIGINS = [
@@ -67,7 +68,7 @@ serve(async (req: Request) => {
         try {
             const bodyText = await req.text()
             requestBody = JSON.parse(bodyText)
-        } catch (parseError) {
+        } catch (_parseError) {
             throw new Error('Invalid JSON in request body')
         }
 
@@ -87,7 +88,7 @@ serve(async (req: Request) => {
         }
 
         // Construct Gemini Payload Parts
-        const parts: any[] = []
+        const parts: { text?: string; inline_data?: { mime_type: string; data: string } }[] = []
 
         // Handle Image Processing if URL is provided
         if (image_url) {
@@ -196,13 +197,17 @@ Keep responses concise and professional.
                 throw new Error("AI Request was blocked by safety filters.")
             }
 
-            let suggestionText = candidate?.content?.parts?.[0]?.text
+            const suggestionText = candidate?.content?.parts?.[0]?.text
             if (!suggestionText) {
                 throw new Error("AI returned no suggestion content.")
             }
 
             // Parse the structured text response
-            let jsonResponse = {
+            const jsonResponse: {
+                technical_diagnosis: string
+                tools_required: string[]
+                safety_precaution: string
+            } = {
                 technical_diagnosis: "",
                 tools_required: [],
                 safety_precaution: ""
@@ -210,10 +215,10 @@ Keep responses concise and professional.
 
             try {
                 // Split by lines and parse each section
-                const lines = suggestionText.split('\n').map(line => line.trim())
+                const lines = suggestionText.split('\n').map((line: string) => line.trim())
                 
                 let currentSection = ""
-                let toolsList = []
+                const toolsList: string[] = []
                 let diagnosisText = ""
                 
                 for (let i = 0; i < lines.length; i++) {
@@ -266,13 +271,11 @@ Keep responses concise and professional.
                 jsonResponse.tools_required = jsonResponse.tools_required.slice(0, 10)
                 jsonResponse.safety_precaution = jsonResponse.safety_precaution.substring(0, 200)
                 
-            } catch (e) {
+            } catch (_e) {
                 // Fallback response
-                jsonResponse = {
-                    technical_diagnosis: "Maintenance issue detected. Professional assessment required.",
-                    tools_required: ["Basic tools", "Safety equipment", "Testing devices"],
-                    safety_precaution: "WARNING: Always follow proper safety procedures."
-                }
+                jsonResponse.technical_diagnosis = "Maintenance issue detected. Professional assessment required."
+                jsonResponse.tools_required = ["Basic tools", "Safety equipment", "Testing devices"]
+                jsonResponse.safety_precaution = "WARNING: Always follow proper safety procedures."
             }
 
             return new Response(JSON.stringify(jsonResponse), {
@@ -280,18 +283,20 @@ Keep responses concise and professional.
                 status: 200,
             })
 
-        } catch (apiError: any) {
-            if (apiError.name === 'AbortError') {
+        } catch (apiError: unknown) {
+            const err = apiError as Error
+            if (err.name === 'AbortError') {
                 throw new Error("AI request timed out. Please try again.")
             }
             throw apiError
         }
 
-    } catch (error: any) {
-        console.error(`[suggest-fix] Failed: ${error.message}`)
-        return new Response(JSON.stringify({ error: error.message || 'Internal server error' }), {
+    } catch (error: unknown) {
+        const errMsg = error instanceof Error ? error.message : String(error)
+        console.error(`[suggest-fix] Failed: ${errMsg}`)
+        return new Response(JSON.stringify({ error: errMsg || 'Internal server error' }), {
             headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
-            status: error.message?.includes('blocked') ? 403 : 400,
+            status: errMsg?.includes('blocked') ? 403 : 400,
         })
     }
 })

@@ -1,6 +1,6 @@
-# 🏗️ Smart Maintenance Management System (SMMS)
+# 🏗️ MTU SMMS
 
-> The official maintenance portal for Mountain Top University
+> Smart Maintenance Management System for Mountain Top University
 
 ![Status](https://img.shields.io/badge/status-production--ready-success)
 
@@ -18,9 +18,18 @@
 
 ## ✨ Features
 
-**Users**: Report issues, track status, verify fixes  
-**Technicians**: AI-powered repair guides, smart job assignment  
-**Admins**: Analytics, user management, oversight
+**Users**: Report issues, track status, verify fixes, in-ticket chat  
+**Technicians**: AI-powered repair guides, smart job assignment, department-based routing  
+**Admins**: Analytics, user management, escalation monitoring, oversight  
+
+**Recent Additions (April 2026)**:
+- **Ticket Chat** - Real-time messaging on tickets
+- **AI Categorization** - Automatic ticket categorization
+- **Departments & Verification** - Department assignments with verification workflow
+- **Duplicate Detection** - Automatic detection of similar tickets
+- **Multi-Channel Notifications** - Email, push, and SMS notifications
+- **Auto-Escalation** - Cron-based escalation for stale verified tickets
+- **Student Access Codes** - Alternative authentication for students
 
 ---
 
@@ -33,7 +42,7 @@ React 19 • Vite • Supabase • Tailwind • Gemini AI • EmailJS
 ## 📚 Docs
 
 - **[SECURITY.md](./SECURITY.md)** - Setup & security guide
-- **[DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md)** - Production deployment
+- **[VAPID_SETUP.md](./VAPID_SETUP.md)** - Push notifications setup
 
 ---
 
@@ -51,4 +60,4 @@ Proprietary - Mountain Top University
 
 ---
 
-**Built with ❤️ | Last Updated: March 2026**
+**Built with ❤️ | Last Updated: April 2026**

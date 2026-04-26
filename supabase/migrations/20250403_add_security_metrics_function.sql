@@ -27,6 +27,7 @@ CREATE INDEX IF NOT EXISTS idx_security_events_severity ON security_events(sever
 ALTER TABLE security_events ENABLE ROW LEVEL SECURITY;
 
 -- RLS policy - only admins can view security events
+DROP POLICY IF EXISTS "Security events viewable by admins only" ON security_events;
 CREATE POLICY "Security events viewable by admins only"
     ON security_events FOR SELECT
     TO authenticated

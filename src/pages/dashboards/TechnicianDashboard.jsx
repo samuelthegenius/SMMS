@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/useAuth';
-import { Bot, CheckCircle, MapPin, AlertTriangle, Play, CheckSquare, Clock, User } from 'lucide-react';
+import { Bot, CheckCircle, MapPin, AlertTriangle, Play, CheckSquare, Clock, User, Plus } from 'lucide-react';
 import clsx from 'clsx';
 import Loader from '../../components/Loader';
 import { toast } from 'sonner';
@@ -11,12 +11,20 @@ import { Card, CardContent } from '../../components/ui/Card';
 import useSWR from 'swr';
 
 export default function TechnicianDashboard() {
-    const { user } = useAuth();
+    const { user, profile } = useAuth();
+    const isPorter = profile?.role === 'porter';
+    const isTechnician = profile?.role === 'technician';
+    const isSRC = profile?.role === 'src';
+    const isStaff = profile?.role === 'staff';
+    const userDepartment = profile?.department;
+    // Staff verify tickets in their department, SRC verifies all, Porters verify hostel
+    const canVerify = isPorter || isSRC || isStaff;
     const [aiSuggestion, setAiSuggestion] = useState({ ticketId: null, data: null, loading: false });
 
     // SWR Fetcher - Only fetch necessary fields
+    // Porters see Open hostel tickets pending verification, Technicians see their assigned jobs
     const fetchJobs = async () => {
-        const { data, error } = await supabase
+        let query = supabase
             .from('tickets')
             .select(`
                 id,
@@ -31,17 +39,46 @@ export default function TechnicianDashboard() {
                 assigned_to,
                 image_url,
                 reporter:created_by(full_name, email, department)
-            `)
-            .eq('assigned_to', user.id)
-            .neq('status', 'Resolved')
-            .order('priority', { ascending: false });
+            `);
+
+        if (isPorter) {
+            // Porters see Open hostel tickets that need verification
+            query = query
+                .eq('facility_type', 'Hostel')
+                .eq('status', 'Open');
+        } else if (isSRC) {
+            // SRC sees ALL Open tickets school-wide that need verification
+            query = query
+                .eq('status', 'Open');
+        } else if (isStaff && userDepartment) {
+            // Staff see Open tickets in their department that need verification
+            query = query
+                .eq('department', userDepartment)
+                .eq('status', 'Open');
+        } else {
+            // Technicians see their assigned non-resolved tickets
+            query = query
+                .eq('assigned_to', user.id)
+                .neq('status', 'Resolved');
+        }
+
+        const { data, error } = await query.order('priority', { ascending: false });
         if (error) throw error;
         return data;
     };
 
     // Use SWR
+    // Use different cache key for each role
+    const getSWRKey = () => {
+        if (!user) return null;
+        if (isPorter) return ['porter_verifications', user.id];
+        if (isSRC) return ['src_verifications', user.id];
+        if (isStaff) return ['staff_verifications', userDepartment, user.id];
+        return ['technician_jobs', user.id];
+    };
+    const swrKey = getSWRKey();
     const { data: jobs = [], mutate, isLoading } = useSWR(
-        user ? ['technician_jobs', user.id] : null, 
+        swrKey,
         fetchJobs,
         {
             revalidateOnFocus: false,
@@ -57,20 +94,38 @@ export default function TechnicianDashboard() {
     useEffect(() => {
         if (!user) return;
 
+        // Use different channel and filter for each role
+        let channelName;
+        let filter;
+
+        if (isPorter) {
+            channelName = 'porter_verifications';
+            filter = `facility_type=eq.Hostel`; // Porters listen to hostel tickets
+        } else if (isSRC) {
+            channelName = 'src_verifications';
+            filter = undefined; // SRC listens to ALL tickets (no filter)
+        } else if (isStaff && userDepartment) {
+            channelName = 'staff_verifications';
+            filter = `department=eq.${userDepartment}`; // Staff listen to their department tickets
+        } else {
+            channelName = 'technician_jobs';
+            filter = `assigned_to=eq.${user.id}`; // Technicians listen to their assigned tickets
+        }
+
         const subscription = supabase
-            .channel('technician_jobs')
+            .channel(channelName)
             .on('postgres_changes', {
                 event: '*',
                 schema: 'public',
                 table: 'tickets',
-                filter: `assigned_to=eq.${user.id}`
+                filter: filter
             }, () => {
                 // Debounce rapid mutations
                 const timeoutId = setTimeout(() => {
                     mutate();
-                    toast.info('Job list updated');
+                    toast.info('List updated');
                 }, 1000);
-                
+
                 return () => clearTimeout(timeoutId);
             })
             .subscribe();
@@ -78,7 +133,7 @@ export default function TechnicianDashboard() {
         return () => {
             subscription.unsubscribe();
         };
-    }, [user, mutate]);
+    }, [user, mutate, isPorter, isSRC, isStaff, userDepartment]);
 
     const handleStatusUpdate = async (ticketId, newStatus) => {
         const previousJobs = [...jobs];
@@ -116,6 +171,62 @@ export default function TechnicianDashboard() {
             console.error('Error updating status:', error);
           }
             toast.error('Failed to update status');
+            mutate(previousJobs, false); // Rollback
+        }
+    };
+
+    // Verify complaint - Porter, SRC, or Staff validates a student complaint
+    const handleVerifyComplaint = async (ticketId, isValid) => {
+        if (!canVerify) return;
+
+        // Determine verifier name based on role
+        let verifierName;
+        if (isPorter) verifierName = 'porter';
+        else if (isSRC) verifierName = 'SRC';
+        else if (isStaff) verifierName = `staff (${userDepartment})`;
+        else verifierName = 'verifier';
+
+        const previousJobs = [...jobs];
+        // Remove verified ticket from list (it will disappear from verifier's view)
+        const updatedJobs = jobs.filter(j => j.id !== ticketId);
+
+        // Optimistic update
+        mutate(updatedJobs, false);
+
+        try {
+            if (isValid) {
+                // Valid complaint - mark as In Progress (ready for technician assignment)
+                const { error } = await supabase
+                    .from('tickets')
+                    .update({
+                        status: 'In Progress',
+                        updated_at: new Date().toISOString(),
+                        rejection_reason: `Verified by ${verifierName} - ready for technician assignment`
+                    })
+                    .eq('id', ticketId);
+
+                if (error) throw error;
+                toast.success(`Complaint verified by ${verifierName.toUpperCase()} - technician will be assigned`);
+            } else {
+                // Invalid complaint - close/reject the ticket
+                const { error } = await supabase
+                    .from('tickets')
+                    .update({
+                        status: 'Closed',
+                        updated_at: new Date().toISOString(),
+                        rejection_reason: `Invalid complaint - verified by ${verifierName}`
+                    })
+                    .eq('id', ticketId);
+
+                if (error) throw error;
+                toast.success(`Invalid complaint rejected by ${verifierName.toUpperCase()}`);
+            }
+            mutate(); // Revalidate
+        } catch (error) {
+          if (import.meta.env.DEV) {
+            console.error('Error verifying complaint:', error);
+          }
+            toast.error('Failed to verify complaint');
             mutate(previousJobs, false); // Rollback
         }
     };
@@ -175,8 +286,24 @@ export default function TechnicianDashboard() {
     return (
         <div className="space-y-8">
             <div>
-                <h1 className="text-3xl font-bold text-surface-900 tracking-tight">Assigned Jobs</h1>
-                <p className="text-surface-500 mt-2 text-lg">Manage and resolve your maintenance tasks</p>
+                <h1 className="text-3xl font-bold text-surface-900 tracking-tight">
+                    {canVerify
+                        ? (isPorter
+                            ? 'Verify Hostel Complaints'
+                            : isStaff
+                                ? `Verify ${userDepartment} Complaints`
+                                : 'Verify Student Complaints')
+                        : 'Assigned Jobs'}
+                </h1>
+                <p className="text-surface-500 mt-2 text-lg">
+                    {canVerify
+                        ? (isPorter
+                            ? 'Validate hostel complaints before technician assignment'
+                            : isStaff
+                                ? `Validate ${userDepartment} complaints before technician assignment`
+                                : 'Validate all student complaints school-wide before technician assignment')
+                        : 'Manage and resolve your maintenance tasks'}
+                </p>
             </div>
 
             <div className="space-y-6">
@@ -185,7 +312,7 @@ export default function TechnicianDashboard() {
                         <CardContent className="p-6">
                             <div className="flex flex-col md:flex-row justify-between items-start gap-6">
                                 <div className="flex-1 space-y-4">
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-3 flex-wrap">
                                         <span className={clsx(
                                             'px-3 py-1.5 text-xs font-bold rounded-full flex items-center gap-1.5 uppercase tracking-wide border',
                                             job.priority === 'High'
@@ -198,6 +325,12 @@ export default function TechnicianDashboard() {
                                         <span className="text-xs font-semibold text-surface-500 bg-primary-50 px-2.5 py-1.5 rounded-lg border border-primary-100">
                                             {job.category}
                                         </span>
+                                        {/* Show pending verification badge to verifiers */}
+                                        {canVerify && job.status === 'Open' && (
+                                            <span className="text-xs font-semibold text-amber-700 bg-amber-50 px-2.5 py-1.5 rounded-lg border border-amber-200 animate-pulse">
+                                                {isPorter ? 'Hostel - Pending Verification' : 'Pending Verification'}
+                                            </span>
+                                        )}
                                     </div>
 
                                     <div>
@@ -223,7 +356,29 @@ export default function TechnicianDashboard() {
                                 </div>
 
                                 <div className="flex flex-col gap-3 w-full md:w-auto min-w-[160px]">
-                                    {(job.status === 'Open' || job.status === 'Assigned' || job.status === 'Pending') && (
+                                    {/* Verification buttons - show for porters (hostel only) and SRC (all tickets) */}
+                                    {canVerify && job.status === 'Open' && (
+                                        <>
+                                            <Button
+                                                onClick={() => handleVerifyComplaint(job.id, true)}
+                                                className="bg-emerald-600 hover:bg-emerald-700 w-full"
+                                            >
+                                                <CheckCircle className="w-4 h-4 mr-2" />
+                                                Verify - Valid
+                                            </Button>
+                                            <Button
+                                                onClick={() => handleVerifyComplaint(job.id, false)}
+                                                variant="outline"
+                                                className="border-rose-300 text-rose-700 hover:bg-rose-50 w-full"
+                                            >
+                                                <AlertTriangle className="w-4 h-4 mr-2" />
+                                                Invalid / Reject
+                                            </Button>
+                                        </>
+                                    )}
+
+                                    {/* Technician buttons - only for technicians */}
+                                    {isTechnician && (job.status === 'Open' || job.status === 'Assigned' || job.status === 'Pending') && (
                                         <Button
                                             onClick={() => handleStatusUpdate(job.id, 'In Progress')}
                                             className="bg-blue-600 hover:bg-blue-700 w-full"
@@ -341,8 +496,24 @@ export default function TechnicianDashboard() {
                             <div className="mx-auto h-12 w-12 text-slate-300 mb-3">
                                 <CheckCircle className="h-12 w-12" />
                             </div>
-                            <h3 className="text-lg font-medium text-slate-900">All caught up!</h3>
-                            <p className="text-slate-500">No active jobs assigned to you at the moment.</p>
+                            <h3 className="text-lg font-medium text-slate-900">
+                                {canVerify
+                                    ? (isPorter
+                                        ? 'No pending hostel verifications'
+                                        : isStaff
+                                            ? `No pending ${userDepartment} verifications`
+                                            : 'No pending verifications')
+                                    : 'All caught up!'}
+                            </h3>
+                            <p className="text-slate-500">
+                                {canVerify
+                                    ? (isPorter
+                                        ? 'All hostel complaints have been verified. Great work!'
+                                        : isStaff
+                                            ? `All ${userDepartment} complaints have been verified. Great work!`
+                                            : 'All student complaints have been verified. Great work!')
+                                    : 'No active jobs assigned to you at the moment.'}
+                            </p>
                         </CardContent>
                     </Card>
                 )}

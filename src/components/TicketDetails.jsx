@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { X, Sparkles, Wrench, AlertTriangle, Loader2, ClipboardList, User, Wrench as WrenchIcon } from 'lucide-react';
+import { X, Sparkles, Wrench, AlertTriangle, Loader2, ClipboardList, User, Wrench as WrenchIcon, MessageSquare, Info } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/useAuth';
 import { Button } from './ui/Button';
 import ReassignTechnician from './ReassignTechnician';
+import TicketChat from './TicketChat';
 import { toast } from 'sonner';
 
 export default function TicketDetails({ ticket, onClose, onReassign }) {
@@ -14,6 +15,8 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
     const [reporterInfo, setReporterInfo] = useState(null);
     const [technicianInfo, setTechnicianInfo] = useState(null);
     const [userInfoLoading, setUserInfoLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState('details'); // 'details' | 'chat'
+    const [chatOpen, setChatOpen] = useState(false);
 
     const isTechnicianOrAdmin = profile?.role === 'technician' || profile?.role === 'admin';
     const isAdmin = profile?.role === 'admin';
@@ -92,11 +95,43 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
 
     return (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-slate-200">
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white/90 backdrop-blur-sm z-10">
-                    <div>
-                        <h2 className="text-xl font-bold text-slate-900">Ticket Details</h2>
-                        <p className="text-sm text-slate-500">#{ticket.id} • {ticket.category}</p>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-slate-200 flex flex-col">
+                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white/90 backdrop-blur-sm z-10">
+                    <div className="flex items-center gap-4">
+                        <div>
+                            <h2 className="text-xl font-bold text-slate-900">Ticket Details</h2>
+                            <p className="text-sm text-slate-500">#{ticket.id} • {ticket.category}</p>
+                        </div>
+                        
+                        {/* Tab Navigation */}
+                        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl ml-4">
+                            <button
+                                onClick={() => setActiveTab('details')}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                                    activeTab === 'details'
+                                        ? 'bg-white text-slate-900 shadow-sm'
+                                        : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                            >
+                                <div className="flex items-center gap-1.5">
+                                    <Info className="w-4 h-4" />
+                                    Details
+                                </div>
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('chat')}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                                    activeTab === 'chat'
+                                        ? 'bg-white text-slate-900 shadow-sm'
+                                        : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                            >
+                                <div className="flex items-center gap-1.5">
+                                    <MessageSquare className="w-4 h-4" />
+                                    Chat
+                                </div>
+                            </button>
+                        </div>
                     </div>
                     <Button
                         variant="ghost"
@@ -108,8 +143,10 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
                     </Button>
                 </div>
 
-                <div className="p-6 space-y-8">
-                    <div className="space-y-4">
+                <div className="flex-1 overflow-hidden">
+                    {activeTab === 'details' ? (
+                        <div className="p-6 space-y-8 overflow-y-auto max-h-[calc(90vh-80px)]">
+                            <div className="space-y-4">
                         <h3 className="text-lg font-semibold text-slate-900">{ticket.title}</h3>
                         <p className="text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">
                             {ticket.description}
@@ -291,7 +328,17 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
                         </div>
                     )}
                 </div>
+            ) : (
+                    <div className="h-[calc(90vh-80px)] p-4">
+                        <TicketChat
+                            ticket={ticket}
+                            isOpen={activeTab === 'chat'}
+                            onClose={() => setActiveTab('details')}
+                        />
+                    </div>
+                )}
             </div>
         </div>
+    </div>
     );
 }

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
+import useSWR from 'swr';
 import { supabase } from '../../lib/supabase';
 import { Filter, AlertCircle, Clock, Wrench, CheckCircle, Eye, Shield, BarChart3, Users, User, Wrench as WrenchIcon } from 'lucide-react';
 import clsx from 'clsx';
@@ -8,7 +9,7 @@ import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { DashboardSkeleton, CardSkeleton, StatsCardSkeleton } from '../../components/SkeletonLoader';
-import { lazy, Suspense } from 'react';
+import { useAuth } from '../../contexts/useAuth';
 
 // Lazy load security dashboard only when needed
 const SecurityDashboard = lazy(() => import('./SecurityDashboard'));
@@ -17,9 +18,6 @@ const FACILITY_TYPES = [
     'All', 'Hostel', 'Lecture Hall', 'Laboratory', 'Office',
     'Sports Complex', 'Chapel', 'Other'
 ];
-
-import useSWR from 'swr';
-import { useAuth } from '../../contexts/useAuth';
 
 export default function AdminDashboard() {
     // Note: Do NOT destructure `loading` from useAuth here.
@@ -87,8 +85,10 @@ export default function AdminDashboard() {
         }
     );
 
+	const hasAdminAccess = profile?.role === 'admin' || profile?.department === 'Student Affairs' || profile?.role === 'src';
+
 	useEffect(() => {
-		if (!profile || profile.role !== 'admin') return;
+		if (!profile || !hasAdminAccess) return;
 
 		let timeoutId = null;
 
@@ -114,7 +114,7 @@ export default function AdminDashboard() {
 			if (timeoutId) clearTimeout(timeoutId);
 			subscription.unsubscribe();
 		};
-	}, [mutate, profile?.id, profile]);
+	}, [mutate, profile?.id, profile, hasAdminAccess]);
 
     const filteredTickets = filter === 'All'
         ? tickets
@@ -131,7 +131,7 @@ export default function AdminDashboard() {
     // (and SecurityDashboard inside it) shouldn't render in these states.
     // DashboardRouter already ensures profile is set before rendering us,
     // so these are belt-and-suspenders catches only.
-    if (profile && profile.role !== 'admin') {
+    if (profile && !hasAdminAccess) {
         return <div className="text-red-500 text-center mt-10">Access Denied: You are not an admin.</div>;
     }
 

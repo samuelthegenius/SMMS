@@ -65,6 +65,9 @@
     "api/*.js": {
       "maxDuration": 30
     },
+    "api/cron/*.js": {
+      "maxDuration": 30
+    },
     "api/upload/**/*.js": {
       "maxDuration": 30
     },
@@ -72,5 +75,11 @@
       "maxDuration": 60
     }
   },
-  "regions": ["iad1"]
+  "regions": ["iad1"],
+  "crons": [
+    {
+      "path": "/api/cron/escalation-monitor",
+      "schedule": "*/30 * * * *"
+    }
+  ]
 }

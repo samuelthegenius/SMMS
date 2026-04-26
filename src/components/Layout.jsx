@@ -1,27 +1,30 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, Link } from 'react-router-dom';
 import { useState } from 'react';
 import { Menu, X } from 'lucide-react';
+import { useAuth } from '../contexts/useAuth';
 import Sidebar from './Sidebar';
 import NotificationBell from './NotificationBell';
 
 export default function Layout() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const { user } = useAuth();
+    const homePath = user ? '/dashboard' : '/';
 
     return (
         <div className="min-h-screen bg-background flex overflow-hidden">
             {/* Mobile Header - Visible only on small screens */}
             <div className="md:hidden fixed top-0 left-0 right-0 bg-gradient-to-r from-primary-500 to-primary-600 text-white p-4 flex items-center justify-between z-50 shadow-lg">
-                <div className="flex items-center gap-3 font-bold text-lg">
+                <Link to={homePath} className="flex items-center gap-3 font-bold text-lg cursor-pointer">
                     <img 
                         src="/mtulogo.jpg" 
                         alt="MTU Logo" 
                         className="w-8 h-8 object-contain rounded bg-white/10 p-1"
                     />
                     <div className="flex flex-col">
-                        <span className="tracking-tight text-sm">MTU</span>
-                        <span className="text-[10px] font-normal text-white/70">Maintenance Portal</span>
+                        <span className="tracking-tight text-sm">MTU SMMS</span>
+                        <span className="text-[10px] font-normal text-white/70">Smart Maintenance System</span>
                     </div>
-                </div>
+                </Link>
                 <div className="flex items-center gap-2">
                     <NotificationBell />
                     <button

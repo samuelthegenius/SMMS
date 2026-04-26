@@ -216,16 +216,17 @@ export default function Login() {
             <div className="w-full max-w-md my-auto flex flex-col relative z-10">
                 <Card className="w-full border-surface-200/60 shadow-2xl bg-white/80 backdrop-blur-sm">
                     <CardHeader className="space-y-3 text-center pb-8 border-b-0">
-                        <div className="mx-auto w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl flex items-center justify-center mb-2 shadow-lg shadow-primary-500/25 p-2">
+                        <Link to={user ? "/dashboard" : "/"} className="mx-auto w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl flex items-center justify-center mb-2 shadow-lg shadow-primary-500/25 p-2 cursor-pointer hover:scale-105 transition-transform">
                             <img 
                                 src="/mtulogo.jpg" 
                                 alt="MTU Logo" 
                                 className="w-12 h-12 object-contain rounded"
                             />
-                        </div>
+                        </Link>
                         <CardTitle className="text-2xl font-bold text-surface-900">Welcome Back</CardTitle>
                         <CardDescription className="text-base text-surface-600">
-                            Sign in to MTU Maintenance Portal
+                            Sign in to MTU SMMS<br/>
+                            <span className="text-xs text-surface-400">Smart Maintenance Management System</span>
                         </CardDescription>
                     </CardHeader>
                     <CardContent>

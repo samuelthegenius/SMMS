@@ -217,6 +217,80 @@ async function cleanupCache(cacheName, maxEntries) {
   }
 }
 
+// Push Notification Support
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+
+  try {
+    const data = event.data.json();
+    const title = data.title || 'SMMS Alert';
+    const options = {
+      body: data.body || 'You have a new notification',
+      icon: data.icon || '/apple-touch-icon.png',
+      badge: data.badge || '/favicon.ico',
+      tag: data.tag || 'default',
+      requireInteraction: data.requireInteraction || false,
+      data: data.data || {},
+      actions: data.actions || [
+        { action: 'view', title: 'View Ticket' },
+        { action: 'dismiss', title: 'Dismiss' }
+      ]
+    };
+
+    event.waitUntil(
+      self.registration.showNotification(title, options)
+    );
+  } catch (error) {
+    console.error('[SW] Push event error:', error);
+  }
+});
+
+// Notification click handler
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const notificationData = event.notification.data;
+  let targetUrl = '/';
+
+  if (notificationData?.ticketId) {
+    targetUrl = `/ticket/${notificationData.ticketId}`;
+  } else if (notificationData?.dashboard) {
+    targetUrl = '/dashboard';
+  }
+
+  if (event.action === 'view' && notificationData?.ticketId) {
+    event.waitUntil(clients.openWindow(targetUrl));
+  } else if (event.action === 'dismiss') {
+    return;
+  } else {
+    // Default click - focus or open window
+    event.waitUntil(
+      clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+        for (const client of clientList) {
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            return client.focus().then(c => c.navigate(targetUrl));
+          }
+        }
+        return clients.openWindow(targetUrl);
+      })
+    );
+  }
+});
+
+// Handle push subscription change
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil(
+    fetch('/api/update-push-subscription', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subscription: event.newSubscription,
+        old_endpoint: event.oldSubscription?.endpoint
+      })
+    }).catch(() => {})
+  );
+});
+
 // Message handling from main thread
 self.addEventListener('message', (event) => {
   const sendResponse = (data) => {
@@ -246,6 +320,24 @@ self.addEventListener('message', (event) => {
         sendResponse({ type: 'CLEAR_CACHE_SUCCESS' });
       }).catch((err) => {
         sendResponse({ type: 'CLEAR_CACHE_ERROR', error: err.message });
+      })
+    );
+    return;
+  }
+
+  // Handle local notification requests from main thread
+  if (event.data.type === 'SHOW_NOTIFICATION') {
+    event.waitUntil(
+      self.registration.showNotification(event.data.title, {
+        body: event.data.body,
+        icon: '/apple-touch-icon.png',
+        badge: '/favicon.ico',
+        tag: event.data.tag || `local-${Date.now()}`,
+        data: event.data.data || {}
+      }).then(() => {
+        sendResponse({ type: 'NOTIFICATION_SHOWN', success: true });
+      }).catch((err) => {
+        sendResponse({ type: 'NOTIFICATION_ERROR', error: err.message });
       })
     );
     return;

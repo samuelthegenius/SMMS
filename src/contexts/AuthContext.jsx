@@ -50,18 +50,34 @@ export function AuthProvider({ children }) {
 
             if (!error && data) {
                 // Profile found — use it
+                if (import.meta.env.DEV) {
+                    console.log('[AuthContext] Profile loaded from DB:', { 
+                        id: data.id, 
+                        role: data.role, 
+                        department: data.department,
+                        full_name: data.full_name 
+                    });
+                }
                 startTransition(() => setProfile(data));
                 cache.set(userId, { data, timestamp: Date.now() });
             } else if (!error && !data) {
                 // maybeSingle() returns null data (no error) when no row is found.
                 // Build a fallback from auth user_metadata so the app doesn't hang.
+                // IMPORTANT: This indicates the profiles table row is missing!
+                // Normalize role: staff_member -> staff
+                const rawRole = currentUser?.user_metadata?.role || 'student';
+                const normalizedRole = rawRole === 'staff_member' ? 'staff' : rawRole;
                 const defaultProfile = {
                     id: userId,
                     email: currentUser?.email || '',
-                    role: currentUser?.user_metadata?.role || 'student',
+                    role: normalizedRole,
                     full_name: currentUser?.user_metadata?.full_name || 'Unknown User',
                     department: currentUser?.user_metadata?.department || '',
+                    _isFallback: true, // Flag to indicate missing profile row
                 };
+                if (import.meta.env.DEV) {
+                    console.warn(`[AuthContext] Profile row missing for user ${userId}. Using fallback profile. Please ensure the profiles table has a row for this user.`);
+                }
                 startTransition(() => setProfile(defaultProfile));
                 cache.set(userId, { data: defaultProfile, timestamp: Date.now() });
             } else if (error && error.code !== 'PGRST116') {
@@ -74,13 +90,20 @@ export function AuthProvider({ children }) {
                 return fetchProfile(userId, currentUser, retryCount + 1);
             }
             // After retries, build minimal fallback so the UI doesn't hang forever
+            // Normalize role: staff_member -> staff
+            const rawRole = currentUser?.user_metadata?.role || 'student';
+            const normalizedRole = rawRole === 'staff_member' ? 'staff' : rawRole;
             const fallback = {
                 id: userId,
                 email: currentUser?.email || '',
-                role: currentUser?.user_metadata?.role || 'student',
+                role: normalizedRole,
                 full_name: currentUser?.user_metadata?.full_name || 'Unknown User',
                 department: currentUser?.user_metadata?.department || '',
+                _isFallback: true, // Flag to indicate missing profile row
             };
+            if (import.meta.env.DEV) {
+                console.warn(`[AuthContext] Profile fetch failed for user ${userId} after retries. Using fallback profile.`);
+            }
             startTransition(() => setProfile(fallback));
         } finally {
             if (fetchingProfileRef.current === userId) {
@@ -157,6 +180,9 @@ export function AuthProvider({ children }) {
 					}
 				} else {
 					userIdRef.current = null;
+					// Clear cache on sign out to prevent stale profile data
+					profileCacheRef.current.clear();
+					fetchingProfileRef.current = null;
 					startTransition(() => {
 						setUser(null);
 						setProfile(null);
@@ -186,6 +212,10 @@ export function AuthProvider({ children }) {
         isTechnician: profile?.role === 'technician',
         isStaff: profile?.role === 'staff',
         isStudent: profile?.role === 'student',
+        isSRC: profile?.role === 'src',
+        isPorter: profile?.role === 'porter',
+        // Department-based admin access
+        hasAdminAccess: profile?.role === 'admin' || profile?.department === 'Student Affairs' || profile?.role === 'src',
     };
 
     return (

@@ -1,21 +1,29 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/useAuth';
-import { AlertCircle, CheckCircle, Send, MapPin, AlertTriangle, FileText, Tag, Building, Image, Upload, X } from 'lucide-react';
+import { AlertCircle, CheckCircle, Send, MapPin, AlertTriangle, FileText, Tag, Building, Image, Upload, X, Info, Sparkles, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
 import Loader from '../components/Loader';
 import { cn } from '../lib/utils';
-import { FACILITY_TYPES, MAINTENANCE_CATEGORIES } from '../utils/constants';
+import { FACILITY_TYPES, MAINTENANCE_CATEGORIES, getDepartmentForCategory } from '../utils/constants';
+import { autoCategorizeWithFallback } from '../services/ai';
 
 export default function TicketForm() {
     const navigate = useNavigate();
-    const { user, initializing } = useAuth();
+    const { user, initializing, isStudent } = useAuth();
     const [loading, setLoading] = useState(false);
-    const [success, setSuccess] = useState(false); // Can keep local success state for redirect view or replace with Toast + Redirect
+    const [success, setSuccess] = useState(false);
+    const [showNonHostelWarning, setShowNonHostelWarning] = useState(false);
+    const [pendingFacilityType, setPendingFacilityType] = useState(null);
+    
+    // AI Categorization state
+    const [aiCategorizing, setAiCategorizing] = useState(false);
+    const [aiSuggestion, setAiSuggestion] = useState(null);
+    const [showAiSuggestion, setShowAiSuggestion] = useState(false);
 
     const [formData, setFormData] = useState({
         title: '',
@@ -28,6 +36,67 @@ export default function TicketForm() {
 
     const [imageFile, setImageFile] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
+    
+    // Duplicate detection state
+    const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+    const [duplicateInfo, setDuplicateInfo] = useState(null);
+    const [checkingDuplicate, setCheckingDuplicate] = useState(false);
+    const [pendingSubmit, setPendingSubmit] = useState(false);
+    
+    // AI Auto-categorization function
+    const handleAiCategorize = useCallback(async () => {
+        if (!formData.title || formData.title.length < 3) {
+            toast.error('Please enter a title first (at least 3 characters)');
+            return;
+        }
+        
+        setAiCategorizing(true);
+        setShowAiSuggestion(false);
+        
+        try {
+            const result = await autoCategorizeWithFallback(
+                formData.title,
+                formData.description,
+                formData.facilityType,
+                0.6 // Lower threshold for suggestions
+            );
+            
+            setAiSuggestion(result);
+            setShowAiSuggestion(true);
+            
+            if (result.autoAssigned) {
+                toast.success(`AI suggests: ${result.category} (${result.department})`);
+            } else if (result.category) {
+                toast.info(`AI suggestion available (confidence: ${Math.round(result.confidence * 100)}%)`);
+            } else {
+                toast.warning('Could not auto-categorize. Please select manually.');
+            }
+        } catch (error) {
+            if (import.meta.env.DEV) {
+                console.error('AI categorization error:', error);
+            }
+            toast.error('AI categorization failed. Please select category manually.');
+        } finally {
+            setAiCategorizing(false);
+        }
+    }, [formData.title, formData.description, formData.facilityType]);
+    
+    // Apply AI suggestion
+    const applyAiSuggestion = useCallback(() => {
+        if (aiSuggestion?.category) {
+            setFormData(prev => ({
+                ...prev,
+                category: aiSuggestion.category
+            }));
+            toast.success(`Applied: ${aiSuggestion.category} → ${aiSuggestion.department}`);
+        }
+        setShowAiSuggestion(false);
+    }, [aiSuggestion]);
+    
+    // Dismiss AI suggestion
+    const dismissAiSuggestion = useCallback(() => {
+        setShowAiSuggestion(false);
+    }, []);
 
     // Memoize constants to prevent recreation on each render
     const MAX_FILE_SIZE = useMemo(() => 5 * 1024 * 1024, []); // 5MB
@@ -85,13 +154,34 @@ export default function TicketForm() {
 
     const handleChange = useCallback((e) => {
         const { name, value } = e.target;
+
+        // Soft guidance: warn students when selecting non-hostel facilities
+        if (isStudent && name === 'facilityType' && value !== 'Hostel' && formData.facilityType === 'Hostel') {
+            setPendingFacilityType(value);
+            setShowNonHostelWarning(true);
+            return;
+        }
+
         try {
             const sanitized = validateAndSanitizeInput(name, value, false);
             setFormData(prev => ({ ...prev, [name]: sanitized }));
         } catch {
             toast.error('Invalid input. Please check your entry.');
         }
-    }, [validateAndSanitizeInput]);
+    }, [validateAndSanitizeInput, isStudent, formData.facilityType]);
+
+    const confirmNonHostelSelection = useCallback(() => {
+        if (pendingFacilityType) {
+            setFormData(prev => ({ ...prev, facilityType: pendingFacilityType }));
+            setPendingFacilityType(null);
+        }
+        setShowNonHostelWarning(false);
+    }, [pendingFacilityType]);
+
+    const cancelNonHostelSelection = useCallback(() => {
+        setPendingFacilityType(null);
+        setShowNonHostelWarning(false);
+    }, []);
 
     const handleImageChange = useCallback((e) => {
         const file = e.target.files[0];
@@ -140,8 +230,71 @@ export default function TicketForm() {
         setImagePreview(null);
     }, [imagePreview]);
 
+    // Check for duplicate tickets before submission
+    const checkForDuplicates = useCallback(async () => {
+        if (!formData.title || formData.title.length < 3) return null;
+        
+        setCheckingDuplicate(true);
+        try {
+            const { data, error } = await supabase
+                .rpc('check_duplicate_ticket', {
+                    p_user_id: user.id,
+                    p_title: formData.title,
+                    p_description: formData.description,
+                    p_specific_location: formData.specificLocation,
+                    p_time_window_hours: 24
+                });
+            
+            if (error) {
+                // Silently fail duplicate check - don't block submission
+                if (import.meta.env.DEV) console.error('Duplicate check error:', error);
+                return null;
+            }
+            
+            if (data && data.length > 0 && data[0].duplicate_found) {
+                return data[0];
+            }
+            return null;
+        } catch {
+            return null;
+        } finally {
+            setCheckingDuplicate(false);
+        }
+    }, [formData.title, formData.description, formData.specificLocation, user.id]);
+
+    const handleProceedDespiteDuplicate = useCallback(() => {
+        setShowDuplicateWarning(false);
+        setDuplicateInfo(null);
+        setPendingSubmit(true);
+    }, []);
+
+    const handleCancelDuplicate = useCallback(() => {
+        setShowDuplicateWarning(false);
+        setDuplicateInfo(null);
+        setPendingSubmit(false);
+    }, []);
+
+    // View existing duplicate ticket
+    const handleViewExistingTicket = useCallback(() => {
+        if (duplicateInfo?.similar_ticket_id) {
+            navigate(`/ticket/${duplicateInfo.similar_ticket_id}`);
+        }
+    }, [duplicateInfo, navigate]);
+
     const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
+        
+        // Check for duplicates if not already checked and not explicitly proceeding
+        if (!pendingSubmit && !showDuplicateWarning) {
+            const duplicate = await checkForDuplicates();
+            if (duplicate) {
+                setDuplicateInfo(duplicate);
+                setShowDuplicateWarning(true);
+                return;
+            }
+        }
+        
+        setPendingSubmit(false);
         setLoading(true);
 
         try {
@@ -164,6 +317,9 @@ export default function TicketForm() {
                 imageUrl = publicUrl;
             }
 
+            // Determine department based on category
+            const department = getDepartmentForCategory(formData.category);
+            
             // Step A: Insert Ticket & Handle Assignment Gracefully
             // First insert without the join to avoid 409 errors when assigned_to is NULL
             const { data, error } = await supabase
@@ -178,6 +334,7 @@ export default function TicketForm() {
                         priority: formData.priority,
                         created_by: user.id,
                         image_url: imageUrl,
+                        department: department, // AI-derived department assignment
                     }
                 ])
                 .select()
@@ -281,7 +438,14 @@ export default function TicketForm() {
                             </div>
 
                             <div>
-                                <label htmlFor="facilityType" className="block text-sm font-medium text-slate-700 mb-1">Facility Type</label>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <label htmlFor="facilityType" className="block text-sm font-medium text-slate-700">Facility Type</label>
+                                    {isStudent && (
+                                        <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
+                                            Students: Hostel gets priority
+                                        </span>
+                                    )}
+                                </div>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                         <Building className="h-5 w-5 text-slate-400" />
@@ -302,7 +466,32 @@ export default function TicketForm() {
                             </div>
 
                             <div>
-                                <label htmlFor="category" className="block text-sm font-medium text-slate-700 mb-1">Category</label>
+                                <div className="flex items-center justify-between mb-1">
+                                    <label htmlFor="category" className="block text-sm font-medium text-slate-700">Category</label>
+                                    <button
+                                        type="button"
+                                        onClick={handleAiCategorize}
+                                        disabled={aiCategorizing || !formData.title}
+                                        className={cn(
+                                            "text-xs flex items-center gap-1 px-2 py-1 rounded-md transition-colors",
+                                            aiCategorizing 
+                                                ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                                                : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                                        )}
+                                    >
+                                        {aiCategorizing ? (
+                                            <>
+                                                <div className="w-3 h-3 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin" />
+                                                Analyzing...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Wand2 className="w-3 h-3" />
+                                                Auto-Categorize
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                         <Tag className="h-5 w-5 text-slate-400" />
@@ -320,6 +509,54 @@ export default function TicketForm() {
                                         ))}
                                     </select>
                                 </div>
+                                
+                                {/* AI Suggestion Card */}
+                                {showAiSuggestion && aiSuggestion?.category && (
+                                    <div className="mt-2 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-3 animate-in fade-in slide-in-from-top-2">
+                                        <div className="flex items-start gap-2">
+                                            <div className="p-1.5 bg-indigo-100 rounded-full shrink-0">
+                                                <Sparkles className="w-4 h-4 text-indigo-600" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-semibold text-indigo-900 text-sm">AI Suggestion</span>
+                                                    <span className={cn(
+                                                        "text-xs px-1.5 py-0.5 rounded-full",
+                                                        aiSuggestion.confidence >= 0.8 ? "bg-emerald-100 text-emerald-700" :
+                                                        aiSuggestion.confidence >= 0.6 ? "bg-amber-100 text-amber-700" :
+                                                        "bg-slate-100 text-slate-600"
+                                                    )}>
+                                                        {Math.round(aiSuggestion.confidence * 100)}% match
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-indigo-700 mt-0.5">
+                                                    {aiSuggestion.category} → {aiSuggestion.department}
+                                                </p>
+                                                {aiSuggestion.reasoning && (
+                                                    <p className="text-xs text-indigo-600/80 mt-1 line-clamp-2">
+                                                        {aiSuggestion.reasoning}
+                                                    </p>
+                                                )}
+                                                <div className="flex gap-2 mt-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={applyAiSuggestion}
+                                                        className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded-md transition-colors"
+                                                    >
+                                                        Apply
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={dismissAiSuggestion}
+                                                        className="text-xs text-indigo-600 hover:text-indigo-800 hover:bg-indigo-100 px-2 py-1 rounded-md transition-colors"
+                                                    >
+                                                        Dismiss
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div>
@@ -422,14 +659,115 @@ export default function TicketForm() {
                             </div>
                         </div>
 
+                        {/* Duplicate Warning Dialog */}
+                        {showDuplicateWarning && duplicateInfo && (
+                            <div className="bg-rose-50 border border-rose-200 rounded-lg p-4 animate-in fade-in slide-in-from-top-2">
+                                <div className="flex items-start gap-3">
+                                    <div className="p-2 bg-rose-100 rounded-full shrink-0">
+                                        <AlertTriangle className="w-5 h-5 text-rose-600" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h4 className="font-semibold text-rose-900">Similar Report Found</h4>
+                                        <p className="text-sm text-rose-700 mt-1">
+                                            You already submitted a similar report in the last 24 hours.
+                                        </p>
+                                        <div className="mt-3 bg-white/50 rounded-lg p-3 text-sm">
+                                            <p className="font-medium text-rose-900">{duplicateInfo.existing_ticket_title}</p>
+                                            <p className="text-rose-600 mt-1">
+                                                Status: <span className="capitalize">{duplicateInfo.existing_ticket_status}</span>
+                                            </p>
+                                            <p className="text-rose-500 text-xs mt-1">
+                                                Created: {new Date(duplicateInfo.created_at).toLocaleString()}
+                                            </p>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2 mt-3">
+                                            <Button
+                                                type="button"
+                                                onClick={handleViewExistingTicket}
+                                                className="bg-rose-600 hover:bg-rose-700 text-white text-sm"
+                                                size="sm"
+                                            >
+                                                View Existing Report
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                onClick={handleProceedDespiteDuplicate}
+                                                variant="outline"
+                                                className="border-rose-300 text-rose-700 hover:bg-rose-100 text-sm"
+                                                size="sm"
+                                            >
+                                                Submit Anyway
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                onClick={handleCancelDuplicate}
+                                                variant="ghost"
+                                                className="text-slate-600 hover:bg-slate-100 text-sm"
+                                                size="sm"
+                                            >
+                                                Cancel
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Non-Hostel Warning Dialog */}
+                        {showNonHostelWarning && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 animate-in fade-in slide-in-from-top-2">
+                                <div className="flex items-start gap-3">
+                                    <div className="p-2 bg-amber-100 rounded-full shrink-0">
+                                        <Info className="w-5 h-5 text-amber-600" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h4 className="font-semibold text-amber-900">Report outside your hostel?</h4>
+                                        <p className="text-sm text-amber-700 mt-1">
+                                            Hostel issues get priority routing through porter verification.
+                                            Other facility reports go through a general triage queue.
+                                        </p>
+                                        <div className="flex gap-2 mt-3">
+                                            <Button
+                                                type="button"
+                                                onClick={confirmNonHostelSelection}
+                                                className="bg-amber-600 hover:bg-amber-700 text-white text-sm"
+                                                size="sm"
+                                            >
+                                                Continue with {pendingFacilityType}
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                onClick={cancelNonHostelSelection}
+                                                variant="outline"
+                                                className="border-amber-300 text-amber-700 hover:bg-amber-100 text-sm"
+                                                size="sm"
+                                            >
+                                                Keep Hostel
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="pt-4 border-t border-slate-100 flex justify-end">
                             <Button
                                 type="submit"
-                                isLoading={loading}
+                                isLoading={loading || checkingDuplicate}
+                                disabled={showDuplicateWarning}
                                 className="w-full md:w-auto min-w-[200px]"
                             >
-                                <Send className="w-4 h-4 mr-2" />
-                                Submit Report
+                                {checkingDuplicate ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                                        Checking...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Send className="w-4 h-4 mr-2" />
+                                        Submit Report
+                                    </>
+                                )}
                             </Button>
                         </div>
                     </form>

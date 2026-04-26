@@ -1,6 +1,8 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+// deno-lint-ignore no-import-prefix
+import { serve } from "jsr:@std/http@0.224.0/server"
+// deno-lint-ignore no-import-prefix
+import { createClient } from "npm:@supabase/supabase-js@2"
 
 // Security: Restrict CORS to allowed origins only
 const ALLOWED_ORIGINS = [
@@ -8,6 +10,15 @@ const ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'https://mtusmms.me',
 ]
+
+// Configuration for escalation timing (in hours)
+const ESCALATION_CONFIG = {
+    initialThreshold: 2,        // First alert after 2 hours
+    followUpInterval: 1,        // Subsequent alerts every 1 hour
+    urgentThreshold: 4,         // Escalate to urgent after 4 hours
+    criticalThreshold: 8,       // Escalate to critical after 8 hours
+    maxEscalationsPerRun: 10,   // Prevent timeout
+}
 
 const corsHeaders = (origin: string) => {
     const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
@@ -19,35 +30,102 @@ const corsHeaders = (origin: string) => {
     }
 }
 
-// Helper to fetch the Admin's email from the database
-async function getAdminEmail(supabase: any) {
-    try {
-        const { data, error } = await supabase
-            .from('profiles')
-            .select('email')
-            .eq('role', 'admin')
-            .limit(1)
-            .single()
-
-        if (error || !data?.email) {
-            console.warn('[Escalation Monitor] Could not fetch admin email from DB. Using fallback.')
-            // Use environment variable fallback instead of hardcoded email
-            const fallbackEmail = Deno.env.get('ADMIN_EMAIL') || 'admin@example.com'
-            return fallbackEmail
-        }
-
-        return data.email
-    } catch (err) {
-        console.error('[Escalation Monitor] Error in getAdminEmail:', err)
-        const fallbackEmail = Deno.env.get('ADMIN_EMAIL') || 'admin@example.com'
-        return fallbackEmail
-    }
+// Helper to fetch admin and department head emails
+interface Profile {
+    email: string
+    full_name?: string | null
+    role: string
 }
 
-// Email validation
-const validateEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    return emailRegex.test(email)
+// deno-lint-ignore no-explicit-any
+async function getEscalationRecipients(supabase: any, department: string | null) {
+    const recipients: { email: string; name: string; role: string }[] = []
+
+    try {
+        // Get admins
+        const { data: admins, error: adminError } = await supabase
+            .from('profiles')
+            .select('email, full_name, role, department')
+            .eq('role', 'admin')
+
+        if (!adminError && admins) {
+            recipients.push(...(admins as Profile[]).map((a) => ({
+                email: a.email,
+                name: a.full_name || 'Admin',
+                role: a.role
+            })))
+        }
+
+        // Get department staff if department is specified
+        if (department) {
+            const { data: deptHeads, error: deptError } = await supabase
+                .from('profiles')
+                .select('email, full_name, role, department')
+                .eq('department', department)
+                .in('role', ['staff', 'src'])
+
+            if (!deptError && deptHeads) {
+                // Add only if not already in recipients
+                const existingEmails = new Set(recipients.map(r => r.email))
+                recipients.push(...(deptHeads as Profile[])
+                    .filter((d) => !existingEmails.has(d.email))
+                    .map((d) => ({
+                        email: d.email,
+                        name: d.full_name || 'Department Staff',
+                        role: d.role
+                    }))
+                );
+            }
+        }
+    } catch (err) {
+        console.error('[Escalation Monitor] Error fetching recipients:', err)
+    }
+
+    // Add fallback if no recipients found
+    if (recipients.length === 0) {
+        const fallbackEmail = Deno.env.get('ADMIN_EMAIL') || 'admin@example.com'
+        recipients.push({ email: fallbackEmail, name: 'System Admin', role: 'admin' })
+    }
+
+    return recipients
+}
+
+// Note: Email sending is handled by notification-dispatcher to avoid duplicates
+// The escalate_stale_ticket_multi_channel() RPC creates pending notification logs
+// which are then processed by the notification-dispatcher edge function
+
+// Get escalation urgency level based on hours pending and previous escalations
+function getEscalationUrgency(hoursPending: number, escalationCount: number): {
+    level: 'low' | 'medium' | 'high' | 'critical',
+    subjectPrefix: string,
+    alertFrequency: string
+} {
+    if (hoursPending >= ESCALATION_CONFIG.criticalThreshold || escalationCount >= 6) {
+        return { 
+            level: 'critical', 
+            subjectPrefix: '🚨 CRITICAL ESCALATION',
+            alertFrequency: 'Every hour'
+        }
+    }
+    if (hoursPending >= ESCALATION_CONFIG.urgentThreshold || escalationCount >= 3) {
+        return { 
+            level: 'high', 
+            subjectPrefix: '⚠️ URGENT ESCALATION',
+            alertFrequency: 'Every 1-2 hours'
+        }
+    }
+    if (escalationCount >= 1) {
+        return { 
+            level: 'medium', 
+            subjectPrefix: '⏰ FOLLOW-UP ESCALATION',
+            alertFrequency: 'Every 2 hours'
+        }
+    }
+    return { 
+        level: 'low', 
+        subjectPrefix: '📋 INITIAL ESCALATION',
+        alertFrequency: 'First alert'
+    }
 }
 
 serve(async (req: Request) => {
@@ -56,8 +134,8 @@ serve(async (req: Request) => {
         return new Response('ok', { headers: corsHeaders(req.headers.get('origin') || '') })
     }
 
-    // Only allow POST
-    if (req.method !== 'POST') {
+    // Allow POST or GET (GET for easy cron/curl testing)
+    if (req.method !== 'POST' && req.method !== 'GET') {
         return new Response(
             JSON.stringify({ error: 'Method not allowed' }),
             { headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' }, status: 405 }
@@ -66,9 +144,7 @@ serve(async (req: Request) => {
 
     try {
         // 1. Initialize Supabase Client
-        // @ts-ignore
         const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
-        // @ts-ignore
         const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
         if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -77,106 +153,148 @@ serve(async (req: Request) => {
 
         const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-        // 2. Initialize EmailJS Config
-        // @ts-ignore
-        const SERVICE_ID = Deno.env.get('EMAILJS_SERVICE_ID')
-        // @ts-ignore
-        const TEMPLATE_ID = Deno.env.get('EMAILJS_TEMPLATE_ID')
-        // @ts-ignore
-        const USER_ID = Deno.env.get('EMAILJS_USER_ID')
-        // @ts-ignore
-        const ACCESS_TOKEN = Deno.env.get('EMAILJS_PRIVATE_KEY')
-
-        if (!SERVICE_ID || !TEMPLATE_ID || !USER_ID || !ACCESS_TOKEN) {
-            throw new Error('Missing EmailJS configuration')
-        }
-
-        // 3. Get Stale Tickets
-        console.log('[Escalation Monitor] Checking for stale tickets...')
+        // 2. Get Stale Tickets (verified but not attended to)
+        console.log('[Escalation Monitor] Checking for verified but unattended tickets...')
         
-        // Note: You need to create the get_stale_tickets RPC function in Supabase
-        const { data: staleTickets, error: rpcError } = await supabase.rpc('get_stale_tickets')
+        // Call the RPC function with our configured threshold
+        const { data: staleTickets, error: rpcError } = await supabase.rpc('get_stale_tickets', {
+            p_hours_threshold: ESCALATION_CONFIG.initialThreshold
+        })
 
-        if (rpcError) throw rpcError
+        if (rpcError) {
+            console.error('[Escalation Monitor] RPC Error:', rpcError)
+            throw new Error(`Failed to fetch stale tickets: ${rpcError.message}`)
+        }
 
         if (!staleTickets || staleTickets.length === 0) {
             console.log('[Escalation Monitor] No stale tickets found.')
-            return new Response(JSON.stringify({ message: 'No escalations needed', count: 0 }), {
+            return new Response(JSON.stringify({ 
+                message: 'No escalations needed', 
+                count: 0,
+                threshold: ESCALATION_CONFIG.initialThreshold
+            }), {
                 headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
                 status: 200,
             })
         }
 
-        console.log(`[Escalation Monitor] Found ${staleTickets.length} stale tickets. Processing...`)
+        console.log(`[Escalation Monitor] Found ${staleTickets.length} stale verified tickets. Processing...`)
 
-        // 4. Get Admin Email (Dynamic)
-        const recipientEmail = await getAdminEmail(supabase)
+        // 4. Loop and Escalate (respect max limit to prevent timeout)
+        const results: { 
+            id: string; 
+            status: string; 
+            error?: string;
+            notificationsSent?: number;
+            urgency?: string;
+        }[] = []
         
-        // Validate admin email
-        if (!validateEmail(recipientEmail)) {
-            throw new Error('Invalid admin email address')
-        }
-        
-        console.log(`[Escalation Monitor] Sending alerts to: ${recipientEmail}`)
-
-        // 5. Loop and Escalate (max 10 at a time to prevent timeout)
-        const results = []
-        const maxEscalations = 10
-        
-        for (const ticket of staleTickets.slice(0, maxEscalations)) {
+        for (const ticket of staleTickets.slice(0, ESCALATION_CONFIG.maxEscalationsPerRun)) {
             try {
                 // Validate ticket data
-                if (!ticket.id || !ticket.title) {
+                if (!ticket.ticket_id || !ticket.title) {
                     console.warn('[Escalation Monitor] Skipping ticket with missing data')
                     continue
                 }
                 
-                // Prepare EmailJS Payload
-                const emailPayload = {
-                    service_id: SERVICE_ID,
-                    template_id: TEMPLATE_ID,
-                    user_id: USER_ID,
-                    accessToken: ACCESS_TOKEN,
-                    template_params: {
-                        to_email: recipientEmail,
-                        subject: `URGENT ESCALATION: ${ticket.title}`,
-                        message: `This ticket (ID: ${ticket.id}) has been ignored for over 4 hours.\n\nDetails:\nTitle: ${ticket.title}\nLocation: ${ticket.specific_location || 'Unknown'}\nPriority: ${ticket.priority}\nSubmitted: ${new Date(ticket.created_at).toLocaleString()}\n\nView Dashboard: [DASHBOARD_URL]`,
-                        ticket_id: ticket.id
+                // Determine urgency level
+                const urgency = getEscalationUrgency(
+                    ticket.hours_since_verified, 
+                    ticket.escalation_count || 0
+                )
+                
+                console.log(`[Escalation Monitor] Processing ticket ${ticket.ticket_id} - ${urgency.level} (${ticket.hours_since_verified}h pending)`)
+                
+                // Get escalation recipients (admins + department heads + assigned technician)
+                const recipients = await getEscalationRecipients(supabase, ticket.department)
+                
+                // Add assigned technician if exists and has email
+                if (ticket.assigned_to && ticket.assigned_to_email && ticket.assigned_to_email !== 'N/A') {
+                    const techAlreadyIncluded = recipients.some(r => r.email === ticket.assigned_to_email)
+                    if (!techAlreadyIncluded) {
+                        recipients.push({
+                            email: ticket.assigned_to_email,
+                            name: ticket.assigned_to_name || 'Technician',
+                            role: 'technician'
+                        })
                     }
                 }
-
-                const emailRes = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(emailPayload)
+                
+                // Record escalation in database with multi-channel support
+                const { data: escalationResult, error: escalateError } = await supabase.rpc('escalate_stale_ticket_multi_channel', {
+                    p_ticket_id: ticket.ticket_id,
+                    p_message: null // Use default message
+                })
+                
+                if (escalateError) {
+                    console.warn(`[Escalation Monitor] DB escalation record failed for ${ticket.ticket_id}:`, escalateError)
+                } else {
+                    console.log(`[Escalation Monitor] Multi-channel escalation recorded for ${ticket.ticket_id}:`, escalationResult)
+                }
+                
+                // Escalation recorded - notifications will be sent by notification-dispatcher
+                // The escalate_stale_ticket_multi_channel() RPC creates pending notification_logs
+                // entries which the dispatcher processes for email/push/SMS delivery
+                results.push({ 
+                    id: ticket.ticket_id, 
+                    status: 'Escalated', 
+                    notificationsSent: recipients.length,
+                    urgency: urgency.level
                 })
 
-                if (!emailRes.ok) {
-                    const text = await emailRes.text()
-                    throw new Error(`EmailJS failed: ${text}`)
-                }
-
-                results.push({ id: ticket.id, status: 'Escalated' })
-
-            } catch (err: any) {
-                console.error(`[Escalation Monitor] Failed to escalate ticket ${ticket.id}:`, err)
-                results.push({ id: ticket.id, status: 'Failed', error: err.message })
+            } catch (err: unknown) {
+                const errMsg = err instanceof Error ? err.message : String(err)
+                console.error(`[Escalation Monitor] Failed to escalate ticket ${ticket.ticket_id}:`, err)
+                results.push({ 
+                    id: ticket.ticket_id, 
+                    status: 'Failed', 
+                    error: errMsg 
+                })
             }
         }
 
-        // 6. Return Summary
+        // 5. Get escalation summary for reporting
+        const { data: summaryData } = await supabase.rpc('get_escalation_summary')
+        const summary = summaryData?.[0] || { total_stale_tickets: 0, high_priority_stale: 0 }
+
+        // 6. Trigger notification dispatcher for immediate delivery
+        let dispatchResult = null
+        try {
+            // Call the notification dispatcher to process pending notifications
+            const dispatchRes = await fetch(`${SUPABASE_URL}/functions/v1/notification-dispatcher`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                    'Content-Type': 'application/json'
+                }
+            })
+            if (dispatchRes.ok) {
+                dispatchResult = await dispatchRes.json()
+            }
+        } catch (dispatchErr) {
+            console.warn('[Escalation Monitor] Notification dispatcher call failed:', dispatchErr)
+        }
+
+        // 7. Return Summary
         return new Response(JSON.stringify({
-            message: 'Escalation run complete',
+            message: 'Verified ticket escalation run complete',
             processed: results.length,
-            details: results
+            threshold: ESCALATION_CONFIG.initialThreshold,
+            totalStaleTickets: summary.total_stale_tickets,
+            highPriorityStale: summary.high_priority_stale,
+            details: results,
+            dispatchResult,
+            channels: ['in_app', 'email', 'push', 'sms (critical only)'],
+            nextRun: 'Schedule this function to run every 30-60 minutes for constant alerts'
         }), {
             headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
             status: 200,
         })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const errMsg = error instanceof Error ? error.message : String(error)
         console.error('[Escalation Monitor] Critical Error:', error)
-        return new Response(JSON.stringify({ error: error.message || 'Internal server error' }), {
+        return new Response(JSON.stringify({ error: errMsg || 'Internal server error' }), {
             headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
             status: 500,
         })

@@ -11,6 +11,8 @@ import {
     Shield,
     MoreVertical,
     Trash2,
+    Pencil,
+    Check,
     Sparkles,
     Clock,
     CornerDownRight,
@@ -19,6 +21,7 @@ import {
     X
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import ReactMarkdown from 'react-markdown';
 
 /**
  * TicketChat Component
@@ -42,6 +45,8 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
     const [isInternal, setIsInternal] = useState(false);
     const [replyingTo, setReplyingTo] = useState(null);
     const [showAiPanel, setShowAiPanel] = useState(false);
+    const [editingMessage, setEditingMessage] = useState(null);
+    const [editText, setEditText] = useState('');
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
 
@@ -208,18 +213,36 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
 
     // Delete message
     const handleDeleteMessage = async (messageId) => {
+        if (!user?.id) {
+            toast.error('Authentication required');
+            return;
+        }
+        console.log('Delete attempt - isAdmin:', isAdmin, 'user.id:', user.id, 'messageId:', messageId);
         try {
-            const { error } = await supabase
-                .from('ticket_messages')
-                .update({
-                    message: '[Message deleted]',
-                    message_type: 'system',
-                    edited_at: new Date().toISOString(),
-                })
-                .eq('id', messageId)
-                .eq('sender_id', user.id);
+            const updateData = {
+                message: '[Message deleted]',
+                message_type: 'system',
+                edited_at: new Date().toISOString(),
+            };
 
-            if (error) throw error;
+            let query = supabase
+                .from('ticket_messages')
+                .update(updateData)
+                .eq('id', messageId);
+
+            // Non-admins can only delete their own messages (enforced in RLS too)
+            if (!isAdmin) {
+                query = query.eq('sender_id', user.id);
+            }
+
+            console.log('Executing delete query...');
+            const { error } = await query;
+            console.log('Delete query result - error:', error);
+
+            if (error) {
+                console.error('Delete message error:', error);
+                throw error;
+            }
 
             setMessages(prev =>
                 prev.map(m =>
@@ -229,7 +252,8 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
                 )
             );
         } catch (err) {
-            toast.error('Failed to delete message');
+            console.error('Failed to delete message:', err);
+            toast.error('Failed to delete message: ' + (err.message || 'Unknown error'));
         }
     };
 
@@ -361,12 +385,74 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
         }
     };
 
-    // Check if message can be deleted
-    const canDelete = (msg) => {
+    // Check if message can be deleted/edited
+    const canModify = (msg) => {
         if (msg.sender_type === 'ai' || msg.sender_type === 'system') return false;
+        // RLS policy only allows editing messages with type 'text' or 'system'
+        if (!['text', 'system'].includes(msg.message_type)) return false;
+        // Admins can edit/delete any message, regardless of time or sender
+        if (isAdmin) return true;
+        // Non-admins can only edit their own messages within 5 minutes
         if (msg.sender_id !== user?.id) return false;
         const fiveMinutes = 5 * 60 * 1000;
         return new Date() - new Date(msg.created_at) < fiveMinutes;
+    };
+
+    // Start editing a message
+    const handleStartEdit = (msg) => {
+        setEditingMessage(msg.id);
+        setEditText(msg.message);
+    };
+
+    // Cancel editing
+    const handleCancelEdit = () => {
+        setEditingMessage(null);
+        setEditText('');
+    };
+
+    // Save edited message
+    const handleSaveEdit = async (messageId) => {
+        if (!editText.trim()) return;
+        if (!user?.id) {
+            toast.error('Authentication required');
+            return;
+        }
+        try {
+            const updateData = {
+                message: editText.trim(),
+                edited_at: new Date().toISOString(),
+            };
+
+            let query = supabase
+                .from('ticket_messages')
+                .update(updateData)
+                .eq('id', messageId);
+
+            // Non-admins can only edit their own messages (enforced in RLS too)
+            if (!isAdmin) {
+                query = query.eq('sender_id', user.id);
+            }
+
+            const { error } = await query;
+
+            if (error) {
+                console.error('Edit message error:', error);
+                throw error;
+            }
+
+            setMessages(prev =>
+                prev.map(m =>
+                    m.id === messageId
+                        ? { ...m, message: editText.trim(), edited_at: new Date().toISOString() }
+                        : m
+                )
+            );
+            setEditingMessage(null);
+            setEditText('');
+        } catch (err) {
+            console.error('Failed to edit message:', err);
+            toast.error('Failed to edit message: ' + (err.message || 'Unknown error'));
+        }
     };
 
     if (!isOpen) return null;
@@ -506,7 +592,43 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
                                             </div>
                                         )}
 
-                                        <div className="whitespace-pre-wrap">{msg.message}</div>
+                                        {editingMessage === msg.id ? (
+                                            <div className="flex flex-col gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={editText}
+                                                    onChange={(e) => setEditText(e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') handleSaveEdit(msg.id);
+                                                        if (e.key === 'Escape') handleCancelEdit();
+                                                    }}
+                                                    className="px-2 py-1 bg-white/20 rounded text-sm focus:outline-none focus:ring-1 focus:ring-white/50"
+                                                    autoFocus
+                                                />
+                                                <div className="flex gap-1">
+                                                    <button
+                                                        onClick={() => handleSaveEdit(msg.id)}
+                                                        className="p-1 bg-white/20 rounded hover:bg-white/30"
+                                                        title="Save"
+                                                    >
+                                                        <Check className="w-3 h-3" />
+                                                    </button>
+                                                    <button
+                                                        onClick={handleCancelEdit}
+                                                        className="p-1 bg-white/20 rounded hover:bg-white/30"
+                                                        title="Cancel"
+                                                    >
+                                                        <X className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : msg.sender_type === 'ai' ? (
+                                            <div className="ai-markdown">
+                                                <ReactMarkdown>{msg.message}</ReactMarkdown>
+                                            </div>
+                                        ) : (
+                                            <div className="whitespace-pre-wrap">{msg.message}</div>
+                                        )}
 
                                         {/* Timestamp and actions */}
                                         <div className={`flex items-center gap-2 mt-1 text-[10px] ${
@@ -520,14 +642,23 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
 
                                             {/* Actions */}
                                             <div className={`flex items-center gap-1 ${isOwn ? 'ml-2' : 'ml-auto'}`}>
-                                                {canDelete(msg) && (
-                                                    <button
-                                                        onClick={() => handleDeleteMessage(msg.id)}
-                                                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/20 rounded transition-all"
-                                                        title="Delete"
-                                                    >
-                                                        <Trash2 className="w-3 h-3" />
-                                                    </button>
+                                                {canModify(msg) && editingMessage !== msg.id && (
+                                                    <>
+                                                        <button
+                                                            onClick={() => handleStartEdit(msg)}
+                                                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/20 rounded transition-all"
+                                                            title="Edit"
+                                                        >
+                                                            <Pencil className="w-3 h-3" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteMessage(msg.id)}
+                                                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/20 rounded transition-all"
+                                                            title="Delete"
+                                                        >
+                                                            <Trash2 className="w-3 h-3" />
+                                                        </button>
+                                                    </>
                                                 )}
                                                 <button
                                                     onClick={() => setReplyingTo(msg)}

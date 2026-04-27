@@ -3,12 +3,13 @@ import useSWR from 'swr';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/useAuth';
-import { Clock, CheckCircle, AlertCircle, MapPin, Calendar, Activity, ThumbsUp, ThumbsDown, X, Wrench as WrenchIcon } from 'lucide-react';
+import { Clock, CheckCircle, AlertCircle, MapPin, Calendar, Activity, ThumbsUp, ThumbsDown, X, Wrench as WrenchIcon, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import clsx from 'clsx';
 import Loader from '../../components/Loader';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import TicketDetails from '../../components/TicketDetails';
 
 const STATUS_STYLES = {
     'Open': { bg: 'bg-amber-50', text: 'text-amber-700', icon: Clock, border: 'border-amber-200' },
@@ -37,6 +38,8 @@ export default function UserDashboard() {
     const viewDescription = isHistoryView
         ? 'View your completed maintenance requests'
         : 'Track the status of your active maintenance requests';
+
+    const [selectedTicket, setSelectedTicket] = useState(null);
 
     const fetchTickets = async () => {
         const { data, error } = await supabase
@@ -182,12 +185,22 @@ export default function UserDashboard() {
                                         </span>
                                     </div>
 
-                                    <h3 className="text-lg font-bold text-surface-900 mb-2 line-clamp-1 group-hover:text-primary-600 transition-colors">
+                                    <h3 className="text-lg font-bold text-surface-900 mb-2 line-clamp-1 group-hover:text-primary-600 transition-colors cursor-pointer"
+                                        onClick={() => setSelectedTicket(ticket)}>
                                         {ticket.title}
                                     </h3>
-                                    <p className="text-sm text-surface-600 mb-6 line-clamp-2 flex-1 leading-relaxed">
+                                    <p className="text-sm text-surface-600 mb-4 line-clamp-2 flex-1 leading-relaxed">
                                         {ticket.description}
                                     </p>
+
+                                    {/* Chat Button */}
+                                    <button
+                                        onClick={() => setSelectedTicket(ticket)}
+                                        className="flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 font-medium mb-2"
+                                    >
+                                        <MessageSquare className="w-4 h-4" />
+                                        Open Chat
+                                    </button>
 
                                     <div className="pt-4 border-t border-surface-100 mt-auto space-y-3">
                                         <div className="flex items-center gap-2 text-sm text-surface-500 font-medium">
@@ -272,6 +285,18 @@ export default function UserDashboard() {
                         );
                     })}
                 </div>
+            )}
+
+            {/* Ticket Details Modal with Chat */}
+            {selectedTicket && (
+                <TicketDetails
+                    ticket={selectedTicket}
+                    onClose={() => setSelectedTicket(null)}
+                    onUpdate={() => {
+                        setSelectedTicket(null);
+                        mutate();
+                    }}
+                />
             )}
         </div>
     );

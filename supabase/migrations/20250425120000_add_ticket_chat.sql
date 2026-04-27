@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS ticket_messages (
     sender_id uuid REFERENCES profiles(id) ON DELETE SET NULL, -- NULL for AI/system messages
     sender_type text NOT NULL CHECK (sender_type IN ('user', 'technician', 'admin', 'ai', 'system')),
     message text NOT NULL,
-    message_type text DEFAULT 'text' CHECK (message_type IN ('text', 'ai_suggestion', 'status_update', 'image', 'file')),
+    message_type text DEFAULT 'text' CHECK (message_type IN ('text', 'ai_suggestion', 'status_update', 'image', 'file', 'system')),
     ai_context jsonb DEFAULT NULL, -- Stores AI context: { prompt, response_time, model_used, etc. }
     is_internal boolean DEFAULT false, -- Internal notes visible only to staff
     parent_message_id uuid REFERENCES ticket_messages(id) ON DELETE SET NULL, -- For threaded replies
@@ -120,11 +120,42 @@ CREATE POLICY "Users can edit own messages"
     TO authenticated
     USING (
         sender_id = auth.uid()
+        AND sender_type = 'user'
         AND created_at > now() - interval '5 minutes'
     )
     WITH CHECK (
         sender_id = auth.uid()
-        AND message_type = 'text'
+        AND message_type IN ('text', 'system')  -- Allow soft delete (system) or text edits
+    );
+
+-- Technicians can edit their own messages (within 5 minutes)
+DROP POLICY IF EXISTS "Technicians can edit own messages" ON ticket_messages;
+CREATE POLICY "Technicians can edit own messages"
+    ON ticket_messages FOR UPDATE
+    TO authenticated
+    USING (
+        sender_id = auth.uid()
+        AND sender_type = 'technician'
+        AND created_at > now() - interval '5 minutes'
+    )
+    WITH CHECK (
+        sender_id = auth.uid()
+        AND message_type IN ('text', 'system')
+    );
+
+-- Admins can edit/delete any message (no time limit)
+DROP POLICY IF EXISTS "Admins can edit any messages" ON ticket_messages;
+CREATE POLICY "Admins can edit any messages"
+    ON ticket_messages FOR UPDATE
+    TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM profiles
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    )
+    WITH CHECK (
+        message_type IN ('text', 'system')
     );
 
 -- 5. Function to get chat messages for a ticket with user details
@@ -298,7 +329,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 10. Grant necessary permissions
+-- 10. Update check constraint for existing tables (if 'system' not already allowed)
+ALTER TABLE ticket_messages DROP CONSTRAINT IF EXISTS ticket_messages_message_type_check;
+ALTER TABLE ticket_messages ADD CONSTRAINT ticket_messages_message_type_check 
+    CHECK (message_type IN ('text', 'ai_suggestion', 'status_update', 'image', 'file', 'system'));
+
+-- 11. Grant necessary permissions
 GRANT EXECUTE ON FUNCTION get_ticket_chat(uuid, boolean) TO authenticated;
 GRANT EXECUTE ON FUNCTION add_ai_message(uuid, text, jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION summarize_ticket_chat(uuid) TO authenticated;

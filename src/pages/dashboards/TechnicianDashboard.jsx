@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/useAuth';
-import { Bot, CheckCircle, MapPin, AlertTriangle, Play, CheckSquare, Clock, User, Plus } from 'lucide-react';
+import { Bot, CheckCircle, MapPin, AlertTriangle, Play, CheckSquare, Clock, User, Plus, MessageSquare, Eye } from 'lucide-react';
 import clsx from 'clsx';
 import Loader from '../../components/Loader';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
+import TicketDetails from '../../components/TicketDetails';
 
 import useSWR from 'swr';
 
@@ -20,6 +21,8 @@ export default function TechnicianDashboard() {
     // Staff verify tickets in their department, SRC verifies all, Porters verify hostel
     const canVerify = isPorter || isSRC || isStaff;
     const [aiSuggestion, setAiSuggestion] = useState({ ticketId: null, data: null, loading: false });
+    const [selectedTicket, setSelectedTicket] = useState(null);
+    const [activeTab, setActiveTab] = useState('assigned'); // 'assigned' | 'reported'
 
     // SWR Fetcher - Only fetch necessary fields
     // Porters see Open hostel tickets pending verification, Technicians see their assigned jobs
@@ -67,6 +70,30 @@ export default function TechnicianDashboard() {
         return data;
     };
 
+    // Fetch tickets that the current user has reported (for staff/technicians/porters who also report issues)
+    const fetchReportedTickets = async () => {
+        const { data, error } = await supabase
+            .from('tickets')
+            .select(`
+                id,
+                title,
+                description,
+                category,
+                facility_type,
+                specific_location,
+                status,
+                priority,
+                created_at,
+                assigned_to,
+                image_url,
+                technician:assigned_to(full_name, email, department)
+            `)
+            .eq('created_by', user.id)
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data;
+    };
+
     // Use SWR
     // Use different cache key for each role
     const getSWRKey = () => {
@@ -83,13 +110,30 @@ export default function TechnicianDashboard() {
         {
             revalidateOnFocus: false,
             revalidateOnReconnect: true,
-            dedupingInterval: 30000, // 30 seconds for better performance
+            dedupingInterval: 30000,
             errorRetryCount: 2,
             errorRetryInterval: 5000,
             refreshInterval: 0,
             suspense: false
         }
     );
+
+    // Fetch reported tickets for staff/technicians/porters
+    const { data: reportedTickets = [], mutate: mutateReported, isLoading: isLoadingReported } = useSWR(
+        user ? ['reported_tickets', user.id] : null,
+        fetchReportedTickets,
+        {
+            revalidateOnFocus: false,
+            revalidateOnReconnect: true,
+            dedupingInterval: 30000,
+            errorRetryCount: 2,
+            errorRetryInterval: 5000,
+            refreshInterval: 0,
+            suspense: false
+        }
+    );
+
+    const displayedJobs = activeTab === 'assigned' ? jobs : reportedTickets;
 
     useEffect(() => {
         if (!user) return;
@@ -272,34 +316,67 @@ export default function TechnicianDashboard() {
         }
     };
 
-    if (isLoading && !jobs.length) return <Loader variant="technician" />;
+    if (isLoading && !jobs.length && !reportedTickets.length) return <Loader variant="technician" />;
+
+    const hasReportedTickets = reportedTickets.length > 0;
+    const displayedJobs = activeTab === 'assigned' ? jobs : reportedTickets;
 
     return (
         <div className="space-y-8">
             <div>
                 <h1 className="text-3xl font-bold text-surface-900 tracking-tight">
-                    {canVerify
-                        ? (isPorter
-                            ? 'Verify Hostel Complaints'
-                            : isStaff
-                                ? `Verify ${userDepartment} Complaints`
-                                : 'Verify Student Complaints')
-                        : 'Assigned Jobs'}
+                    {activeTab === 'assigned'
+                        ? (canVerify
+                            ? (isPorter
+                                ? 'Verify Hostel Complaints'
+                                : isStaff
+                                    ? `Verify ${userDepartment} Complaints`
+                                    : 'Verify Student Complaints')
+                            : 'Assigned Jobs')
+                        : 'My Reported Tickets'}
                 </h1>
                 <p className="text-surface-500 mt-2 text-lg">
-                    {canVerify
-                        ? (isPorter
-                            ? 'Validate hostel complaints before technician assignment'
-                            : isStaff
-                                ? `Validate ${userDepartment} complaints before technician assignment`
-                                : 'Validate all student complaints school-wide before technician assignment')
-                        : 'Manage and resolve your maintenance tasks'}
+                    {activeTab === 'assigned'
+                        ? (canVerify
+                            ? (isPorter
+                                ? 'Validate hostel complaints before technician assignment'
+                                : isStaff
+                                    ? `Validate ${userDepartment} complaints before technician assignment`
+                                    : 'Validate all student complaints school-wide before technician assignment')
+                            : 'Manage and resolve your maintenance tasks')
+                        : 'Track tickets you have reported and chat with assigned technicians'}
                 </p>
             </div>
 
+            {/* Tab Navigation - Show only if user has reported tickets */}
+            {hasReportedTickets && (
+                <div className="flex items-center gap-1 bg-surface-100 p-1.5 rounded-2xl w-fit">
+                    <button
+                        onClick={() => setActiveTab('assigned')}
+                        className={`px-5 py-2.5 rounded-xl font-semibold transition-all duration-200 ${
+                            activeTab === 'assigned'
+                                ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/25'
+                                : 'text-surface-600 hover:bg-white hover:shadow-sm'
+                        }`}
+                    >
+                        {canVerify ? 'To Verify' : 'My Jobs'}
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('reported')}
+                        className={`px-5 py-2.5 rounded-xl font-semibold transition-all duration-200 ${
+                            activeTab === 'reported'
+                                ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/25'
+                                : 'text-surface-600 hover:bg-white hover:shadow-sm'
+                        }`}
+                    >
+                        My Reports ({reportedTickets.length})
+                    </button>
+                </div>
+            )}
+
             <div className="space-y-6">
-                {jobs.map((job) => (
-                    <Card key={job.id} className="hover:shadow-lg transition-all duration-300 border-surface-200 group">
+                {displayedJobs.map((job) => (
+                    <Card key={job.id} className="hover:shadow-lg transition-all duration-300 border-surface-200 group cursor-pointer" onClick={() => setSelectedTicket(job)}>
                         <CardContent className="p-6">
                             <div className="flex flex-col md:flex-row justify-between items-start gap-6">
                                 <div className="flex-1 space-y-4">
@@ -334,19 +411,62 @@ export default function TechnicianDashboard() {
                                         <span>{job.facility_type} • {job.specific_location}</span>
                                     </div>
 
-                                    {/* Reporter Information */}
-                                    <div className="inline-flex items-center gap-2 text-sm text-primary-700 font-medium bg-primary-50 px-3 py-1.5 rounded-xl border border-primary-100">
-                                        <User className="w-4 h-4 text-primary-500" />
-                                        <span>{job.reporter?.full_name || 'Unknown Reporter'}</span>
-                                        {job.reporter?.department && (
-                                            <span className="text-primary-500 text-xs">
-                                                ({job.reporter.department})
+                                    {/* Reporter Information (only show for assigned jobs, not my reported tickets) */}
+                                    {activeTab === 'assigned' && (
+                                        <div className="inline-flex items-center gap-2 text-sm text-primary-700 font-medium bg-primary-50 px-3 py-1.5 rounded-xl border border-primary-100">
+                                            <User className="w-4 h-4 text-primary-500" />
+                                            <span>{job.reporter?.full_name || 'Unknown Reporter'}</span>
+                                            {job.reporter?.department && (
+                                                <span className="text-primary-500 text-xs">
+                                                    ({job.reporter.department})
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Technician Information (show for reported tickets) */}
+                                    {activeTab === 'reported' && (
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <span className="flex items-center gap-1.5 font-medium text-secondary-700 bg-secondary-50 px-2.5 py-1.5 rounded-lg border border-secondary-200">
+                                                <WrenchIcon className="w-3.5 h-3.5" />
+                                                {job.technician?.full_name || 'Unassigned'}
                                             </span>
-                                        )}
-                                    </div>
+                                            {job.technician?.department && (
+                                                <span className="text-xs text-secondary-600">
+                                                    ({job.technician.department})
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="flex flex-col gap-3 w-full md:w-auto min-w-[160px]">
+                                    {/* View Details & Chat Button */}
+                                    <Button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedTicket(job);
+                                        }}
+                                        variant="outline"
+                                        className="w-full"
+                                    >
+                                        <Eye className="w-4 h-4 mr-2" />
+                                        View Details
+                                    </Button>
+
+                                    {/* Chat Button */}
+                                    <Button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedTicket(job);
+                                        }}
+                                        variant="outline"
+                                        className="w-full border-primary-200 text-primary-700 hover:bg-primary-50"
+                                    >
+                                        <MessageSquare className="w-4 h-4 mr-2" />
+                                        Chat with Reporter
+                                    </Button>
+
                                     {/* Verification buttons - show for porters (hostel only) and SRC (all tickets) */}
                                     {canVerify && job.status === 'Open' && (
                                         <>
@@ -481,6 +601,23 @@ export default function TechnicianDashboard() {
                     </Card>
                 ))}
 
+            {/* Ticket Details Modal with Chat */}
+            {selectedTicket && (
+                <TicketDetails
+                    ticket={selectedTicket}
+                    onClose={() => setSelectedTicket(null)}
+                    onUpdate={() => {
+                        setSelectedTicket(null);
+                        mutate();
+                    }}
+                    onReassign={() => {
+                        setSelectedTicket(null);
+                        mutate();
+                        toast.success('Ticket updated successfully');
+                    }}
+                />
+            )}
+
                 {jobs.length === 0 && (
                     <Card className="border-dashed">
                         <CardContent className="py-16 text-center">
@@ -504,6 +641,22 @@ export default function TechnicianDashboard() {
                                             ? `All ${userDepartment} complaints have been verified. Great work!`
                                             : 'All student complaints have been verified. Great work!')
                                     : 'No active jobs assigned to you at the moment.'}
+                            </p>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {displayedJobs.length === 0 && activeTab === 'reported' && (
+                    <Card className="border-dashed">
+                        <CardContent className="py-16 text-center">
+                            <div className="mx-auto h-12 w-12 text-slate-300 mb-3">
+                                <MessageSquare className="h-12 w-12" />
+                            </div>
+                            <h3 className="text-lg font-medium text-slate-900">
+                                No reported tickets
+                            </h3>
+                            <p className="text-slate-500">
+                                You haven't reported any maintenance issues yet.
                             </p>
                         </CardContent>
                     </Card>

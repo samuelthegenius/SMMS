@@ -559,10 +559,10 @@ function repairIncompleteJSON(jsonStr: string): string {
 // Call Gemini API with optional JSON mode
 async function callGemini(apiKey: string, prompt: string, maxTokens: number = 500, jsonMode: boolean = false): Promise<string> {
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 30000)
+    const timeoutId = setTimeout(() => controller.abort(), 25000)
 
     try {
-        const generationConfig: { temperature: number; maxOutputTokens: number; responseMimeType?: string; thinkingConfig?: { thinkingBudget: number } } = {
+        const generationConfig: { temperature: number; maxOutputTokens: number; responseMimeType?: string } = {
             temperature: 0.2, // Lower temperature for more consistent output
             maxOutputTokens: maxTokens,
         }
@@ -571,9 +571,6 @@ async function callGemini(apiKey: string, prompt: string, maxTokens: number = 50
         if (jsonMode) {
             generationConfig.responseMimeType = 'application/json'
         }
-
-        // Disable thinking for Gemini 2.5 Flash to prevent truncation
-        generationConfig.thinkingConfig = { thinkingBudget: 0 }
 
         const requestBody = {
             contents: [{

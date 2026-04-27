@@ -1,7 +1,7 @@
 // PWA Registration Script
 // Register custom service worker for PWA functionality
 
-let isReloading = false;
+let updateToastShown = false;
 
 const registerSW = async () => {
   if ('serviceWorker' in navigator) {
@@ -16,29 +16,32 @@ const registerSW = async () => {
       const registration = await navigator.serviceWorker.register('/sw.js', {
         scope: '/'
       });
-      
-      // Registration successful
-      // Optional: Show a non-intrusive notification instead of forcing reload
-      
-      // Handle updates - notify user and skip waiting to activate new SW immediately
+
+      // Handle updates - show user-controlled update prompt instead of auto-reload
       registration.addEventListener('updatefound', () => {
         const newWorker = registration.installing;
+        if (!newWorker) return;
+
         newWorker.addEventListener('statechange', () => {
+          // New service worker installed and waiting
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            // New content is available - skip waiting to activate immediately
-            newWorker.postMessage({ type: 'SKIP_WAITING' });
+            if (!updateToastShown) {
+              updateToastShown = true;
+              // Dispatch custom event for the app to show update toast
+              window.dispatchEvent(new CustomEvent('sw:update-available', {
+                detail: {
+                  registration,
+                  newWorker,
+                  applyUpdate: () => {
+                    newWorker.postMessage({ type: 'SKIP_WAITING' });
+                  }
+                }
+              }));
+            }
           }
         });
       });
-      
-      // Listen for controller change (new SW activated) - reload once to use new assets
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (!isReloading) {
-          isReloading = true;
-          window.location.reload();
-        }
-      });
-      
+
     } catch (_error) {
       // SW registration failed - will be handled gracefully
     }

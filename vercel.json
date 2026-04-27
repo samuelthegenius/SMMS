@@ -1,5 +1,6 @@
 {
   "framework": "vite",
+  "outputDirectory": "dist",
   "devCommand": "vite",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },

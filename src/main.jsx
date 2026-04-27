@@ -4,7 +4,8 @@
  *
  * Architecture:
  * - DOM Injection: Mounts the React component tree into the 'root' div defined in index.html.
- * - Strict Mode: Enforces best practices by double-invoking lifecycle methods during development to catch side effects.
+ * - Strict Mode: Enforces best practices by double-invoking components during development. This intentional
+ *   re-render helps detect side effects but may appear like a "reload" - this is expected behavior, not a bug.
  * - Global Styles: Injects the standard Tailwind CSS directives via 'index.css'.
  * - Error Boundary: Catches and handles React errors gracefully.
  */

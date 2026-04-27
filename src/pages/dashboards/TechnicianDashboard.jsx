@@ -319,7 +319,6 @@ export default function TechnicianDashboard() {
     if (isLoading && !jobs.length && !reportedTickets.length) return <Loader variant="technician" />;
 
     const hasReportedTickets = reportedTickets.length > 0;
-    const displayedJobs = activeTab === 'assigned' ? jobs : reportedTickets;
 
     return (
         <div className="space-y-8">

@@ -136,6 +136,9 @@ export default async function handler(req, res) {
           message_type,
           ai_context,
           is_internal,
+          is_deleted,
+          deleted_at,
+          deleted_by,
           parent_message_id,
           created_at,
           edited_at,
@@ -148,6 +151,11 @@ export default async function handler(req, res) {
       // Filter out internal messages for non-staff
       if (!isAssignee && !isAdmin) {
         query = query.eq('is_internal', false);
+      }
+
+      // Filter out deleted messages for non-admins
+      if (!isAdmin) {
+        query = query.eq('is_deleted', false);
       }
 
       if (before) {
@@ -300,13 +308,13 @@ export default async function handler(req, res) {
         return res.status(403).json({ error: 'Can only delete messages within 5 minutes' });
       }
 
-      // Soft delete by updating message
+      // Soft delete - preserve original content
       const { data: updated, error: updateError } = await supabase
         .from('ticket_messages')
         .update({
-          message: isAI ? '[AI message removed]' : '[Message deleted]',
-          message_type: 'system',
-          edited_at: new Date().toISOString(),
+          is_deleted: true,
+          deleted_at: new Date().toISOString(),
+          deleted_by: user.id,
         })
         .eq('id', message_id)
         .select()

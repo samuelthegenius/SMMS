@@ -211,18 +211,17 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
         }
     };
 
-    // Delete message
+    // Delete message (soft delete)
     const handleDeleteMessage = async (messageId) => {
         if (!user?.id) {
             toast.error('Authentication required');
             return;
         }
-        console.log('Delete attempt - isAdmin:', isAdmin, 'user.id:', user.id, 'messageId:', messageId);
         try {
             const updateData = {
-                message: '[Message deleted]',
-                message_type: 'system',
-                edited_at: new Date().toISOString(),
+                is_deleted: true,
+                deleted_at: new Date().toISOString(),
+                deleted_by: user.id,
             };
 
             let query = supabase
@@ -235,9 +234,7 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
                 query = query.eq('sender_id', user.id);
             }
 
-            console.log('Executing delete query...');
             const { error } = await query;
-            console.log('Delete query result - error:', error);
 
             if (error) {
                 console.error('Delete message error:', error);
@@ -247,10 +244,11 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
             setMessages(prev =>
                 prev.map(m =>
                     m.id === messageId
-                        ? { ...m, message: '[Message deleted]', message_type: 'system', edited_at: new Date().toISOString() }
+                        ? { ...m, is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: user.id }
                         : m
                 )
             );
+            toast.success('Message deleted');
         } catch (err) {
             console.error('Failed to delete message:', err);
             toast.error('Failed to delete message: ' + (err.message || 'Unknown error'));
@@ -387,9 +385,8 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
 
     // Check if message can be deleted/edited
     const canModify = (msg) => {
+        if (msg.is_deleted) return false; // Deleted messages cannot be modified
         if (msg.sender_type === 'ai' || msg.sender_type === 'system') return false;
-        // RLS policy only allows editing messages with type 'text' or 'system'
-        if (!['text', 'system'].includes(msg.message_type)) return false;
         // Admins can edit/delete any message, regardless of time or sender
         if (isAdmin) return true;
         // Non-admins can only edit their own messages within 5 minutes
@@ -398,8 +395,15 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
         return new Date() - new Date(msg.created_at) < fiveMinutes;
     };
 
+    // Get display message content (handles deleted messages)
+    const getDisplayMessage = (msg) => {
+        if (msg.is_deleted) return '[Message deleted]';
+        return msg.message;
+    };
+
     // Start editing a message
     const handleStartEdit = (msg) => {
+        if (msg.is_deleted) return; // Cannot edit deleted messages
         setEditingMessage(msg.id);
         setEditText(msg.message);
     };
@@ -624,10 +628,12 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
                                             </div>
                                         ) : msg.sender_type === 'ai' ? (
                                             <div className="ai-markdown">
-                                                <ReactMarkdown>{msg.message}</ReactMarkdown>
+                                                <ReactMarkdown>{getDisplayMessage(msg)}</ReactMarkdown>
                                             </div>
                                         ) : (
-                                            <div className="whitespace-pre-wrap">{msg.message}</div>
+                                            <div className={`whitespace-pre-wrap ${msg.is_deleted ? 'italic opacity-60' : ''}`}>
+                                                {getDisplayMessage(msg)}
+                                            </div>
                                         )}
 
                                         {/* Timestamp and actions */}

@@ -28,11 +28,6 @@ class ErrorBoundary extends Component {
     }
 
     componentDidCatch(error, errorInfo) {
-        // Log error to console only in development
-        if (import.meta.env.DEV) {
-          console.error('ErrorBoundary caught an error:', error, errorInfo);
-        }
-
         // ChunkLoadError: after a Vercel deployment the chunk hashes change.
         // Any user who still has the old HTML loaded will get a 404 on lazy-loaded
         // chunks → ChunkLoadError. Auto-reload once to get the fresh assets.

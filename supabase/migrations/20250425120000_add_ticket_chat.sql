@@ -30,6 +30,7 @@ ALTER TABLE ticket_messages ENABLE ROW LEVEL SECURITY;
 -- 4. RLS Policies
 
 -- Users can view messages on their own tickets
+DROP POLICY IF EXISTS "Users can view messages on their tickets" ON ticket_messages;
 CREATE POLICY "Users can view messages on their tickets"
     ON ticket_messages FOR SELECT
     TO authenticated
@@ -43,6 +44,7 @@ CREATE POLICY "Users can view messages on their tickets"
     );
 
 -- Technicians can view messages on assigned tickets
+DROP POLICY IF EXISTS "Technicians can view messages on assigned tickets" ON ticket_messages;
 CREATE POLICY "Technicians can view messages on assigned tickets"
     ON ticket_messages FOR SELECT
     TO authenticated
@@ -55,6 +57,7 @@ CREATE POLICY "Technicians can view messages on assigned tickets"
     );
 
 -- Admins can view all messages
+DROP POLICY IF EXISTS "Admins can view all messages" ON ticket_messages;
 CREATE POLICY "Admins can view all messages"
     ON ticket_messages FOR SELECT
     TO authenticated
@@ -66,6 +69,7 @@ CREATE POLICY "Admins can view all messages"
     );
 
 -- Users can send messages to their tickets
+DROP POLICY IF EXISTS "Users can send messages to their tickets" ON ticket_messages;
 CREATE POLICY "Users can send messages to their tickets"
     ON ticket_messages FOR INSERT
     TO authenticated
@@ -81,6 +85,7 @@ CREATE POLICY "Users can send messages to their tickets"
     );
 
 -- Technicians can send messages to assigned tickets
+DROP POLICY IF EXISTS "Technicians can send messages to assigned tickets" ON ticket_messages;
 CREATE POLICY "Technicians can send messages to assigned tickets"
     ON ticket_messages FOR INSERT
     TO authenticated
@@ -95,6 +100,7 @@ CREATE POLICY "Technicians can send messages to assigned tickets"
     );
 
 -- Admins can send messages to any ticket
+DROP POLICY IF EXISTS "Admins can send messages to any ticket" ON ticket_messages;
 CREATE POLICY "Admins can send messages to any ticket"
     ON ticket_messages FOR INSERT
     TO authenticated
@@ -108,6 +114,7 @@ CREATE POLICY "Admins can send messages to any ticket"
     );
 
 -- Users can edit their own messages (within 5 minutes)
+DROP POLICY IF EXISTS "Users can edit own messages" ON ticket_messages;
 CREATE POLICY "Users can edit own messages"
     ON ticket_messages FOR UPDATE
     TO authenticated
@@ -144,7 +151,7 @@ DECLARE
     v_user_id uuid := auth.uid();
 BEGIN
     -- Get current user's role
-    SELECT role INTO v_user_role FROM profiles WHERE id = v_user_id;
+    SELECT role INTO v_user_role FROM profiles WHERE profiles.id = v_user_id;
     
     -- Only admins and technicians can see internal messages
     IF NOT p_include_internal AND v_user_role NOT IN ('admin', 'technician') THEN
@@ -221,11 +228,11 @@ BEGIN
     -- Get ticket participants
     SELECT created_by, assigned_to 
     INTO v_ticket_creator, v_ticket_assignee
-    FROM tickets WHERE id = NEW.ticket_id;
+    FROM tickets WHERE tickets.id = NEW.ticket_id;
     
     -- Get sender name
     SELECT full_name INTO v_sender_name
-    FROM profiles WHERE id = NEW.sender_id;
+    FROM profiles WHERE profiles.id = NEW.sender_id;
     
     -- Notify ticket creator (if not the sender)
     IF v_ticket_creator IS NOT NULL 
@@ -256,6 +263,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 8. Create trigger for chat notifications
+DROP TRIGGER IF EXISTS on_chat_message_created ON ticket_messages;
 CREATE TRIGGER on_chat_message_created
     AFTER INSERT ON ticket_messages
     FOR EACH ROW

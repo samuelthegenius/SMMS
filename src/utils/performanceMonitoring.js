@@ -161,59 +161,9 @@ export const getPerformanceMetrics = () => {
 export const logPerformanceWarnings = () => {
   const perfMetrics = getPerformanceMetrics();
   
-  // Initial load warnings
-  if (perfMetrics.initialLoad?.loadComplete > 3000) {
-    if (import.meta.env.DEV) {
-      console.warn('🐌 Slow initial load detected:', perfMetrics.initialLoad.loadComplete + 'ms');
-    }
-  }
-  
-  // Web Vitals warnings
-  if (perfMetrics.webVitals.LCP > 2500) {
-    if (import.meta.env.DEV) {
-      console.warn('🎨 Slow LCP (Largest Contentful Paint):', Math.round(perfMetrics.webVitals.LCP) + 'ms - Optimize images or reduce render-blocking resources');
-    }
-  }
-  
-  if (perfMetrics.webVitals.FID > 100) {
-    if (import.meta.env.DEV) {
-      console.warn('👆 High FID (First Input Delay):', Math.round(perfMetrics.webVitals.FID) + 'ms - Reduce JavaScript execution time');
-    }
-  }
-  
-  if (perfMetrics.webVitals.CLS > 0.1) {
-    if (import.meta.env.DEV) {
-      console.warn('📐 High CLS (Cumulative Layout Shift):', perfMetrics.webVitals.CLS.toFixed(3) + ' - Add size attributes to images/videos');
-    }
-  }
-  
-  if (perfMetrics.webVitals.TTFB > 600) {
-    if (import.meta.env.DEV) {
-      console.warn('⏱️ High TTFB (Time to First Byte):', Math.round(perfMetrics.webVitals.TTFB) + 'ms - Optimize server response time');
-    }
-  }
-  
-  // Auth and API warnings
-  if (perfMetrics.authTime > 2000) {
-    if (import.meta.env.DEV) {
-      console.warn('🔐 Slow authentication:', perfMetrics.authTime + 'ms');
-    }
-  }
-  
-  if (perfMetrics.avgApiTime > 500) {
-    if (import.meta.env.DEV) {
-      console.warn('🌐 Slow API calls average:', perfMetrics.avgApiTime + 'ms');
-    }
-  }
-  
-  if (perfMetrics.slowApiCalls > 0) {
-    if (import.meta.env.DEV) {
-      console.warn(`⚠️ ${perfMetrics.slowApiCalls} slow API calls (>1s) detected`);
-    }
-  }
-  
-  // Log summary in production (non-blocking)
-  if (!import.meta.env.DEV && 'sendBeacon' in navigator) {
+  // Performance metrics are tracked silently
+  // Analytics sent in production if available
+  if ('sendBeacon' in navigator) {
     navigator.sendBeacon('/api/analytics/performance', JSON.stringify({
       webVitals: perfMetrics.webVitals,
       initialLoad: perfMetrics.initialLoad,

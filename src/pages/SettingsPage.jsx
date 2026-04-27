@@ -21,13 +21,11 @@ export default function SettingsPage() {
         .single();
       
       if (error) throw error;
-      
-      console.log('[Settings] Refreshed profile:', data);
+
       toast.success(`Profile refreshed. Role: ${data.role}`);
       // Force page reload to pick up new profile data
       window.location.reload();
     } catch (err) {
-      console.error('[Settings] Failed to refresh profile:', err);
       toast.error('Failed to refresh profile: ' + err.message);
     } finally {
       setRefreshing(false);

@@ -141,12 +141,10 @@ serve(async (req: Request) => {
         })
         
 	if (rateLimitError) {
-		console.error('Rate limit check failed:', rateLimitError)
 		throw new Error('Rate limit check failed')
 	}
 
 	if (rateLimitData === false) {
-		console.warn(`Rate limit exceeded for IP: ${clientIP}`)
 		throw new Error('Rate limit exceeded. Please try again later.')
 	}
 
@@ -294,7 +292,6 @@ serve(async (req: Request) => {
 
     } catch (error: unknown) {
         const errMsg = error instanceof Error ? error.message : String(error)
-        console.error('send-email error:', error)
         return new Response(JSON.stringify({ error: errMsg || 'Internal server error' }), {
             headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
             status: errMsg?.includes('Rate limit') ? 429 : 400,

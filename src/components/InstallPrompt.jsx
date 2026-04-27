@@ -103,9 +103,8 @@ export default function InstallPrompt() {
                 localStorage.removeItem(DISMISSED_KEY);
                 window.__SMMS_INSTALL_DISMISSED__ = false;
             }
-        } catch (err) {
+        } catch {
             // prompt() can throw if called more than once or after a navigation
-            console.warn('[InstallPrompt] prompt() failed:', err);
         } finally {
             window.__SMMS_DEFERRED_PROMPT__ = null;
             promptRef.current = null;

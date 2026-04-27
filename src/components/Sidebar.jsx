@@ -19,11 +19,6 @@ export default function Sidebar({ isOpen, onClose }) {
     const location = useLocation();
     const homePath = user ? '/dashboard' : '/';
 
-    // Debug: Log role detection issues
-    if (import.meta.env.DEV && profile?._isFallback) {
-        console.warn('[Sidebar] Using fallback profile - row missing in profiles table for user:', profile.id, 'Role defaulted to:', profile.role);
-    }
-
     const handleLogout = async () => {
         await supabase.auth.signOut();
         navigate('/login');

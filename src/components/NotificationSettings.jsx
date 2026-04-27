@@ -55,8 +55,8 @@ export default function NotificationSettings() {
             status_sms: data.status_sms,
           });
         }
-      } catch (err) {
-        console.error('Error fetching preferences:', err);
+      } catch {
+        // Silent fail
       } finally {
         setIsLoading(false);
       }
@@ -89,9 +89,8 @@ export default function NotificationSettings() {
 
       if (error) throw error;
       toast.success('Notification preferences saved');
-    } catch (err) {
+    } catch {
       toast.error('Failed to save preferences');
-      console.error(err);
     } finally {
       setIsSaving(false);
     }

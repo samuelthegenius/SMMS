@@ -206,38 +206,90 @@ Provide:
         }
 
         if (action === 'suggest_categorization') {
-            // Suggest better categorization
-            const categoryPrompt = `Analyze this maintenance ticket and suggest improvements:
+            // Suggest better categorization with structured JSON response
+            const categoryPrompt = `You are a JSON response bot. Analyze this maintenance ticket and return ONLY JSON.
 
 Current Details:
 - Title: ${ticket.title}
-- Category: ${ticket.category}
+- Current Category: ${ticket.category}
 - Priority: ${ticket.priority}
 - Description: ${ticket.description}
 
-Suggest:
-1. Better category if current one doesn't fit (from: Electrical, Plumbing, HVAC, Carpentry & Furniture, IT & Networking, General Maintenance, Painting, Civil Works, Appliance Repair, Cleaning Services)
-2. Appropriate priority level (Low, Medium, High)
-3. Brief reasoning for each suggestion
+Available Categories: Electrical, Plumbing, HVAC (Air Conditioning), Carpentry & Furniture, IT & Networking, General Maintenance, Painting, Civil Works, Appliance Repair, Cleaning Services
 
-Format your response as:
-**Suggested Category:** [category] - [reason]
-**Suggested Priority:** [priority] - [reason]`
+Your entire response must be exactly this JSON format:
+{"suggested_category":"CategoryName","confidence":0.85,"reasoning":"Brief explanation"}
 
-            const suggestion = await callGemini(GEMINI_API_KEY, categoryPrompt, 400)
-            return new Response(JSON.stringify({ 
-                suggestion,
+Important:
+- suggested_category must be exactly one of the available categories
+- confidence must be a number between 0.0 and 1.0
+- reasoning should be 1-2 sentences
+- NO MARKDOWN, NO EXPLANATION, ONLY THE JSON
+- START WITH { and END WITH }`;
+
+            let aiResponse;
+            try {
+                // Use JSON mode for consistent structured output with higher token limit
+                aiResponse = await callGemini(GEMINI_API_KEY, categoryPrompt, 500, true);
+            } catch (_err) {
+                // Fallback to regular mode if JSON mode fails
+                aiResponse = await callGemini(GEMINI_API_KEY, categoryPrompt, 500, false);
+            }
+
+            // Parse the JSON response - always return something, never fail
+            let parsedSuggestion;
+            try {
+                // AI with jsonMode should return pure JSON
+                parsedSuggestion = JSON.parse(aiResponse);
+            } catch (_e) {
+                // Try to repair incomplete JSON
+                try {
+                    const repaired = repairIncompleteJSON(aiResponse);
+                    parsedSuggestion = JSON.parse(repaired);
+                } catch {
+                    // Fallback 1: try to extract from markdown code blocks
+                    const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        try {
+                            parsedSuggestion = JSON.parse(jsonMatch[0]);
+                        } catch {
+                            // Fallback 2: extract category with regex
+                            const categoryMatch = aiResponse.match(/(?:Electrical|Plumbing|HVAC|Carpentry & Furniture|IT & Networking|General Maintenance|Painting|Civil Works|Appliance Repair|Cleaning Services)/i);
+                            const suggestedCategory = categoryMatch ? categoryMatch[0].trim() : ticket.category;
+
+                            parsedSuggestion = {
+                                suggested_category: suggestedCategory,
+                                confidence: 0.5,
+                                reasoning: 'AI response parsing failed, extracted category with regex from: ' + aiResponse.substring(0, 100)
+                            };
+                        }
+                    } else {
+                        // Final fallback: return current category with low confidence
+                        parsedSuggestion = {
+                            suggested_category: ticket.category,
+                            confidence: 0.3,
+                            reasoning: 'AI response was not parseable. Response was: ' + aiResponse.substring(0, 100)
+                        };
+                    }
+                }
+            }
+
+            return new Response(JSON.stringify({
+                suggested_value: parsedSuggestion.suggested_category,
+                current_value: ticket.category,
+                confidence: parsedSuggestion.confidence,
+                reasoning: parsedSuggestion.reasoning,
                 message_type: 'ai_suggestion',
-                action_type: 'categorization'
+                action_type: 'recategorize'
             }), {
                 headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
                 status: 200,
-            })
+            });
         }
 
         if (action === 'suggest_status_change') {
-            // Suggest status change
-            const statusPrompt = `Based on this maintenance ticket and recent chat:
+            // Suggest status change with structured JSON response
+            const statusPrompt = `You are a JSON response bot. Based on this maintenance ticket and recent chat, return ONLY JSON.
 
 Ticket Details:
 - Title: ${ticket.title}
@@ -248,21 +300,152 @@ Ticket Details:
 Recent Chat:
 ${chat_history || 'No recent chat'}
 
-Suggest the most appropriate status change (from: Open, In Progress, Resolved, Closed, Escalated, Pending Verification) and explain why.
+Available Statuses: Open, In Progress, Resolved, Closed, Escalated, Pending Verification
 
-Format your response as:
-**Suggested Status:** [status]
-**Reason:** [brief explanation]`
+Your entire response must be exactly this JSON format:
+{"suggested_status":"StatusName","confidence":0.85,"reasoning":"Brief explanation"}
 
-            const suggestion = await callGemini(GEMINI_API_KEY, statusPrompt, 300)
-            return new Response(JSON.stringify({ 
-                suggestion,
+Important:
+- suggested_status must be exactly one of the available statuses
+- confidence must be a number between 0.0 and 1.0
+- reasoning should reference ticket/chat details
+- NO MARKDOWN, NO EXPLANATION, ONLY THE JSON
+- START WITH { and END WITH }`;
+
+            let aiResponse;
+            try {
+                // Use JSON mode for consistent structured output
+                aiResponse = await callGemini(GEMINI_API_KEY, statusPrompt, 300, true);
+            } catch (_err) {
+                // Fallback to regular mode if JSON mode fails
+                aiResponse = await callGemini(GEMINI_API_KEY, statusPrompt, 300, false);
+            }
+
+            // Parse the JSON response - always return something, never fail
+            let parsedSuggestion;
+            try {
+                // AI with jsonMode should return pure JSON
+                parsedSuggestion = JSON.parse(aiResponse);
+            } catch (_e) {
+                // Fallback 1: try to extract from markdown code blocks
+                const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    try {
+                        parsedSuggestion = JSON.parse(jsonMatch[0]);
+                    } catch {
+                        // Fallback 2: extract status with regex
+                        const statusMatch = aiResponse.match(/(?:Open|In Progress|Resolved|Closed|Escalated|Pending Verification)/i);
+                        const suggestedStatus = statusMatch ? statusMatch[0].trim() : ticket.status;
+
+                        parsedSuggestion = {
+                            suggested_status: suggestedStatus,
+                            confidence: 0.5,
+                            reasoning: 'AI response parsing failed, extracted status with regex from: ' + aiResponse.substring(0, 100)
+                        };
+                    }
+                } else {
+                    // Final fallback: return current status with low confidence
+                    parsedSuggestion = {
+                        suggested_status: ticket.status,
+                        confidence: 0.3,
+                        reasoning: 'AI response was not parseable. Response was: ' + aiResponse.substring(0, 100)
+                    };
+                }
+            }
+
+            return new Response(JSON.stringify({
+                suggested_value: parsedSuggestion.suggested_status,
+                current_value: ticket.status,
+                confidence: parsedSuggestion.confidence,
+                reasoning: parsedSuggestion.reasoning,
                 message_type: 'ai_suggestion',
-                action_type: 'status_change'
+                action_type: 'change_status'
             }), {
                 headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
                 status: 200,
-            })
+            });
+        }
+
+        if (action === 'suggest_priority') {
+            // Suggest priority change with structured JSON response
+            const priorityPrompt = `You are a JSON response bot. Based on this maintenance ticket, return ONLY JSON with priority recommendation.
+
+Ticket Details:
+- Title: ${ticket.title}
+- Current Priority: ${ticket.priority}
+- Category: ${ticket.category}
+- Status: ${ticket.status}
+- Description: ${ticket.description}
+
+Priority Guidelines:
+- HIGH: Safety hazards, water leaks, power outages, security issues, no heating in winter, no cooling in extreme heat, systems affecting large numbers of people
+- MEDIUM: Equipment malfunctions that impact work but have workarounds, single room issues, non-critical repairs
+- LOW: Cosmetic issues, preventive maintenance, minor inconveniences, nice-to-have improvements
+
+Available Priorities: Low, Medium, High
+
+Your entire response must be exactly this JSON format:
+{"suggested_priority":"PriorityName","confidence":0.85,"reasoning":"Brief explanation"}
+
+Important:
+- suggested_priority must be exactly one of: Low, Medium, High
+- confidence must be a number between 0.0 and 1.0
+- reasoning should reference specific ticket details and explain the severity assessment
+- NO MARKDOWN, NO EXPLANATION, ONLY THE JSON
+- START WITH { and END WITH }`;
+
+            let aiResponse;
+            try {
+                // Use JSON mode for consistent structured output
+                aiResponse = await callGemini(GEMINI_API_KEY, priorityPrompt, 300, true);
+            } catch (_err) {
+                // Fallback to regular mode if JSON mode fails
+                aiResponse = await callGemini(GEMINI_API_KEY, priorityPrompt, 300, false);
+            }
+
+            // Parse the JSON response - always return something, never fail
+            let parsedSuggestion;
+            try {
+                // AI with jsonMode should return pure JSON
+                parsedSuggestion = JSON.parse(aiResponse);
+            } catch (_e) {
+                // Fallback 1: try to extract from markdown code blocks
+                const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    try {
+                        parsedSuggestion = JSON.parse(jsonMatch[0]);
+                    } catch {
+                        // Fallback 2: extract priority with regex
+                        const priorityMatch = aiResponse.match(/(?:Low|Medium|High)/i);
+                        const suggestedPriority = priorityMatch ? priorityMatch[0].trim() : ticket.priority;
+
+                        parsedSuggestion = {
+                            suggested_priority: suggestedPriority,
+                            confidence: 0.5,
+                            reasoning: 'AI response parsing failed, extracted priority with regex from: ' + aiResponse.substring(0, 100)
+                        };
+                    }
+                } else {
+                    // Final fallback: return current priority with low confidence
+                    parsedSuggestion = {
+                        suggested_priority: ticket.priority,
+                        confidence: 0.3,
+                        reasoning: 'AI response was not parseable. Response was: ' + aiResponse.substring(0, 100)
+                    };
+                }
+            }
+
+            return new Response(JSON.stringify({
+                suggested_value: parsedSuggestion.suggested_priority,
+                current_value: ticket.priority,
+                confidence: parsedSuggestion.confidence,
+                reasoning: parsedSuggestion.reasoning,
+                message_type: 'ai_suggestion',
+                action_type: 'reprioritize'
+            }), {
+                headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
+                status: 200,
+            });
         }
 
         // Default: Chat response
@@ -305,7 +488,7 @@ Format your response as:
             .single()
 
         if (insertError) {
-            console.error('Failed to store AI message:', insertError)
+            // Silent fail - AI response already sent to user
         }
 
         return new Response(JSON.stringify({
@@ -322,7 +505,6 @@ Format your response as:
 
     } catch (error: unknown) {
         const errMsg = error instanceof Error ? error.message : String(error)
-        console.error(`[ai-chat-assistant] Failed: ${errMsg}`)
         return new Response(JSON.stringify({ error: errMsg || 'Internal server error' }), {
             headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
             status: errMsg?.includes('not found') ? 404 : 
@@ -331,28 +513,83 @@ Format your response as:
     }
 })
 
-// Call Gemini API
-async function callGemini(apiKey: string, prompt: string, maxTokens: number = 500): Promise<string> {
+// Repair incomplete JSON responses
+function repairIncompleteJSON(jsonStr: string): string {
+    // Remove any trailing characters after the last }
+    let cleaned = jsonStr.trim();
+    
+    // Find the last complete JSON object
+    const lastBraceIndex = cleaned.lastIndexOf('}');
+    if (lastBraceIndex !== -1) {
+        cleaned = cleaned.substring(0, lastBraceIndex + 1);
+    }
+    
+    // Try to fix common truncation issues
+    if (cleaned.endsWith('"')) {
+        // Ends with an open quote, close it
+        cleaned = cleaned.slice(0, -1) + '\\"';
+    }
+    
+    // If it ends with a property name but no value, add a default
+    if (cleaned.endsWith('":')) {
+        cleaned += ' null';
+    }
+    
+    // If it ends with a comma and no closing brace, remove comma and add brace
+    if (cleaned.endsWith(',')) {
+        cleaned = cleaned.slice(0, -1);
+    }
+    
+    // Ensure it ends with a closing brace
+    if (!cleaned.endsWith('}')) {
+        cleaned += '}';
+    }
+    
+    // Try to complete missing properties with defaults
+    if (!cleaned.includes('"confidence":')) {
+        cleaned = cleaned.replace('}', ',"confidence":0.5}');
+    }
+    if (!cleaned.includes('"reasoning":')) {
+        cleaned = cleaned.replace('}', ',"reasoning":"AI response was truncated"}');
+    }
+    
+    return cleaned;
+}
+
+// Call Gemini API with optional JSON mode
+async function callGemini(apiKey: string, prompt: string, maxTokens: number = 500, jsonMode: boolean = false): Promise<string> {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 30000)
 
     try {
+        const generationConfig: { temperature: number; maxOutputTokens: number; responseMimeType?: string; thinkingConfig?: { thinkingBudget: number } } = {
+            temperature: 0.2, // Lower temperature for more consistent output
+            maxOutputTokens: maxTokens,
+        }
+
+        // Enable JSON mode for structured responses
+        if (jsonMode) {
+            generationConfig.responseMimeType = 'application/json'
+        }
+
+        // Disable thinking for Gemini 2.5 Flash to prevent truncation
+        generationConfig.thinkingConfig = { thinkingBudget: 0 }
+
+        const requestBody = {
+            contents: [{
+                parts: [{ text: prompt }]
+            }],
+            generationConfig
+        }
+
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`,
             {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{ text: prompt }]
-                    }],
-                    generationConfig: {
-                        temperature: 0.4,
-                        maxOutputTokens: maxTokens,
-                    }
-                }),
+                body: JSON.stringify(requestBody),
                 signal: controller.signal
             }
         )

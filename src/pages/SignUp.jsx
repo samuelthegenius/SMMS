@@ -152,7 +152,6 @@ export default function SignUp() {
             toast.success('Account created successfully! Please check your email to verify your account.');
             navigate('/login');
         } catch (error) {
-            if (import.meta.env.DEV) console.error('SignUp Error:', error);
             toast.error(error.message || 'Failed to create account. Please try again.');
         } finally {
             signingUpRef.current = false;

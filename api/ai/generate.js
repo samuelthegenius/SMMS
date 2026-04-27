@@ -35,10 +35,7 @@ async function fetchAvailableModels() {
     
     const data = await response.json();
     return data.data || [];
-  } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Error fetching models:', error);
-    }
+  } catch {
     return [];
   }
 }
@@ -178,10 +175,7 @@ export default async function handler(req, res) {
       text,
       model,
     });
-  } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('AI Gateway error:', error);
-    }
+  } catch {
     return res.status(500).json({ 
       error: 'Failed to generate response',
     });
@@ -197,10 +191,7 @@ export async function modelsHandler(req, res) {
   try {
     const models = await fetchAvailableModels();
     return res.status(200).json({ models });
-  } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Error listing models:', error);
-    }
+  } catch {
     return res.status(500).json({ error: 'Failed to fetch models' });
   }
 }

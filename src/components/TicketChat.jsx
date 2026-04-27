@@ -16,17 +16,9 @@ import {
     CornerDownRight,
     Loader2,
     MessageSquare,
-    X,
-    AlertTriangle
+    X
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { 
-    updateTicketCategory, 
-    updateTicketPriority, 
-    updateTicketStatus,
-    getAICategorizationSuggestion,
-    getAIStatusSuggestion
-} from '../services/ai';
 
 /**
  * TicketChat Component
@@ -50,9 +42,6 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
     const [isInternal, setIsInternal] = useState(false);
     const [replyingTo, setReplyingTo] = useState(null);
     const [showAiPanel, setShowAiPanel] = useState(false);
-    const [showManagementPanel, setShowManagementPanel] = useState(false);
-    const [managementAction, setManagementAction] = useState(null);
-    const [managementLoading, setManagementLoading] = useState(false);
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
 
@@ -83,10 +72,7 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
 
             if (error) throw error;
             setMessages(data || []);
-        } catch (err) {
-            if (import.meta.env.DEV) {
-                console.error('Error fetching messages:', err);
-            }
+        } catch {
             toast.error('Failed to load chat messages');
         } finally {
             setLoading(false);
@@ -211,10 +197,7 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
                 )
             );
 
-        } catch (err) {
-            if (import.meta.env.DEV) {
-                console.error('Error sending message:', err);
-            }
+        } catch {
             toast.error('Failed to send message');
             // Remove optimistic message
             setMessages(prev => prev.filter(m => m.id !== optimisticMessage.id));
@@ -306,10 +289,7 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
 
             setMessages(prev => [...prev, aiMessage]);
 
-        } catch (err) {
-            if (import.meta.env.DEV) {
-                console.error('AI assist error:', err);
-            }
+        } catch {
             toast.error('AI assistant temporarily unavailable');
         } finally {
             setAiTyping(false);
@@ -345,94 +325,6 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
 
             setMessages(prev => [...prev, aiMessage]);
             toast.success('AI fix suggestion generated');
-
-        } catch (err) {
-            toast.error('Failed to get AI suggestion');
-        } finally {
-            setAiTyping(false);
-        }
-    };
-
-    // Handle ticket management actions
-    const handleManagementAction = async (action, value, reason = '') => {
-        setManagementLoading(true);
-        try {
-            let result;
-            let actionText;
-
-            switch (action) {
-                case 'recategorize':
-                    result = await updateTicketCategory(ticket.id, value, reason);
-                    actionText = `recategorized to ${value}`;
-                    break;
-                case 'reprioritize':
-                    result = await updateTicketPriority(ticket.id, value, reason);
-                    actionText = `reprioritized to ${value}`;
-                    break;
-                case 'change_status':
-                    result = await updateTicketStatus(ticket.id, value, reason);
-                    actionText = `status changed to ${value}`;
-                    break;
-                default:
-                    throw new Error('Invalid action');
-            }
-
-            toast.success(`Ticket ${actionText}`);
-            setShowManagementPanel(false);
-            setManagementAction(null);
-
-            // If repair guide was updated, show it
-            if (result.new_repair_guide) {
-                const guideMessage = {
-                    id: `ai-${Date.now()}`,
-                    ticket_id: ticket.id,
-                    sender_id: null,
-                    sender_type: 'ai',
-                    sender_name: 'AI Assistant',
-                    sender_role: 'ai',
-                    message: `Updated repair guide for ${value} issue:\n\n**Technical Diagnosis:** ${result.new_repair_guide.technical_diagnosis}\n\n**Tools Required:**\n${result.new_repair_guide.tools_required.map(tool => `• ${tool}`).join('\n')}\n\n**Safety Precaution:** ${result.new_repair_guide.safety_precaution}`,
-                    message_type: 'ai_suggestion',
-                    is_internal: false,
-                    created_at: new Date().toISOString(),
-                };
-                setMessages(prev => [...prev, guideMessage]);
-            }
-
-        } catch (err) {
-            toast.error(err.message || 'Failed to update ticket');
-        } finally {
-            setManagementLoading(false);
-        }
-    };
-
-    // Get AI suggestion for management action
-    const handleGetAISuggestion = async (action) => {
-        setAiTyping(true);
-        try {
-            let suggestion;
-            
-            if (action === 'recategorize') {
-                suggestion = await getAICategorizationSuggestion(ticket.id);
-            } else if (action === 'change_status') {
-                suggestion = await getAIStatusSuggestion(ticket.id);
-            }
-
-            if (suggestion) {
-                const aiMessage = {
-                    id: `ai-${Date.now()}`,
-                    ticket_id: ticket.id,
-                    sender_id: null,
-                    sender_type: 'ai',
-                    sender_name: 'AI Assistant',
-                    sender_role: 'ai',
-                    message: suggestion.suggestion,
-                    message_type: 'ai_suggestion',
-                    ai_context: { action_type: suggestion.action_type },
-                    is_internal: false,
-                    created_at: new Date().toISOString(),
-                };
-                setMessages(prev => [...prev, aiMessage]);
-            }
 
         } catch (err) {
             toast.error('Failed to get AI suggestion');
@@ -497,26 +389,15 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
 
                 <div className="flex items-center gap-2">
                     {isStaff && (
-                        <>
-                            <button
-                                onClick={() => setShowAiPanel(!showAiPanel)}
-                                className={`p-2 rounded-lg transition-colors ${
-                                    showAiPanel ? 'bg-violet-100 text-violet-600' : 'hover:bg-slate-200 text-slate-500'
-                                }`}
-                                title="AI Assistant"
-                            >
-                                <Sparkles className="w-4 h-4" />
-                            </button>
-                            <button
-                                onClick={() => setShowManagementPanel(!showManagementPanel)}
-                                className={`p-2 rounded-lg transition-colors ${
-                                    showManagementPanel ? 'bg-blue-100 text-blue-600' : 'hover:bg-slate-200 text-slate-500'
-                                }`}
-                                title="Manage Ticket"
-                            >
-                                <Wrench className="w-4 h-4" />
-                            </button>
-                        </>
+                        <button
+                            onClick={() => setShowAiPanel(!showAiPanel)}
+                            className={`p-2 rounded-lg transition-colors ${
+                                showAiPanel ? 'bg-violet-100 text-violet-600' : 'hover:bg-slate-200 text-slate-500'
+                            }`}
+                            title="AI Assistant"
+                        >
+                            <Sparkles className="w-4 h-4" />
+                        </button>
                     )}
                     <button
                         onClick={onClose}
@@ -526,61 +407,6 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
                     </button>
                 </div>
             </div>
-
-            {/* Management Panel */}
-            {showManagementPanel && isStaff && (
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 p-3">
-                    <div className="flex items-center gap-2 mb-2">
-                        <Wrench className="w-4 h-4 text-blue-600" />
-                        <span className="text-sm font-medium text-blue-900">Manage Ticket</span>
-                    </div>
-                    
-                    {!managementAction ? (
-                        <div className="flex gap-2 flex-wrap">
-                            {(isStaff || isAdmin) && (
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => setManagementAction('recategorize')}
-                                    className="text-xs border-blue-200 text-blue-700 hover:bg-blue-100"
-                                >
-                                    <Wrench className="w-3 h-3 mr-1" />
-                                    Change Category
-                                </Button>
-                            )}
-                            {isAdmin && (
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => setManagementAction('reprioritize')}
-                                    className="text-xs border-blue-200 text-blue-700 hover:bg-blue-100"
-                                >
-                                    <AlertTriangle className="w-3 h-3 mr-1" />
-                                    Change Priority
-                                </Button>
-                            )}
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setManagementAction('change_status')}
-                                className="text-xs border-blue-200 text-blue-700 hover:bg-blue-100"
-                            >
-                                <Clock className="w-3 h-3 mr-1" />
-                                Change Status
-                            </Button>
-                        </div>
-                    ) : (
-                        <ManagementActionForm
-                            action={managementAction}
-                            ticket={ticket}
-                            onCancel={() => setManagementAction(null)}
-                            onSubmit={handleManagementAction}
-                            onGetAISuggestion={handleGetAISuggestion}
-                            loading={managementLoading}
-                        />
-                    )}
-                </div>
-            )}
 
             {/* AI Assistant Panel */}
             {showAiPanel && isStaff && (
@@ -810,125 +636,3 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
     );
 }
 
-// Management Action Form Component
-function ManagementActionForm({ action, ticket, onCancel, onSubmit, onGetAISuggestion, loading }) {
-    const [value, setValue] = useState('');
-    const [reason, setReason] = useState('');
-    const [showAISuggestion, setShowAISuggestion] = useState(false);
-
-    const categories = [
-        'Electrical', 'Plumbing', 'HVAC (Air Conditioning)', 'Carpentry & Furniture',
-        'IT & Networking', 'General Maintenance', 'Painting', 'Civil Works',
-        'Appliance Repair', 'Cleaning Services'
-    ];
-    
-    const priorities = ['Low', 'Medium', 'High'];
-    const statuses = ['Open', 'In Progress', 'Resolved', 'Closed', 'Escalated', 'Pending Verification'];
-
-    const getOptions = () => {
-        switch (action) {
-            case 'recategorize':
-                return categories;
-            case 'reprioritize':
-                return priorities;
-            case 'change_status':
-                return statuses;
-            default:
-                return [];
-        }
-    };
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (!value) return;
-        onSubmit(action, value, reason);
-    };
-
-    const handleGetAISuggestion = () => {
-        onGetAISuggestion(action);
-        setShowAISuggestion(true);
-    };
-
-    return (
-        <form onSubmit={handleSubmit} className="space-y-3">
-            <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-blue-700 capitalize">
-                    {action.replace('_', ' ')} Ticket
-                </span>
-                <button
-                    type="button"
-                    onClick={onCancel}
-                    className="text-xs text-blue-600 hover:text-blue-800"
-                >
-                    Cancel
-                </button>
-            </div>
-
-            <div>
-                <label className="block text-xs font-medium text-blue-700 mb-1">
-                    New {action.replace('_', ' ')}
-                </label>
-                <select
-                    value={value}
-                    onChange={(e) => setValue(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                >
-                    <option value="">Select {action.replace('_', ' ')}</option>
-                    {getOptions().map(opt => (
-                        <option key={opt} value={opt}>
-                            {opt} {action === 'recategorize' && ticket.category === opt ? ' (current)' : ''}
-                            {action === 'reprioritize' && ticket.priority === opt ? ' (current)' : ''}
-                            {action === 'change_status' && ticket.status === opt ? ' (current)' : ''}
-                        </option>
-                    ))}
-                </select>
-            </div>
-
-            <div>
-                <label className="block text-xs font-medium text-blue-700 mb-1">
-                    Reason (optional)
-                </label>
-                <textarea
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    placeholder="Why is this change needed?"
-                    className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                    rows={2}
-                />
-            </div>
-
-            <div className="flex gap-2">
-                <Button
-                    type="submit"
-                    disabled={loading || !value}
-                    isLoading={loading}
-                    size="sm"
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                    Update {action.replace('_', ' ')}
-                </Button>
-                
-                {(action === 'recategorize' || action === 'change_status') && (
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleGetAISuggestion}
-                        disabled={loading}
-                        size="sm"
-                        className="border-blue-200 text-blue-700 hover:bg-blue-50"
-                    >
-                        <Sparkles className="w-3 h-3 mr-1" />
-                        AI Suggest
-                    </Button>
-                )}
-            </div>
-
-            {showAISuggestion && (
-                <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded-lg">
-                    AI suggestion has been added to the chat above. Review it before making your decision.
-                </div>
-            )}
-        </form>
-    );
-}

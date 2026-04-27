@@ -137,10 +137,7 @@ async function fetchAndEncodeImage(imageUrl) {
     // Convert to base64
     const base64 = buffer.toString('base64');
     return { data: base64, mimeType: contentType };
-  } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Image fetch error:', error);
-    }
+  } catch {
     return null;
   }
 }
@@ -206,10 +203,7 @@ function parseStructuredResponse(text) {
     result.tools_required = result.tools_required.slice(0, 10);
     result.safety_precaution = result.safety_precaution.substring(0, 200);
     
-  } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Parse error:', error);
-    }
+  } catch {
     // Fallback response
     result.technical_diagnosis = 'Maintenance issue detected. Professional assessment required.';
     result.tools_required = ['Basic tools', 'Safety equipment', 'Testing devices'];
@@ -348,10 +342,6 @@ Keep responses concise and professional.`;
     return res.status(200).json(result);
 
   } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Suggest-fix error:', error);
-    }
-    
     // Determine appropriate status code
     const statusCode = error.message?.includes('safety') ? 403 : 
                        error.message?.includes('timeout') ? 504 : 500;

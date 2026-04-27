@@ -257,8 +257,8 @@ export default async function handler(req, res) {
             },
           });
           aiResponse = aiData;
-        } catch (aiError) {
-          console.error('AI assist failed:', aiError);
+        } catch (_aiError) {
+          // AI assist failed silently
         }
       }
 
@@ -323,7 +323,6 @@ export default async function handler(req, res) {
     }
 
   } catch (error) {
-    console.error('Ticket chat error:', error);
     return res.status(500).json({
       error: 'Internal server error',
       message: process.env.NODE_ENV === 'development' ? error.message : undefined,

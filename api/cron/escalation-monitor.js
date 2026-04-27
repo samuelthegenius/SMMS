@@ -6,40 +6,25 @@
  */
 
 export default async function handler(req, res) {
-  // Log all requests for debugging
-  console.log('[Cron] Request received:', {
-    method: req.method,
-    url: req.url,
-    headers: {
-      authorization: req.headers.authorization ? 'present' : 'missing',
-      'x-vercel-signature': req.headers['x-vercel-signature'] ? 'present' : 'missing',
-      'user-agent': req.headers['user-agent']
-    }
-  });
-
   // Verify cron secret to ensure only Vercel can trigger this
   const cronSecret = process.env.CRON_SECRET;
   const authHeader = req.headers.authorization;
-  
+
   // Allow if no secret is set (for development) or if secret matches
   let isAuthorized = false;
-  
+
   if (!cronSecret) {
     // No secret configured - allow for development
     isAuthorized = true;
-    console.log('[Cron] No CRON_SECRET set, allowing request for development');
   } else if (authHeader === `Bearer ${cronSecret}`) {
     // Valid secret provided
     isAuthorized = true;
-    console.log('[Cron] Valid CRON_SECRET provided');
   } else if (req.headers['x-vercel-signature'] || req.headers['user-agent']?.includes('Vercel')) {
     // Called by Vercel cron system
     isAuthorized = true;
-    console.log('[Cron] Request from Vercel cron system');
   }
-  
+
   if (!isAuthorized) {
-    console.log('[Cron] Unauthorized request');
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -53,8 +38,6 @@ export default async function handler(req, res) {
 
     // Call the escalation-monitor edge function
     const functionUrl = `${supabaseUrl}/functions/v1/escalation-monitor`;
-    
-    console.log('[Cron] Triggering escalation monitor:', functionUrl);
     
     const response = await fetch(functionUrl, {
       method: 'POST',
@@ -70,8 +53,6 @@ export default async function handler(req, res) {
     }
 
     const result = await response.json();
-    
-    console.log('[Cron] Escalation monitor result:', result);
 
     res.status(200).json({
       success: true,
@@ -80,8 +61,6 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('[Cron] Escalation monitor failed:', error);
-    
     res.status(500).json({
       success: false,
       error: error.message,

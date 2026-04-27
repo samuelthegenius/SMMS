@@ -56,10 +56,7 @@ export const validateSecurity = {
     ];
 
     if (suspiciousPatterns.some(pattern => pattern.test(cleanEmail.toLowerCase()))) {
-      // Log suspicious email attempt but don't block - only in development
-      if (import.meta.env.DEV) {
-        console.warn('Suspicious email pattern detected');
-      }
+      // Suspicious email detected but don't block
     }
 
     return cleanEmail.toLowerCase();
@@ -210,10 +207,7 @@ export const validateSecurity = {
 				resetTime: data.resetTime
 			};
 		} catch {
-			// If localStorage fails, allow the request but log it in development only
-			if (import.meta.env.DEV) {
-				console.warn('Rate limit check failed');
-			}
+			// If localStorage fails, allow the request
 			return { attempts: 0, remaining: maxAttempts, resetTime: now + windowMs };
 		}
 	},
@@ -244,10 +238,7 @@ export const securityMonitor = {
     const isSuspicious = suspiciousPatterns.some(pattern => pattern.test(userAgent));
     
     if (isSuspicious) {
-      // Could trigger additional security measures - only log in development
-      if (import.meta.env.DEV) {
-        console.warn('Suspicious user agent detected');
-      }
+      // Could trigger additional security measures
     }
 
     return !isSuspicious;
@@ -267,9 +258,6 @@ export const securityMonitor = {
       const recent = timestamps.filter(timestamp => now - timestamp < windowMs);
       
       if (recent.length >= threshold) {
-        if (import.meta.env.DEV) {
-          console.warn('Rapid requests detected');
-        }
         return true;
       }
       
@@ -279,9 +267,6 @@ export const securityMonitor = {
       
       return false;
     } catch {
-      if (import.meta.env.DEV) {
-        console.warn('Request monitoring failed');
-      }
       return false;
     }
   }
@@ -298,9 +283,6 @@ export const initializeSecurity = () => {
   setInterval(() => {
     if (securityMonitor.detectRapidRequests()) {
       // Could implement additional security measures
-      if (import.meta.env.DEV) {
-        console.warn('Security: Rapid request pattern detected');
-      }
     }
   }, 5000);
 };

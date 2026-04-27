@@ -41,8 +41,8 @@ self.addEventListener('install', (event) => {
         // Pre-cache in parallel for faster install
         return Promise.all(
           PRECACHE_URLS.map(url =>
-            cache.add(url).catch(err => {
-              console.warn(`[SW] Failed to cache ${url}:`, err.message);
+            cache.add(url).catch(() => {
+              // Silent fail on cache error
             })
           )
         );
@@ -240,8 +240,8 @@ self.addEventListener('push', (event) => {
     event.waitUntil(
       self.registration.showNotification(title, options)
     );
-  } catch (error) {
-    console.error('[SW] Push event error:', error);
+  } catch {
+    // Silent fail
   }
 });
 

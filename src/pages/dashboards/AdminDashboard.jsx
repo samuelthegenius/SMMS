@@ -35,10 +35,6 @@ export default function AdminDashboard() {
         const { data, error } = await supabase.rpc('get_admin_tickets');
         
         if (error) {
-            // Log error without sensitive details - only in development
-            if (import.meta.env.DEV) {
-              console.error('Admin tickets fetch failed:', error.message);
-            }
             // Fallback to direct query with joins
             const { data: fallbackData, error: fallbackError } = await supabase
                 .from('tickets')
@@ -136,9 +132,6 @@ export default function AdminDashboard() {
     }
 
     if (error) {
-      if (import.meta.env.DEV) {
-        console.error('Failed to fetch tickets:', error);
-      }
         return (
             <div className="text-red-500 text-center mt-10">
                 <p className="text-lg font-medium">Error loading tickets</p>

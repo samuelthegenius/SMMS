@@ -107,8 +107,8 @@ async function checkEscalationsAndNotify() {
         })
       }).catch(() => {});
     }
-  } catch (error) {
-    console.error('[SW] Background sync error:', error);
+  } catch {
+    // Silent fail
   }
 }
 
@@ -177,15 +177,17 @@ async function registerPeriodicSync() {
       await self.registration.periodicSync.register('check-escalations', {
         minInterval: 15 * 60 * 1000 // 15 minutes minimum
       });
-      console.log('[SW] Periodic background sync registered');
-    } catch (error) {
-      console.error('[SW] Periodic sync registration failed:', error);
+    } catch {
       throw error;
     }
   } else {
     throw new Error('Periodic Background Sync not supported');
   }
 }
+
+// ============================================
+// NOTIFICATION CLICK HANDLING
+// ============================================
 
 // ============================================
 // NOTIFICATION CLICK HANDLING
@@ -255,5 +257,3 @@ async function processQueuedNotifications() {
     }
   }
 }
-
-console.log('[SW] Local notification support loaded - no external push service required');

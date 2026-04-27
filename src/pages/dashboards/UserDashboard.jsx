@@ -115,10 +115,7 @@ export default function UserDashboard() {
                 setRejectionReason('');
             }
             mutate(); // Revalidate
-        } catch (error) {
-          if (import.meta.env.DEV) {
-            console.error('Error updating status:', error);
-          }
+        } catch {
             toast.error('Failed to update status');
             mutate(previousTickets, false); // Rollback
         }

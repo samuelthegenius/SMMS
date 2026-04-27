@@ -28,14 +28,6 @@ export function useLocalNotifications(userId) {
       if (hasNotification) {
         setPermission(Notification.permission);
       }
-
-      console.log('[LocalNotifications] Support check:', {
-        serviceWorker: hasServiceWorker,
-        notification: hasNotification,
-        periodicSync: hasPeriodicSync,
-        backgroundSync: hasBackgroundSync,
-        supported
-      });
     };
 
     checkSupport();
@@ -81,13 +73,10 @@ export function useLocalNotifications(userId) {
               minInterval: 15 * 60 * 1000 // 15 minutes minimum
             });
             setSyncRegistered(true);
-            console.log('[LocalNotifications] Periodic sync registered');
             return { type: 'periodic', registered: true };
-          } else {
-            console.log('[LocalNotifications] Periodic sync permission denied, falling back to polling');
           }
-        } catch (error) {
-          console.log('[LocalNotifications] Periodic sync failed:', error);
+        } catch {
+          // Periodic sync failed - will fall back to polling
         }
       }
 
@@ -95,7 +84,6 @@ export function useLocalNotifications(userId) {
       if ('sync' in registration) {
         await registration.sync.register('sync-notifications');
         setSyncRegistered(true);
-        console.log('[LocalNotifications] Background sync registered');
         return { type: 'sync', registered: true };
       }
 
@@ -191,8 +179,7 @@ export function useLocalNotifications(userId) {
       }
 
       return escalations || [];
-    } catch (error) {
-      console.error('[LocalNotifications] Check failed:', error);
+    } catch {
       return [];
     }
   }, [userId, showNotification]);

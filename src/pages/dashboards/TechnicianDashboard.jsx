@@ -166,10 +166,7 @@ export default function TechnicianDashboard() {
 
             toast.success(`Ticket marked as ${newStatus}`);
             mutate(); // Revalidate to ensure consistency
-        } catch (error) {
-          if (import.meta.env.DEV) {
-            console.error('Error updating status:', error);
-          }
+        } catch {
             toast.error('Failed to update status');
             mutate(previousJobs, false); // Rollback
         }
@@ -222,10 +219,7 @@ export default function TechnicianDashboard() {
                 toast.success(`Invalid complaint rejected by ${verifierName.toUpperCase()}`);
             }
             mutate(); // Revalidate
-        } catch (error) {
-          if (import.meta.env.DEV) {
-            console.error('Error verifying complaint:', error);
-          }
+        } catch {
             toast.error('Failed to verify complaint');
             mutate(previousJobs, false); // Rollback
         }
@@ -268,11 +262,8 @@ export default function TechnicianDashboard() {
                 data: suggestionData,
                 loading: false
             });
-        } catch (error) {
+        } catch {
             toast.error('Could not get AI suggestion');
-          if (import.meta.env.DEV) {
-            console.error('AI suggestion error:', error);
-          }
             setAiSuggestion({
                 ticketId: ticket.id,
                 data: { error: 'Failed to access AI service. Please try again.' },

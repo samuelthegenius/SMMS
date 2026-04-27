@@ -141,10 +141,7 @@ export const generateTicketReport = async (tickets) => {
 
         // Trigger the download
         doc.save(`MTU_Report_${dateString}.pdf`);
-    } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('Failed to generate PDF report:', error);
-      }
+    } catch (_error) {
         throw new Error('PDF generation failed. Please try again.');
     }
 };

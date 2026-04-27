@@ -16,7 +16,6 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Loader from './components/Loader';
 import InstallPrompt from './components/InstallPrompt';
 import { Toaster } from 'sonner';
-import { AlertTriangle } from 'lucide-react';
 // Eagerly load public pages for immediate render (homepage SEO + previews)
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
@@ -32,7 +31,6 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
 // Lazy load admin-specific components
 const SecurityDashboard = lazy(() => import('./pages/dashboards/SecurityDashboard'));
-const ReassignTechnician = lazy(() => import('./components/ReassignTechnician'));
 
 /**
  * @function GlobalLoader
@@ -74,45 +72,12 @@ function DashboardRouter() {
 
   if (!profile) return <Loader variant="simple" />;
 
-  // Debug: Log profile data for role detection troubleshooting
-  if (import.meta.env.DEV) {
-    console.log('[DashboardRouter] Profile data:', { 
-      id: profile?.id, 
-      role: activeRole, 
-      department, 
-      isStudentAffairs,
-      isFallback: profile?._isFallback 
-    });
-  }
-
-  // Warn if using fallback profile (missing profiles table row)
-  if (profile._isFallback && import.meta.env.DEV) {
-    console.warn(`[DashboardRouter] Fallback profile detected. Role: ${activeRole}, Expected: Check profiles table for user ${profile.id}`);
-  }
-
-  const FallbackWarning = profile?._isFallback ? (
-    <div className="bg-amber-50 border-l-4 border-amber-500 p-4 mb-4">
-      <div className="flex">
-        <AlertTriangle className="h-5 w-5 text-amber-500" />
-        <div className="ml-3">
-          <p className="text-sm text-amber-700">
-            <strong>Profile Warning:</strong> Your user profile is missing from the database. 
-            Role defaulted to &quot;{activeRole}&quot;. Please contact support to fix your profile.
-          </p>
-        </div>
-      </div>
-    </div>
-  ) : null;
-
   // Admin, Student Affairs staff, and SRC get admin dashboard
   if (activeRole === 'admin' || isStudentAffairs || activeRole === 'src') {
     return (
-      <>
-        {FallbackWarning}
-        <Suspense fallback={<Loader variant="admin" />}>
-          <AdminDashboard />
-        </Suspense>
-      </>
+      <Suspense fallback={<Loader variant="admin" />}>
+        <AdminDashboard />
+      </Suspense>
     );
   }
 
@@ -122,22 +87,16 @@ function DashboardRouter() {
     case 'technician':
     case 'porter':
       return (
-        <>
-          {FallbackWarning}
-          <Suspense fallback={<Loader variant="technician" />}>
-            <TechnicianDashboard />
-          </Suspense>
-        </>
+        <Suspense fallback={<Loader variant="technician" />}>
+          <TechnicianDashboard />
+        </Suspense>
       );
     case 'student':
     default:
       return (
-        <>
-          {FallbackWarning}
-          <Suspense fallback={<Loader variant="user" />}>
-            <UserDashboard />
-          </Suspense>
-        </>
+        <Suspense fallback={<Loader variant="user" />}>
+          <UserDashboard />
+        </Suspense>
       );
   }
 }

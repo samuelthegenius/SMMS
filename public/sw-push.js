@@ -43,8 +43,8 @@ self.addEventListener('push', (event) => {
         })
       }).catch(() => {})
     );
-  } catch (error) {
-    console.error('[SW] Push event error:', error);
+  } catch {
+    // Silent fail
   }
 });
 
@@ -138,4 +138,3 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
-console.log('[SW] Push notification support loaded');

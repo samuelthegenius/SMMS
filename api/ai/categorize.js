@@ -171,10 +171,8 @@ function parseCategorizationResponse(text) {
       result.reasoning = reasoningMatch[1].trim().substring(0, 200);
     }
     
-  } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Parse error:', error);
-    }
+  } catch {
+    // Parse error - use defaults
   }
   
   // Default fallback
@@ -299,11 +297,7 @@ Categorize this maintenance request:`;
       suggested: true
     });
 
-  } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Categorization error:', error);
-    }
-    
+  } catch {
     // Return safe fallback
     return res.status(500).json({ 
       category: "General Maintenance",

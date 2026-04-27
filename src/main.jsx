@@ -33,8 +33,4 @@ setTimeout(() => {
   performance.mark('react-render-end')
   performance.measure('react-render', 'react-render-start', 'react-render-end')
   
-  const measure = performance.getEntriesByName('react-render')[0]
-  if (import.meta.env.DEV) {
-    console.log(`⚛️ React render time: ${Math.round(measure.duration)}ms`)
-  }
 }, 0)

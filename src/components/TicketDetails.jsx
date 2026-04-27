@@ -1,5 +1,13 @@
 import { useState, useEffect } from 'react';
-import { X, Sparkles, Wrench, AlertTriangle, Loader2, ClipboardList, User, Wrench as WrenchIcon, MessageSquare, Info } from 'lucide-react';
+import { X, Sparkles, Wrench, AlertTriangle, Loader2, ClipboardList, User, Wrench as WrenchIcon, MessageSquare, Info, Clock } from 'lucide-react';
+import { 
+    updateTicketCategory, 
+    updateTicketPriority, 
+    updateTicketStatus,
+    getAICategorizationSuggestion,
+    getAIStatusSuggestion,
+    getAIPrioritySuggestion
+} from '../services/ai';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/useAuth';
 import { Button } from './ui/Button';
@@ -12,54 +20,20 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
     const [loading, setLoading] = useState(false);
     const [aiSuggestion, setAiSuggestion] = useState(null);
     const [error, setError] = useState(null);
-    const [reporterInfo, setReporterInfo] = useState(null);
-    const [technicianInfo, setTechnicianInfo] = useState(null);
-    const [userInfoLoading, setUserInfoLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('details'); // 'details' | 'chat'
     const [chatOpen, setChatOpen] = useState(false);
+    const [managementAction, setManagementAction] = useState(null);
+    const [managementLoading, setManagementLoading] = useState(false);
+    const [aiTyping, setAiTyping] = useState(false);
+    const [aiMgmtSuggestion, setAiMgmtSuggestion] = useState(null);
 
     const isTechnicianOrAdmin = profile?.role === 'technician' || profile?.role === 'admin';
     const isAdmin = profile?.role === 'admin';
 
-    // Fetch reporter and technician information
-    useEffect(() => {
-        const fetchUserInfo = async () => {
-            if (!ticket) return;
-            
-            setUserInfoLoading(true);
-            try {
-                // Fetch reporter information
-                const { data: reporterData } = await supabase
-                    .from('profiles')
-                    .select('full_name, email, department, identification_number')
-                    .eq('id', ticket.created_by)
-                    .single();
-                
-                setReporterInfo(reporterData);
-
-                // Fetch technician information if assigned
-                if (ticket.assigned_to) {
-                    const { data: technicianData } = await supabase
-                        .from('profiles')
-                        .select('full_name, email, department, identification_number')
-                        .eq('id', ticket.assigned_to)
-                        .single();
-                    
-                    setTechnicianInfo(technicianData);
-                } else {
-                    setTechnicianInfo(null);
-                }
-            } catch (err) {
-              if (import.meta.env.DEV) {
-                console.error('Error fetching user information:', err);
-              }
-            } finally {
-                setUserInfoLoading(false);
-            }
-        };
-
-        fetchUserInfo();
-    }, [ticket]);
+    // Use pre-fetched reporter and technician info from ticket prop
+    // Dashboards already fetch this data via joins or RPC functions
+    const reporterInfo = ticket?.reporter || null;
+    const technicianInfo = ticket?.technician || null;
 
     const handleAskAI = async () => {
         setLoading(true);
@@ -74,22 +48,82 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
             });
 
             if (error) throw error;
-            // The updated edge function now returns { suggestion: ... } or the raw JSON directly depending on implementation.
-            // Based on my edit, it returns the JSON object directly (technical_diagnosis, etc)
-            // or wrapped in suggestion key if I followed the plan strictly.
-            // Let's check my previous edit: I returned `JSON.stringify(jsonResponse)` 
-            // So `data` will be the actual JSON object.
-
             setAiSuggestion(data);
-        } catch (err) {
-          if (import.meta.env.DEV) {
-            console.error(err);
-          }
+        } catch {
             setError('Failed to load AI suggestion. Please try again.');
         } finally {
             setLoading(false);
         }
     };
+
+    // Handle ticket management actions
+    const handleManagementAction = async (action, value, reason = '') => {
+        setManagementLoading(true);
+        try {
+            let result;
+            let actionText;
+
+            switch (action) {
+                case 'recategorize':
+                    result = await updateTicketCategory(ticket.id, value, reason);
+                    actionText = `recategorized to ${value}`;
+                    break;
+                case 'reprioritize':
+                    result = await updateTicketPriority(ticket.id, value, reason);
+                    actionText = `reprioritized to ${value}`;
+                    break;
+                case 'change_status':
+                    result = await updateTicketStatus(ticket.id, value, reason);
+                    actionText = `status changed to ${value}`;
+                    break;
+                default:
+                    throw new Error('Invalid action');
+            }
+
+            toast.success(`Ticket ${actionText}`);
+            setManagementAction(null);
+
+            // Refresh parent component if needed
+            if (onReassign) onReassign();
+
+        } catch (err) {
+            toast.error(err.message || 'Failed to update ticket');
+        } finally {
+            setManagementLoading(false);
+        }
+    };
+
+    // Get AI suggestion for management action - stores for inline display
+    const handleGetAISuggestion = async (action) => {
+        setAiTyping(true);
+        try {
+            let suggestion;
+            
+            if (action === 'recategorize') {
+                suggestion = await getAICategorizationSuggestion(ticket.id);
+            } else if (action === 'change_status') {
+                suggestion = await getAIStatusSuggestion(ticket.id);
+            } else if (action === 'reprioritize') {
+                suggestion = await getAIPrioritySuggestion(ticket.id);
+            }
+
+            if (suggestion) {
+                setAiMgmtSuggestion(suggestion);
+            }
+
+        } catch (err) {
+            toast.error('Failed to get AI suggestion');
+        } finally {
+            setAiTyping(false);
+        }
+    };
+
+    // Auto-trigger AI when management action is opened
+    useEffect(() => {
+        if ((managementAction === 'recategorize' || managementAction === 'change_status' || managementAction === 'reprioritize') && !aiMgmtSuggestion) {
+            handleGetAISuggestion(managementAction);
+        }
+    }, [managementAction, aiMgmtSuggestion]);
 
     if (!ticket) return null;
 
@@ -163,18 +197,96 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
                                     {ticket.status}
                                 </span>
                             </div>
+                            <div>
+                                <span className="text-slate-500 block mb-1">Priority</span>
+                                <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                    ticket.priority === 'high' ? 'bg-red-100 text-red-700 border border-red-200' :
+                                    ticket.priority === 'medium' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                                    'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                }`}>
+                                    {ticket.priority?.toUpperCase() || 'MEDIUM'}
+                                </span>
+                            </div>
+                            <div>
+                                <span className="text-slate-500 block mb-1">Created</span>
+                                <span className="font-medium text-slate-900">
+                                    {ticket.created_at ? new Date(ticket.created_at).toLocaleString() : 'N/A'}
+                                </span>
+                            </div>
                         </div>
+
+                        {/* Ticket Management Panel - Only for staff */}
+                        {isTechnicianOrAdmin && (
+                            <div className="border-t border-slate-100 pt-6">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <Wrench className="w-4 h-4 text-blue-600" />
+                                    <h4 className="text-sm font-semibold text-slate-900">Manage Ticket</h4>
+                                </div>
+                                
+                                {!managementAction ? (
+                                    <div className="flex gap-2 flex-wrap">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => {
+                                                setAiMgmtSuggestion(null);
+                                                setManagementAction('change_status');
+                                            }}
+                                            className="text-xs border-blue-200 text-blue-700 hover:bg-blue-100"
+                                        >
+                                            <Clock className="w-3 h-3 mr-1" />
+                                            Change Status
+                                        </Button>
+                                        {(isTechnicianOrAdmin) && (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setAiMgmtSuggestion(null);
+                                                    setManagementAction('recategorize');
+                                                }}
+                                                className="text-xs border-blue-200 text-blue-700 hover:bg-blue-100"
+                                            >
+                                                <Wrench className="w-3 h-3 mr-1" />
+                                                Change Category
+                                            </Button>
+                                        )}
+                                        {isAdmin && (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setAiMgmtSuggestion(null);
+                                                    setManagementAction('reprioritize');
+                                                }}
+                                                className="text-xs border-blue-200 text-blue-700 hover:bg-blue-100"
+                                            >
+                                                <AlertTriangle className="w-3 h-3 mr-1" />
+                                                Change Priority
+                                            </Button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <ManagementActionForm
+                                        action={managementAction}
+                                        ticket={ticket}
+                                        onCancel={() => {
+                                            setAiMgmtSuggestion(null);
+                                            setManagementAction(null);
+                                        }}
+                                        onSubmit={handleManagementAction}
+                                        onGetAISuggestion={handleGetAISuggestion}
+                                        loading={managementLoading}
+                                        aiTyping={aiTyping}
+                                        aiSuggestion={aiMgmtSuggestion}
+                                    />
+                                )}
+                            </div>
+                        )}
 
                         {/* Reporter and Technician Information */}
                         <div className="border-t border-slate-100 pt-6">
                             <h4 className="text-sm font-semibold text-slate-900 mb-4">People Involved</h4>
-                            
-                            {userInfoLoading ? (
-                                <div className="flex items-center justify-center py-4">
-                                    <Loader2 className="w-4 h-4 animate-spin text-slate-400 mr-2" />
-                                    <span className="text-sm text-slate-500">Loading user information...</span>
-                                </div>
-                            ) : (
                                 <div className="space-y-4">
                                     {/* Reporter Information */}
                                     <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
@@ -248,7 +360,6 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
                                         )}
                                     </div>
                                 </div>
-                            )}
                         </div>
                     </div>
 
@@ -340,5 +451,199 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
             </div>
         </div>
     </div>
+    );
+}
+
+// Management Action Form Component
+function ManagementActionForm({ action, ticket, onCancel, onSubmit, onGetAISuggestion, loading, aiTyping, aiSuggestion }) {
+    const [value, setValue] = useState('');
+    const [reason, setReason] = useState('');
+
+    const categories = [
+        'Electrical', 'Plumbing', 'HVAC (Air Conditioning)', 'Carpentry & Furniture',
+        'IT & Networking', 'General Maintenance', 'Painting', 'Civil Works',
+        'Appliance Repair', 'Cleaning Services'
+    ];
+    
+    const priorities = ['Low', 'Medium', 'High'];
+    const statuses = ['Open', 'In Progress', 'Resolved', 'Closed', 'Escalated', 'Pending Verification'];
+
+    const getOptions = () => {
+        switch (action) {
+            case 'recategorize':
+                return categories;
+            case 'reprioritize':
+                return priorities;
+            case 'change_status':
+                return statuses;
+            default:
+                return [];
+        }
+    };
+
+    const getCurrentValue = () => {
+        switch (action) {
+            case 'recategorize':
+                return ticket.category;
+            case 'reprioritize':
+                return ticket.priority;
+            case 'change_status':
+                return ticket.status;
+            default:
+                return '';
+        }
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!value) return;
+        onSubmit(action, value, reason);
+    };
+
+    const handleGetAISuggestion = () => {
+        onGetAISuggestion(action);
+    };
+
+    const handleAcceptAISuggestion = () => {
+        if (aiSuggestion?.suggested_value) {
+            setValue(aiSuggestion.suggested_value);
+            if (aiSuggestion.reasoning) {
+                setReason(`AI: ${aiSuggestion.reasoning}`);
+            }
+        }
+    };
+
+    // Parse AI suggestion value from various formats
+    const getAISuggestedValue = () => {
+        if (!aiSuggestion) return null;
+        // Handle different response formats from edge function
+        if (aiSuggestion.suggested_value) return aiSuggestion.suggested_value;
+        if (aiSuggestion.category) return aiSuggestion.category;
+        if (aiSuggestion.status) return aiSuggestion.status;
+        if (aiSuggestion.action_type) return aiSuggestion.action_type;
+        return null;
+    };
+
+    const aiSuggestedValue = getAISuggestedValue();
+    const isAIRecommended = aiSuggestedValue && aiSuggestedValue !== getCurrentValue();
+
+    return (
+        <form onSubmit={handleSubmit} className="bg-blue-50/50 rounded-xl p-4 border border-blue-100 space-y-3">
+            <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-blue-700 capitalize">
+                    {action.replace('_', ' ')} Ticket
+                </span>
+                <button
+                    type="button"
+                    onClick={onCancel}
+                    className="text-xs text-blue-600 hover:text-blue-800"
+                >
+                    Cancel
+                </button>
+            </div>
+
+            <div>
+                <label className="block text-xs font-medium text-blue-700 mb-1">
+                    New {action.replace('_', ' ')}
+                </label>
+                <select
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                    required
+                >
+                    <option value="">Select {action.replace('_', ' ')}</option>
+                    {getOptions().map(opt => (
+                        <option key={opt} value={opt} disabled={opt === getCurrentValue()}>
+                            {opt} {opt === getCurrentValue() ? ' (current)' : ''}
+                        </option>
+                    ))}
+                </select>
+            </div>
+
+            {/* AI Suggestion Display */}
+            {aiSuggestion && (
+                <div className="bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 rounded-lg p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-violet-600" />
+                        <span className="text-xs font-semibold text-violet-900">AI Recommendation</span>
+                        {aiSuggestion.confidence && (
+                            <span className="text-[10px] bg-violet-200 text-violet-800 px-1.5 py-0.5 rounded-full">
+                                {Math.round(aiSuggestion.confidence * 100)}% confidence
+                            </span>
+                        )}
+                    </div>
+                    
+                    {aiSuggestedValue && (
+                        <div className="text-sm">
+                            <span className="text-violet-700 font-medium">Suggested: </span>
+                            <span className="text-violet-900 font-semibold">{aiSuggestedValue}</span>
+                        </div>
+                    )}
+                    
+                    {aiSuggestion.reasoning && (
+                        <p className="text-xs text-violet-700 leading-relaxed">
+                            {aiSuggestion.reasoning}
+                        </p>
+                    )}
+                    
+                    {isAIRecommended && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleAcceptAISuggestion}
+                            className="w-full border-violet-300 text-violet-700 hover:bg-violet-100 text-xs"
+                        >
+                            <Sparkles className="w-3 h-3 mr-1" />
+                            Accept AI Suggestion
+                        </Button>
+                    )}
+                </div>
+            )}
+
+            <div>
+                <label className="block text-xs font-medium text-blue-700 mb-1">
+                    Reason (optional)
+                </label>
+                <textarea
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    placeholder="Why is this change needed?"
+                    className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-white"
+                    rows={2}
+                />
+            </div>
+
+            <div className="flex gap-2">
+                <Button
+                    type="submit"
+                    disabled={loading || !value || value === getCurrentValue()}
+                    isLoading={loading}
+                    size="sm"
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                    Update {action.replace('_', ' ')}
+                </Button>
+                
+                {(action === 'recategorize' || action === 'change_status' || action === 'reprioritize') && (
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleGetAISuggestion}
+                        disabled={loading || aiTyping}
+                        size="sm"
+                        className="border-blue-200 text-blue-700 hover:bg-blue-50"
+                    >
+                        {aiTyping ? (
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        ) : (
+                            <Sparkles className="w-3 h-3 mr-1" />
+                        )}
+                        {aiSuggestion ? 'Refresh AI' : 'AI Suggest'}
+                    </Button>
+                )}
+            </div>
+        </form>
     );
 }

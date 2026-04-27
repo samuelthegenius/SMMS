@@ -6,9 +6,6 @@ export const useAuth = () => {
     
     // If context is not available, return default values to prevent crashes
     if (!context) {
-        if (import.meta.env.DEV) {
-          console.warn('useAuth was called outside of AuthProvider. Returning default values.');
-        }
         return {
             user: null,
             profile: null,

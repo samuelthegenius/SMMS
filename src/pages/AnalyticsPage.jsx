@@ -41,9 +41,6 @@ export default function AnalyticsPage() {
             const { data, error } = await supabase.rpc('get_admin_tickets');
             
             if (error) {
-              if (import.meta.env.DEV) {
-                console.error('RPC function failed, using fallback query:', error);
-              }
                 // Fallback to direct query with proper joins
                 const { data: fallbackData, error: fallbackError } = await supabase
                     .from('tickets')
@@ -66,9 +63,6 @@ export default function AnalyticsPage() {
                     .order('created_at', { ascending: false });
                 
                 if (fallbackError) {
-                  if (import.meta.env.DEV) {
-                    console.error("Error fetching analytics data (fallback):", fallbackError);
-                  }
                     setError('Failed to load analytics data. Please try again.');
                 } else {
                     const newTickets = fallbackData || [];
@@ -85,10 +79,7 @@ export default function AnalyticsPage() {
                     setTickets(newTickets);
                 }
             }
-        } catch (error) {
-          if (import.meta.env.DEV) {
-            console.error('Error fetching analytics data:', error);
-          }
+        } catch {
             setError('Failed to load analytics data. Please try again.');
         } finally {
             setLoading(false);

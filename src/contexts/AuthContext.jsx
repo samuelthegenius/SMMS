@@ -2,7 +2,7 @@
  * @file src/contexts/AuthContext.jsx
  * @description Non-blocking Authentication Provider using React 18 Concurrent Features.
  */
-import { createContext, useEffect, useState, useRef, useCallback, useTransition } from 'react';
+import { createContext, useEffect, useState, useRef, useCallback, useTransition, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext({});
@@ -25,7 +25,7 @@ export function AuthProvider({ children }) {
     const fetchProfile = useCallback(async (userId, currentUser, retryCount = 0) => {
         const cache = profileCacheRef.current;
         const cached = cache.get(userId);
-        
+
         if (cached && (Date.now() - cached.timestamp) < 300000) {
             startTransition(() => setProfile(cached.data));
             return;
@@ -35,11 +35,38 @@ export function AuthProvider({ children }) {
         if (retryCount === 0 && fetchingProfileRef.current === userId) return;
         fetchingProfileRef.current = userId;
 
-        try {
-            const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('timeout')), 5000)
+        // Helper to check if error is network-related (retryable)
+        const isNetworkError = (err) => {
+            if (!err) return false;
+            const networkErrorCodes = ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED'];
+            const networkErrorMessages = ['Failed to fetch', 'NetworkError', 'timeout', 'aborted'];
+            return (
+                networkErrorCodes.includes(err.code) ||
+                networkErrorMessages.some(msg => err.message?.includes(msg)) ||
+                err.name === 'TypeError' // Usually indicates network failure
             );
-            
+        };
+
+        // Helper to create fallback profile (only when row is confirmed missing)
+        const createFallbackProfile = (reason) => {
+            const rawRole = currentUser?.user_metadata?.role || 'student';
+            const normalizedRole = rawRole === 'staff_member' ? 'staff' : rawRole;
+            return {
+                id: userId,
+                email: currentUser?.email || '',
+                role: normalizedRole,
+                full_name: currentUser?.user_metadata?.full_name || 'Unknown User',
+                department: currentUser?.user_metadata?.department || '',
+                _isFallback: true,
+                _fallbackReason: reason,
+            };
+        };
+
+        try {
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('timeout')), 8000)
+            );
+
             const fetchPromise = supabase
                 .from('profiles')
                 .select('*')
@@ -50,61 +77,41 @@ export function AuthProvider({ children }) {
 
             if (!error && data) {
                 // Profile found — use it
-                if (import.meta.env.DEV) {
-                    console.log('[AuthContext] Profile loaded from DB:', { 
-                        id: data.id, 
-                        role: data.role, 
-                        department: data.department,
-                        full_name: data.full_name 
-                    });
-                }
                 startTransition(() => setProfile(data));
                 cache.set(userId, { data, timestamp: Date.now() });
             } else if (!error && !data) {
-                // maybeSingle() returns null data (no error) when no row is found.
-                // Build a fallback from auth user_metadata so the app doesn't hang.
-                // IMPORTANT: This indicates the profiles table row is missing!
-                // Normalize role: staff_member -> staff
-                const rawRole = currentUser?.user_metadata?.role || 'student';
-                const normalizedRole = rawRole === 'staff_member' ? 'staff' : rawRole;
-                const defaultProfile = {
-                    id: userId,
-                    email: currentUser?.email || '',
-                    role: normalizedRole,
-                    full_name: currentUser?.user_metadata?.full_name || 'Unknown User',
-                    department: currentUser?.user_metadata?.department || '',
-                    _isFallback: true, // Flag to indicate missing profile row
-                };
-                if (import.meta.env.DEV) {
-                    console.warn(`[AuthContext] Profile row missing for user ${userId}. Using fallback profile. Please ensure the profiles table has a row for this user.`);
-                }
-                startTransition(() => setProfile(defaultProfile));
-                cache.set(userId, { data: defaultProfile, timestamp: Date.now() });
-            } else if (error && error.code !== 'PGRST116') {
-                // Actual DB error — don't swallow it; let retry handle it
+                // Confirmed: profile row is missing from database (not a network error)
+                // This is a permanent condition - use fallback
+                const fallback = createFallbackProfile('missing_row');
+                startTransition(() => setProfile(fallback));
+                cache.set(userId, { data: fallback, timestamp: Date.now() });
+            } else {
+                // Got an error from Supabase - throw to retry logic
                 throw error;
             }
-        } catch {
-            if (retryCount < 1) {
-                await new Promise(r => setTimeout(r, 1000));
+        } catch (err) {
+            // Check if this is a network error that we should retry
+            const isRetryable = isNetworkError(err) || (err?.code && err.code.startsWith('PGRST'));
+
+            if (isRetryable && retryCount < 3) {
+                // Exponential backoff: 1s, 2s, 4s
+                const backoffMs = Math.min(1000 * Math.pow(2, retryCount), 4000);
+                await new Promise(r => setTimeout(r, backoffMs));
                 return fetchProfile(userId, currentUser, retryCount + 1);
             }
-            // After retries, build minimal fallback so the UI doesn't hang forever
-            // Normalize role: staff_member -> staff
-            const rawRole = currentUser?.user_metadata?.role || 'student';
-            const normalizedRole = rawRole === 'staff_member' ? 'staff' : rawRole;
-            const fallback = {
-                id: userId,
-                email: currentUser?.email || '',
-                role: normalizedRole,
-                full_name: currentUser?.user_metadata?.full_name || 'Unknown User',
-                department: currentUser?.user_metadata?.department || '',
-                _isFallback: true, // Flag to indicate missing profile row
-            };
-            if (import.meta.env.DEV) {
-                console.warn(`[AuthContext] Profile fetch failed for user ${userId} after retries. Using fallback profile.`);
+
+            // Max retries reached or non-retryable error
+            // Check if this is a confirmed "row not found" case (PGRST116 = no rows)
+            if (err?.code === 'PGRST116') {
+                const fallback = createFallbackProfile('missing_row');
+                startTransition(() => setProfile(fallback));
+                cache.set(userId, { data: fallback, timestamp: Date.now() });
+            } else {
+                // Network or other error - don't fall back, keep loading state
+                // The UI will show a loader until profile is fetched
+                // Don't set any profile - let the UI continue showing loading state
+                // The user can refresh the page to retry
             }
-            startTransition(() => setProfile(fallback));
         } finally {
             if (fetchingProfileRef.current === userId) {
                 fetchingProfileRef.current = null;
@@ -198,7 +205,7 @@ export function AuthProvider({ children }) {
 		};
 	}, [fetchProfile, startTransition]);
 
-    const value = {
+    const value = useMemo(() => ({
         user,
         profile,
         // Note: do NOT include isPending here. isPending from useTransition is
@@ -216,7 +223,7 @@ export function AuthProvider({ children }) {
         isPorter: profile?.role === 'porter',
         // Department-based admin access
         hasAdminAccess: profile?.role === 'admin' || profile?.department === 'Student Affairs' || profile?.role === 'src',
-    };
+    }), [user, profile, loading, authReady, backendUnreachable]);
 
     return (
         <AuthContext.Provider value={value}>

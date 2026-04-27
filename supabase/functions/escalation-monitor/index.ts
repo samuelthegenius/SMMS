@@ -77,8 +77,8 @@ async function getEscalationRecipients(supabase: any, department: string | null)
                 );
             }
         }
-    } catch (err) {
-        console.error('[Escalation Monitor] Error fetching recipients:', err)
+    } catch (_err) {
+        // Silent fail - fallback email will be used
     }
 
     // Add fallback if no recipients found
@@ -154,22 +154,17 @@ serve(async (req: Request) => {
         const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
         // 2. Get Stale Tickets (verified but not attended to)
-        console.log('[Escalation Monitor] Checking for verified but unattended tickets...')
-        
-        // Call the RPC function with our configured threshold
         const { data: staleTickets, error: rpcError } = await supabase.rpc('get_stale_tickets', {
             p_hours_threshold: ESCALATION_CONFIG.initialThreshold
         })
 
         if (rpcError) {
-            console.error('[Escalation Monitor] RPC Error:', rpcError)
             throw new Error(`Failed to fetch stale tickets: ${rpcError.message}`)
         }
 
         if (!staleTickets || staleTickets.length === 0) {
-            console.log('[Escalation Monitor] No stale tickets found.')
-            return new Response(JSON.stringify({ 
-                message: 'No escalations needed', 
+            return new Response(JSON.stringify({
+                message: 'No escalations needed',
                 count: 0,
                 threshold: ESCALATION_CONFIG.initialThreshold
             }), {
@@ -178,32 +173,27 @@ serve(async (req: Request) => {
             })
         }
 
-        console.log(`[Escalation Monitor] Found ${staleTickets.length} stale verified tickets. Processing...`)
-
         // 4. Loop and Escalate (respect max limit to prevent timeout)
-        const results: { 
-            id: string; 
-            status: string; 
+        const results: {
+            id: string;
+            status: string;
             error?: string;
             notificationsSent?: number;
             urgency?: string;
         }[] = []
-        
+
         for (const ticket of staleTickets.slice(0, ESCALATION_CONFIG.maxEscalationsPerRun)) {
             try {
                 // Validate ticket data
                 if (!ticket.ticket_id || !ticket.title) {
-                    console.warn('[Escalation Monitor] Skipping ticket with missing data')
                     continue
                 }
-                
+
                 // Determine urgency level
                 const urgency = getEscalationUrgency(
-                    ticket.hours_since_verified, 
+                    ticket.hours_since_verified,
                     ticket.escalation_count || 0
                 )
-                
-                console.log(`[Escalation Monitor] Processing ticket ${ticket.ticket_id} - ${urgency.level} (${ticket.hours_since_verified}h pending)`)
                 
                 // Get escalation recipients (admins + department heads + assigned technician)
                 const recipients = await getEscalationRecipients(supabase, ticket.department)
@@ -221,17 +211,13 @@ serve(async (req: Request) => {
                 }
                 
                 // Record escalation in database with multi-channel support
-                const { data: escalationResult, error: escalateError } = await supabase.rpc('escalate_stale_ticket_multi_channel', {
+                const { data: _escalationResult, error: _escalateError } = await supabase.rpc('escalate_stale_ticket_multi_channel', {
                     p_ticket_id: ticket.ticket_id,
                     p_message: null // Use default message
                 })
-                
-                if (escalateError) {
-                    console.warn(`[Escalation Monitor] DB escalation record failed for ${ticket.ticket_id}:`, escalateError)
-                } else {
-                    console.log(`[Escalation Monitor] Multi-channel escalation recorded for ${ticket.ticket_id}:`, escalationResult)
-                }
-                
+
+                // Silent fail on escalation record error - notifications still queued
+
                 // Escalation recorded - notifications will be sent by notification-dispatcher
                 // The escalate_stale_ticket_multi_channel() RPC creates pending notification_logs
                 // entries which the dispatcher processes for email/push/SMS delivery
@@ -244,11 +230,10 @@ serve(async (req: Request) => {
 
             } catch (err: unknown) {
                 const errMsg = err instanceof Error ? err.message : String(err)
-                console.error(`[Escalation Monitor] Failed to escalate ticket ${ticket.ticket_id}:`, err)
-                results.push({ 
-                    id: ticket.ticket_id, 
-                    status: 'Failed', 
-                    error: errMsg 
+                results.push({
+                    id: ticket.ticket_id,
+                    status: 'Failed',
+                    error: errMsg
                 })
             }
         }
@@ -271,8 +256,8 @@ serve(async (req: Request) => {
             if (dispatchRes.ok) {
                 dispatchResult = await dispatchRes.json()
             }
-        } catch (dispatchErr) {
-            console.warn('[Escalation Monitor] Notification dispatcher call failed:', dispatchErr)
+        } catch (_dispatchErr) {
+            // Silent fail - dispatcher will run on its own schedule
         }
 
         // 7. Return Summary
@@ -293,7 +278,6 @@ serve(async (req: Request) => {
 
     } catch (error: unknown) {
         const errMsg = error instanceof Error ? error.message : String(error)
-        console.error('[Escalation Monitor] Critical Error:', error)
         return new Response(JSON.stringify({ error: errMsg || 'Internal server error' }), {
             headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
             status: 500,

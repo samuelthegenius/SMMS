@@ -129,8 +129,8 @@ serve(async (req: Request) => {
                         })
                     }
                 }
-	} catch (imgError) {
-				console.warn('Image processing failed:', imgError instanceof Error ? imgError.message : 'Unknown error')
+	} catch (_imgError) {
+				// Image processing failed - continue without image
 			}
         }
 
@@ -293,7 +293,6 @@ Keep responses concise and professional.
 
     } catch (error: unknown) {
         const errMsg = error instanceof Error ? error.message : String(error)
-        console.error(`[suggest-fix] Failed: ${errMsg}`)
         return new Response(JSON.stringify({ error: errMsg || 'Internal server error' }), {
             headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
             status: errMsg?.includes('blocked') ? 403 : 400,

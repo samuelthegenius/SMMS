@@ -106,9 +106,6 @@ export async function smartSuggestFix(ticketDescription, ticketCategory = 'Gener
     return { ...result, source: 'gemini-free' };
   } catch {
     // If free tier fails (rate limit, etc.), fallback to AI Gateway
-    if (import.meta.env.DEV) {
-      console.warn('Free tier failed, falling back to AI Gateway');
-    }
     const result = await suggestFixViaGateway(ticketDescription, ticketCategory, image_url);
     return { ...result, source: 'ai-gateway-fallback' };
   }
@@ -189,16 +186,12 @@ export async function autoCategorizeWithFallback(title, description = '', facili
       reasoning: result.reasoning,
       source: 'gemini-free'
     };
-  } catch (error) {
-    if (import.meta.env.DEV) {
-      console.warn('Supabase categorization failed, trying Vercel Gateway:', error);
-    }
-    
+  } catch {
     // Fallback to Vercel AI Gateway (paid)
     try {
       const result = await categorizeTicketViaGateway(title, description, facilityType);
       const autoAssigned = result.confidence >= confidenceThreshold && result.suggested;
-      
+
       return {
         category: result.category,
         department: result.department,
@@ -207,11 +200,7 @@ export async function autoCategorizeWithFallback(title, description = '', facili
         reasoning: result.reasoning,
         source: 'ai-gateway-fallback'
       };
-    } catch (fallbackError) {
-      if (import.meta.env.DEV) {
-        console.warn('Vercel fallback also failed:', fallbackError);
-      }
-      
+    } catch {
       // Return null to indicate manual selection needed
       return {
         category: null,
@@ -284,6 +273,7 @@ export async function summarizeChat(ticketId) {
     body: {
       ticket_id: ticketId,
       action: 'summarize',
+      message: 'Summarize chat',
     },
   });
 
@@ -327,11 +317,7 @@ export async function smartAIChat(ticketId, message, chatHistory = [], preferGat
     // Try free tier first
     const result = await askAIAssistant(ticketId, message, chatHistory);
     return { ...result, source: 'gemini-free' };
-  } catch (error) {
-    if (import.meta.env.DEV) {
-      console.warn('Supabase AI chat failed, trying API route:', error);
-    }
-
+  } catch {
     // Fallback to API route
     try {
       const response = await fetch(`${API_BASE}/ai/chat`, {
@@ -349,10 +335,7 @@ export async function smartAIChat(ticketId, message, chatHistory = [], preferGat
 
       const result = await response.json();
       return { ...result, source: 'api-fallback' };
-    } catch (fallbackError) {
-      if (import.meta.env.DEV) {
-        console.warn('API fallback also failed:', fallbackError);
-      }
+    } catch {
       throw new Error('AI assistant temporarily unavailable');
     }
   }
@@ -371,15 +354,14 @@ export async function smartAIChat(ticketId, message, chatHistory = [], preferGat
  * @returns {Promise<{success: boolean, ticket: object, new_repair_guide?: object}>}
  */
 export async function updateTicketCategory(ticketId, newCategory, reason = '', aiSuggestion = '') {
-  const response = await fetch(`${API_BASE}/ticket-management`, {
-    method: 'POST',
+  const response = await fetch(`${API_BASE}/tickets`, {
+    method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      ticket_id: ticketId,
-      action: 'recategorize',
-      new_value: newCategory,
+      id: ticketId,
+      category: newCategory,
       reason,
       ai_suggestion: aiSuggestion,
     }),
@@ -401,15 +383,14 @@ export async function updateTicketCategory(ticketId, newCategory, reason = '', a
  * @returns {Promise<{success: boolean, ticket: object}>}
  */
 export async function updateTicketPriority(ticketId, newPriority, reason = '') {
-  const response = await fetch(`${API_BASE}/ticket-management`, {
-    method: 'POST',
+  const response = await fetch(`${API_BASE}/tickets`, {
+    method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      ticket_id: ticketId,
-      action: 'reprioritize',
-      new_value: newPriority,
+      id: ticketId,
+      priority: newPriority,
       reason,
     }),
   });
@@ -430,15 +411,14 @@ export async function updateTicketPriority(ticketId, newPriority, reason = '') {
  * @returns {Promise<{success: boolean, ticket: object}>}
  */
 export async function updateTicketStatus(ticketId, newStatus, reason = '') {
-  const response = await fetch(`${API_BASE}/ticket-management`, {
-    method: 'POST',
+  const response = await fetch(`${API_BASE}/tickets`, {
+    method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      ticket_id: ticketId,
-      action: 'change_status',
-      new_value: newStatus,
+      id: ticketId,
+      status: newStatus,
       reason,
     }),
   });
@@ -461,6 +441,7 @@ export async function getAICategorizationSuggestion(ticketId) {
     body: {
       ticket_id: ticketId,
       action: 'suggest_categorization',
+      message: 'Suggest categorization',
     },
   });
 
@@ -481,11 +462,33 @@ export async function getAIStatusSuggestion(ticketId) {
     body: {
       ticket_id: ticketId,
       action: 'suggest_status_change',
+      message: 'Suggest status change',
     },
   });
 
   if (error) {
     throw new Error(error.message || 'Failed to get AI status suggestion');
+  }
+
+  return data;
+}
+
+/**
+ * Get AI suggestion for priority change
+ * @param {string} ticketId - The ticket ID
+ * @returns {Promise<{suggestion: string, action_type: string}>}
+ */
+export async function getAIPrioritySuggestion(ticketId) {
+  const { data, error } = await supabase.functions.invoke('ai-chat-assistant', {
+    body: {
+      ticket_id: ticketId,
+      action: 'suggest_priority',
+      message: 'Suggest priority',
+    },
+  });
+
+  if (error) {
+    throw new Error(error.message || 'Failed to get AI priority suggestion');
   }
 
   return data;

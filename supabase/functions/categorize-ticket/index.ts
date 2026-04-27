@@ -102,8 +102,8 @@ const parseCategorizationResponse = (text: string) => {
       result.reasoning = reasoningMatch[1].trim().substring(0, 200)
     }
     
-  } catch (error) {
-    console.error('Parse error:', error)
+  } catch (_error) {
+    // Parse error - will use default fallback
   }
   
   // Default fallback
@@ -251,19 +251,18 @@ Categorize this maintenance request:`
 
     } catch (error: unknown) {
         const errMsg = error instanceof Error ? error.message : String(error)
-        console.error(`[categorize-ticket] Failed: ${errMsg}`)
-        
+
         // Return safe fallback
-        return new Response(JSON.stringify({ 
+        return new Response(JSON.stringify({
             category: "General Maintenance",
             department: "General Facilities",
             confidence: 0,
             reasoning: "AI categorization unavailable - using default",
             suggested: false,
             error: errMsg || 'Internal server error'
-        }), { 
+        }), {
             headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
-            status: 500 
+            status: 500
         })
     }
 })

@@ -84,16 +84,13 @@ serve(async (req: Request) => {
 
         const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-        // 1. Debug Logging
         const payload = await req.json()
-        console.log("Webhook Payload:", JSON.stringify(payload))
 
-        // 2. Robust Payload Extraction
+        // Robust Payload Extraction
         const record = payload.record || payload
         const oldRecord = payload.old_record
 
         if (!record) {
-            console.error("Invalid Payload Structure: Missing 'record'")
             return new Response(JSON.stringify({ error: 'Invalid Payload Structure' }), {
                 headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
                 status: 400,
@@ -108,8 +105,6 @@ serve(async (req: Request) => {
             const reporterId = record.created_by || record.user_id
 
             if (reporterId) {
-                console.log(`Processing 'Pending Verification' for Reporter ID: ${reporterId}`);
-
                 // Fetch Reporter Profile (only fetch needed fields)
                 const { data: profile, error: profileError } = await supabase
                     .from('profiles')
@@ -136,11 +131,7 @@ serve(async (req: Request) => {
 
                     await sendViaEmailJS(profile.email, emailSubject, emailBody);
                     emailsSent.push(`Reporter (${profile.email})`);
-                } else {
-                    console.error('Profile query failed or no email:', profileError);
                 }
-            } else {
-                console.error("No Reporter ID found in ticket data:", JSON.stringify(record));
             }
         }
 
@@ -148,8 +139,6 @@ serve(async (req: Request) => {
         const isNewRejection = record.rejection_reason && (!oldRecord || record.rejection_reason !== oldRecord.rejection_reason);
 
         if (isNewRejection) {
-            console.log(`Processing 'Rejection' for Ticket #${record.id}`);
-
             // Fetch Admin Email
             const getAdminEmail = async () => {
                 const { data, error: _error } = await supabase
@@ -206,7 +195,6 @@ serve(async (req: Request) => {
 
     } catch (error: unknown) {
         const errMsg = error instanceof Error ? error.message : String(error)
-        console.error("Edge Function Error:", error)
         return new Response(JSON.stringify({ error: errMsg || 'Internal server error' }), {
             headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
             status: 400,

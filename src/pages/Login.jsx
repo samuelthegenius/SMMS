@@ -136,9 +136,6 @@ export default function Login() {
                 }
 
                 if (error) {
-                  if (import.meta.env.DEV) {
-                    console.error('RPC error:', error);
-                  }
                     // Handle rate limit errors from server
                     if (error.message?.includes('Too many attempts')) {
                         throw new Error(error.message);
@@ -163,10 +160,6 @@ export default function Login() {
 
             if (authError) {
                 recordFailedAttempt();
-                if (import.meta.env.DEV) {
-                  console.error('Supabase auth error:', authError);
-                }
-                
                 // Generic error message to prevent user enumeration
                 if (authError.message.includes('Invalid login credentials')) {
                     throw new Error('Invalid ID Number or password');
@@ -181,10 +174,6 @@ export default function Login() {
             // Navigate to dashboard - the routing system will handle the auth state
             navigate('/dashboard');
         } catch (error) {
-            if (import.meta.env.DEV) {
-              console.error('Login error:', error);
-            }
-
             // Network failure — the server is unreachable, not a bad password
             if (isNetworkFailure(error)) {
                 toast.error(

@@ -69,6 +69,98 @@ function base64UrlToUint8Array(base64Url: string): Uint8Array {
     return new Uint8Array([...rawData].map(c => c.charCodeAt(0)))
 }
 
+// Helper function to extract urgency info from message and build styled email
+function buildEscalationEmail(message: string, ticketId: string): { subject: string; html: string } {
+    // Parse urgency from message format: "🚨 CRITICAL ESCALATION #3: \"title\" at location • X.X hours pending • PRIORITY priority"
+    const urgencyMatch = message.match(/^(🚨|⚠️|⏰|📋)\s*(CRITICAL|URGENT|FOLLOW-UP|INITIAL)\s*ESCALATION\s*#(\d+):\s*"([^"]+)"\s*at\s*([^•]+)\s*•\s*([\d.]+)\s*hours\s*pending\s*•\s*(HIGH|MEDIUM|NORMAL)\s*priority/i)
+
+    if (!urgencyMatch) {
+        // Fallback for legacy messages
+        return {
+            subject: `SMMS: ${message.substring(0, 60)}...`,
+            html: `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h2 style="color: #DC2626; margin: 0 0 16px 0;">SMMS Escalation Alert</h2>
+                <p style="font-size: 16px; line-height: 1.5; color: #374151;">${message}</p>
+                <a href="${Deno.env.get('DASHBOARD_URL') || 'https://mtusmms.me'}/ticket/${ticketId}"
+                   style="display: inline-block; background: #4F46E5; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; margin-top: 20px;">
+                    View Ticket
+                </a>
+            </div>`
+        }
+    }
+
+    const [, icon, level, escalationNum, title, location, hours, priority] = urgencyMatch
+
+    // Color scheme based on urgency
+    const colors: Record<string, { bg: string; border: string; text: string; badge: string }> = {
+        'CRITICAL': { bg: '#FEF2F2', border: '#DC2626', text: '#991B1B', badge: '#DC2626' },
+        'URGENT': { bg: '#FFF7ED', border: '#EA580C', text: '#9A3412', badge: '#EA580C' },
+        'FOLLOW-UP': { bg: '#FFFBEB', border: '#D97706', text: '#92400E', badge: '#D97706' },
+        'INITIAL': { bg: '#ECFDF5', border: '#059669', text: '#065F46', badge: '#059669' }
+    }
+
+    const scheme = colors[level] || colors['INITIAL']
+    const priorityBadgeColor = priority === 'HIGH' ? '#DC2626' : priority === 'MEDIUM' ? '#D97706' : '#059669'
+
+    const dashboardUrl = Deno.env.get('DASHBOARD_URL') || 'https://mtusmms.me'
+
+    return {
+        subject: `${icon} ${level}: Ticket #${ticketId?.slice(0, 8)} Requires Immediate Attention`,
+        html: `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; max-width: 640px; margin: 0 auto; background: #ffffff;">
+            <!-- Header -->
+            <div style="background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); padding: 32px 24px; text-align: center;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">🏛️ MTU SMMS</h1>
+                <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 14px;">Maintenance Management System</p>
+            </div>
+
+            <!-- Alert Banner -->
+            <div style="background: ${scheme.bg}; border-left: 4px solid ${scheme.border}; padding: 20px 24px; margin: 24px;">
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <span style="font-size: 32px;">${icon}</span>
+                    <div>
+                        <p style="margin: 0; color: ${scheme.text}; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">${level} ESCALATION</p>
+                        <p style="margin: 4px 0 0 0; color: ${scheme.text}; font-size: 20px; font-weight: 700;">Escalation #${escalationNum}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ticket Details -->
+            <div style="padding: 0 24px 24px 24px;">
+                <div style="background: #F9FAFB; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+                    <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600; color: #111827; line-height: 1.4;">${title}</h2>
+
+                    <div style="display: grid; gap: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #E5E7EB;">
+                            <span style="color: #6B7280; font-size: 14px;">📍 Location</span>
+                            <span style="color: #111827; font-weight: 500; font-size: 14px;">${location.trim()}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #E5E7EB;">
+                            <span style="color: #6B7280; font-size: 14px;">⏱️ Hours Pending</span>
+                            <span style="color: ${hours >= '8' ? '#DC2626' : hours >= '4' ? '#EA580C' : '#D97706'}; font-weight: 700; font-size: 14px;">${hours} hours</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0;">
+                            <span style="color: #6B7280; font-size: 14px;">🎯 Priority</span>
+                            <span style="background: ${priorityBadgeColor}; color: white; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; text-transform: uppercase;">${priority}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Button -->
+                <a href="${dashboardUrl}/ticket/${ticketId}"
+                   style="display: block; background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); color: white; padding: 16px 28px; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 16px; text-align: center; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);">
+                    🔧 View & Resolve Ticket
+                </a>
+
+                <!-- Footer -->
+                <p style="color: #9CA3AF; font-size: 12px; text-align: center; margin: 0;">
+                    This is an automated escalation from the Maintenance Management System.<br>
+                    Ticket ID: ${ticketId}
+                </p>
+            </div>
+        </div>`
+    }
+}
+
 interface PushSubscriptionJSON {
     endpoint: string
     expirationTime?: number | null
@@ -142,104 +234,6 @@ serve(async (req: Request) => {
         }
 
         // 1. Process Email Notifications
-        console.log('[Notification Dispatcher] EmailJS config check:', {
-            hasServiceId: !!EMAILJS_SERVICE_ID,
-            hasTemplateId: !!EMAILJS_TEMPLATE_ID,
-            hasUserId: !!EMAILJS_USER_ID,
-            hasPrivateKey: !!EMAILJS_PRIVATE_KEY
-        })
-
-        // Helper function to extract urgency info from message and build styled email
-        function buildEscalationEmail(message: string, ticketId: string): { subject: string; html: string } {
-            // Parse urgency from message format: "🚨 CRITICAL ESCALATION #3: \"title\" at location • X.X hours pending • PRIORITY priority"
-            const urgencyMatch = message.match(/^(🚨|⚠️|⏰|📋)\s*(CRITICAL|URGENT|FOLLOW-UP|INITIAL)\s*ESCALATION\s*#(\d+):\s*"([^"]+)"\s*at\s*([^•]+)\s*•\s*([\d.]+)\s*hours\s*pending\s*•\s*(HIGH|MEDIUM|NORMAL)\s*priority/i)
-            
-            if (!urgencyMatch) {
-                // Fallback for legacy messages
-                return {
-                    subject: `SMMS: ${message.substring(0, 60)}...`,
-                    html: `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                        <h2 style="color: #DC2626; margin: 0 0 16px 0;">SMMS Escalation Alert</h2>
-                        <p style="font-size: 16px; line-height: 1.5; color: #374151;">${message}</p>
-                        <a href="${Deno.env.get('DASHBOARD_URL') || 'https://mtusmms.me'}/ticket/${ticketId}" 
-                           style="display: inline-block; background: #4F46E5; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; margin-top: 20px;">
-                            View Ticket
-                        </a>
-                    </div>`
-                }
-            }
-            
-            const [, icon, level, escalationNum, title, location, hours, priority] = urgencyMatch
-            
-            // Color scheme based on urgency
-            const colors: Record<string, { bg: string; border: string; text: string; badge: string }> = {
-                'CRITICAL': { bg: '#FEF2F2', border: '#DC2626', text: '#991B1B', badge: '#DC2626' },
-                'URGENT': { bg: '#FFF7ED', border: '#EA580C', text: '#9A3412', badge: '#EA580C' },
-                'FOLLOW-UP': { bg: '#FFFBEB', border: '#D97706', text: '#92400E', badge: '#D97706' },
-                'INITIAL': { bg: '#ECFDF5', border: '#059669', text: '#065F46', badge: '#059669' }
-            }
-            
-            const scheme = colors[level] || colors['INITIAL']
-            const priorityBadgeColor = priority === 'HIGH' ? '#DC2626' : priority === 'MEDIUM' ? '#D97706' : '#059669'
-            
-            const dashboardUrl = Deno.env.get('DASHBOARD_URL') || 'https://mtusmms.me'
-            
-            return {
-                subject: `${icon} ${level}: Ticket #${ticketId?.slice(0, 8)} Requires Immediate Attention`,
-                html: `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; max-width: 640px; margin: 0 auto; background: #ffffff;">
-                    <!-- Header -->
-                    <div style="background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); padding: 32px 24px; text-align: center;">
-                        <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">🏛️ MTU SMMS</h1>
-                        <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 14px;">Maintenance Management System</p>
-                    </div>
-                    
-                    <!-- Alert Banner -->
-                    <div style="background: ${scheme.bg}; border-left: 4px solid ${scheme.border}; padding: 20px 24px; margin: 24px;">
-                        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                            <span style="font-size: 32px;">${icon}</span>
-                            <div>
-                                <p style="margin: 0; color: ${scheme.text}; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">${level} ESCALATION</p>
-                                <p style="margin: 4px 0 0 0; color: ${scheme.text}; font-size: 20px; font-weight: 700;">Escalation #${escalationNum}</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Ticket Details -->
-                    <div style="padding: 0 24px 24px 24px;">
-                        <div style="background: #F9FAFB; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
-                            <h2 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600; color: #111827; line-height: 1.4;">${title}</h2>
-                            
-                            <div style="display: grid; gap: 12px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #E5E7EB;">
-                                    <span style="color: #6B7280; font-size: 14px;">📍 Location</span>
-                                    <span style="color: #111827; font-weight: 500; font-size: 14px;">${location.trim()}</span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #E5E7EB;">
-                                    <span style="color: #6B7280; font-size: 14px;">⏱️ Hours Pending</span>
-                                    <span style="color: ${hours >= '8' ? '#DC2626' : hours >= '4' ? '#EA580C' : '#D97706'}; font-weight: 700; font-size: 14px;">${hours} hours</span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0;">
-                                    <span style="color: #6B7280; font-size: 14px;">🎯 Priority</span>
-                                    <span style="background: ${priorityBadgeColor}; color: white; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; text-transform: uppercase;">${priority}</span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Action Button -->
-                        <a href="${dashboardUrl}/ticket/${ticketId}" 
-                           style="display: block; background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); color: white; padding: 16px 28px; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 16px; text-align: center; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);">
-                            🔧 View & Resolve Ticket
-                        </a>
-                        
-                        <!-- Footer -->
-                        <p style="color: #9CA3AF; font-size: 12px; text-align: center; margin: 0;">
-                            This is an automated escalation from the Maintenance Management System.<br>
-                            Ticket ID: ${ticketId}
-                        </p>
-                    </div>
-                </div>`
-            }
-        }
 
         if (EMAILJS_SERVICE_ID && EMAILJS_TEMPLATE_ID && EMAILJS_USER_ID && EMAILJS_PRIVATE_KEY) {
             const { data: pendingEmails, error: emailFetchError } = await supabase.rpc('get_pending_notifications', {
@@ -247,10 +241,6 @@ serve(async (req: Request) => {
                 p_limit: 20
             })
 
-            console.log('[Notification Dispatcher] Email query result:', {
-                pendingCount: pendingEmails?.length || 0,
-                error: emailFetchError?.message || null
-            })
 
             if (!emailFetchError && pendingEmails && pendingEmails.length > 0) {
                 for (const notification of pendingEmails) {
@@ -478,7 +468,6 @@ serve(async (req: Request) => {
 
     } catch (error: unknown) {
         const errMsg = error instanceof Error ? error.message : String(error)
-        console.error('[Notification Dispatcher] Critical Error:', error)
         return new Response(JSON.stringify({ error: errMsg || 'Internal server error' }), {
             headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
             status: 500,

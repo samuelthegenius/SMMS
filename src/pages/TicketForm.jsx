@@ -71,10 +71,7 @@ export default function TicketForm() {
             } else {
                 toast.warning('Could not auto-categorize. Please select manually.');
             }
-        } catch (error) {
-            if (import.meta.env.DEV) {
-                console.error('AI categorization error:', error);
-            }
+        } catch {
             toast.error('AI categorization failed. Please select category manually.');
         } finally {
             setAiCategorizing(false);
@@ -247,7 +244,6 @@ export default function TicketForm() {
             
             if (error) {
                 // Silently fail duplicate check - don't block submission
-                if (import.meta.env.DEV) console.error('Duplicate check error:', error);
                 return null;
             }
             
@@ -369,20 +365,14 @@ export default function TicketForm() {
                         technician_name: technicianDetails?.full_name
                     }
                 });
-            } catch (emailError) {
-              if (import.meta.env.DEV) {
-                console.error("Email processing failed:", emailError);
-              }
-                // Don't block the UI flow, just log it in development
+            } catch {
+                // Email processing failed - don't block the UI flow
             }
 
             toast.success('Report Submitted Successfully!');
             setSuccess(true);
             setTimeout(() => navigate('/dashboard'), 2000);
-        } catch (error) {
-          if (import.meta.env.DEV) {
-            console.error('Submission Error:', error);
-          }
+        } catch {
             toast.error('Failed to submit report. Please try again.');
         } finally {
             setLoading(false);

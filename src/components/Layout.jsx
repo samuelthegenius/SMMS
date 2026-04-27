@@ -14,26 +14,26 @@ export default function Layout() {
         <div className="min-h-screen bg-background flex overflow-hidden">
             {/* Mobile Header - Visible only on small screens */}
             <div className="md:hidden fixed top-0 left-0 right-0 bg-gradient-to-r from-primary-500 to-primary-600 text-white p-4 flex items-center justify-between z-50 shadow-lg">
-                <Link to={homePath} className="flex items-center gap-3 font-bold text-lg cursor-pointer">
-                    <img 
-                        src="/mtulogo.jpg" 
-                        alt="MTU Logo" 
-                        className="w-8 h-8 object-contain rounded bg-white/10 p-1"
-                    />
-                    <div className="flex flex-col">
-                        <span className="tracking-tight text-sm">MTU SMMS</span>
-                        <span className="text-[10px] font-normal text-white/70">Smart Maintenance System</span>
-                    </div>
-                </Link>
                 <div className="flex items-center gap-2">
-                    <NotificationBell />
                     <button
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                         className="p-2 hover:bg-white/10 rounded-lg transition-colors"
                     >
                         {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
                     </button>
+                    <Link to={homePath} className="flex items-center gap-3 font-bold text-lg cursor-pointer">
+                        <img
+                            src="/mtulogo.jpg"
+                            alt="MTU Logo"
+                            className="w-8 h-8 object-contain rounded bg-white/10 p-1"
+                        />
+                        <div className="flex flex-col">
+                            <span className="tracking-tight text-sm">MTU SMMS</span>
+                            <span className="text-[10px] font-normal text-white/70">Smart Maintenance System</span>
+                        </div>
+                    </Link>
                 </div>
+                <NotificationBell />
             </div>
 
             {/* Main Navigation Sidebar */}

@@ -36,10 +36,8 @@ export default function NotificationBell() {
 
             setUnreadCount(count || 0);
 
-        } catch (error) {
-          if (import.meta.env.DEV) {
-            console.error('Error fetching notifications:', error);
-          }
+        } catch {
+          // Silent fail
         }
     }, [user?.id]);
 
@@ -93,10 +91,8 @@ export default function NotificationBell() {
 
                 channelRef.current = channel;
                 channelOwnedRef.current = true;
-            } catch (err) {
-                if (import.meta.env.DEV) {
-                    console.error('NotificationBell: failed to subscribe to realtime channel:', err);
-                }
+            } catch {
+                // Silent fail
             }
         }
 
@@ -145,10 +141,7 @@ export default function NotificationBell() {
                 .eq('is_read', false);
 
             if (error) throw error;
-        } catch (error) {
-          if (import.meta.env.DEV) {
-            console.error('Failed to mark notifications as read', error);
-          }
+        } catch {
             // Revert on error? Or just silently fail as it's not critical data loss
         }
     }

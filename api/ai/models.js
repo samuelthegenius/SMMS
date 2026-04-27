@@ -105,10 +105,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ 
       models: data.data || [],
     });
-  } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Error fetching models:', error);
-    }
+  } catch {
     return res.status(500).json({ 
       error: 'Failed to fetch models',
     });

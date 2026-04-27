@@ -168,16 +168,10 @@ class SecurityLogger {
       const { error: _error } = await supabase.rpc('log_security_events', { events });
       
       if (_error) {
-        if (import.meta.env.DEV) {
-          console.error('Failed to log security events:', _error);
-        }
         // Re-queue events on failure
         this.eventQueue.unshift(...events);
       }
-    } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('Security logging error:', error);
-      }
+    } catch (_error) {
       // Re-queue events on failure
       this.eventQueue.unshift(...events);
     }
@@ -194,16 +188,8 @@ class SecurityLogger {
         .order('logged_at', { ascending: false })
         .limit(limit);
 
-      if (_error) {
-        if (import.meta.env.DEV) {
-          console.error('Failed to fetch security events:', _error);
-        }
-      }
       return data || [];
-    } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('Failed to fetch security events:', error);
-      }
+    } catch (_error) {
       return [];
     }
   }
@@ -224,10 +210,7 @@ class SecurityLogger {
         topEventTypes: data.top_event_types || [],
         hourlyDistribution: data.hourly_distribution || []
       };
-    } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('Failed to fetch security stats:', error);
-      }
+    } catch (_error) {
       return {
         totalEvents: 0,
         criticalEvents: 0,
@@ -341,9 +324,7 @@ export const securityMonitoring = {
         });
 
       if (_error) {
-        if (import.meta.env.DEV) {
-          console.error('Failed to create security alert:', _error);
-        }
+        // Silent fail
       }
 
       // Log the alert
@@ -352,10 +333,8 @@ export const securityMonitoring = {
         { alertType: type, message, ...details },
         severity
       );
-    } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('Failed to create security alert:', error);
-      }
+    } catch (_error) {
+      // Silent fail
     }
   }
 };
@@ -388,7 +367,7 @@ export const initializeSecurityMonitoring = () => {
   console.error = (...args) => {
     const message = args.join(' ');
 
-    // Only log genuine auth security events, not network failures
+    // Only track genuine auth security events, not network failures
     if (
       (message.includes('login') || message.includes('auth')) &&
       !isNetworkError(message)

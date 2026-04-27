@@ -36,11 +36,8 @@ export default function SecurityDashboard() {
                 setMetrics(metricsData);
                 setRecentEvents(eventsData || []);
                                 setLoadError(null);
-            } catch (error) {
-                                setLoadError('Could not refresh security data. Showing last known values.');
-              if (import.meta.env.DEV) {
-                console.error('Error fetching security data:', error);
-              }
+            } catch {
+                setLoadError('Could not refresh security data. Showing last known values.');
             } finally {
                 if (isInitial) {
                     initialLoadDone.current = true;

@@ -1,19 +1,24 @@
 /**
  * @file src/components/ProtectedRoute.jsx
- * @description Non-blocking Route Protection - shows content immediately, redirects only if definitely unauthenticated.
+ * @description Route Protection - blocks during initial auth check, then non-blocking for updates.
  */
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/useAuth';
+import Loader from './Loader';
 
 export default function ProtectedRoute({ children }) {
     const { user, initializing } = useAuth();
 
-    // Only redirect if we've confirmed there's no user (not during initial load)
-    if (!user && !initializing) {
+    // Block during initial auth check to prevent flash/redirect loops
+    if (initializing) {
+        return <Loader variant="simple" />;
+    }
+
+    // Only redirect if we've confirmed there's no user
+    if (!user) {
         return <Navigate to="/login" replace />;
     }
 
-    // Render children immediately - let them handle loading states internally
-    // This prevents the "white screen" blocking loader
+    // Auth confirmed - render the protected content
     return children ? children : <Outlet />;
 }

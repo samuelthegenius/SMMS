@@ -8,7 +8,7 @@
  * - Security Layer: Implements ProtectedRoute middleware to guard sensitive pages.
  */
 import { Suspense, useEffect, lazy, useCallback } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './contexts/useAuth';
 import Layout from './components/Layout';
@@ -31,31 +31,6 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
 // Lazy load admin-specific components
 const SecurityDashboard = lazy(() => import('./pages/dashboards/SecurityDashboard'));
-
-/**
- * @function GlobalLoader
- * @description Context-aware top-level loader for the global Suspense boundary.
- * Maps the current URL route to the appropriate loader shape based on path.
- */
-function GlobalLoader() {
-  const location = useLocation();
-  const path = location.pathname;
-
-  if (path === '/login') return <Loader variant="auth-login" />;
-  if (path === '/signup') return <Loader variant="auth-signup" />;
-  if (path === '/new-ticket') return <Loader variant="ticket-form" />;
-  if (path === '/analytics') return <Loader variant="analytics" />;
-  if (path === '/jobs') return <Loader variant="technician" />;
-  if (path === '/history' || path.startsWith('/dashboard')) {
-    // Dashboard could be user, admin, or technician - use simple loader until role is known
-    // DashboardRouter will show the correct variant immediately after
-    return <Loader variant="simple" />;
-  }
-
-  // No loader for root path - LandingPage is eagerly loaded and renders immediately.
-  // This prevents showing a skeleton that doesn't match the actual content state.
-  return null;
-}
 
 /**
  * @function DashboardRouter
@@ -174,12 +149,16 @@ export default function App() {
 
           {/*
             Protected Routes:
-            Wrapped in Suspense for code-split pages, ProtectedRoute for auth,
-            and Layout for consistent UI.
+            Each route wrapped in Suspense for code-split pages,
+            ProtectedRoute for auth, and Layout for consistent UI.
           */}
-          <Route element={<Suspense fallback={<GlobalLoader />}><ProtectedRoute /></Suspense>}>
+          <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
-              <Route path="/dashboard" element={<DashboardRouter />} />
+              <Route path="/dashboard" element={
+                <Suspense fallback={<Loader variant="simple" />}>
+                  <DashboardRouter />
+                </Suspense>
+              } />
               <Route path="/new-ticket" element={
                 <Suspense fallback={<Loader variant="ticket-form" />}>
                   <TicketForm />

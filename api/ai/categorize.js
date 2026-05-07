@@ -44,7 +44,7 @@ const MAX_REQUESTS_PER_MINUTE = 15;
 // Valid categories from the system
 const VALID_CATEGORIES = [
   "Electrical",
-  "Plumbing", 
+  "Plumbing",
   "HVAC (Air Conditioning)",
   "Carpentry & Furniture",
   "IT & Networking",
@@ -54,6 +54,9 @@ const VALID_CATEGORIES = [
   "Appliance Repair",
   "Cleaning Services"
 ];
+
+// Valid priority levels
+const VALID_PRIORITIES = ["Low", "Medium", "High"];
 
 // Category to Department mapping
 const CATEGORY_TO_DEPARTMENT = {
@@ -138,49 +141,77 @@ function sanitizeInput(input) {
     .substring(0, 2000);
 }
 
-// Parse AI response
+// Parse AI response (now includes priority)
 function parseCategorizationResponse(text) {
   const result = {
     category: null,
+    priority: 'Medium',
     confidence: 0.8,
-    reasoning: ''
+    priorityConfidence: 0.8,
+    reasoning: '',
+    priorityReasoning: ''
   };
-  
+
   try {
     // Try to find category in response
     const categoryMatch = text.match(/Category:\s*(.+)/i);
     if (categoryMatch) {
       const extracted = categoryMatch[1].trim();
       // Find closest valid category
-      result.category = VALID_CATEGORIES.find(c => 
+      result.category = VALID_CATEGORIES.find(c =>
         c.toLowerCase() === extracted.toLowerCase() ||
         extracted.toLowerCase().includes(c.toLowerCase()) ||
         c.toLowerCase().includes(extracted.toLowerCase().split(' ')[0])
       ) || "General Maintenance";
     }
-    
+
+    // Extract priority
+    const priorityMatch = text.match(/Priority:\s*(Low|Medium|High)/i);
+    if (priorityMatch) {
+      const extractedPriority = priorityMatch[1].trim();
+      result.priority = VALID_PRIORITIES.find(p =>
+        p.toLowerCase() === extractedPriority.toLowerCase()
+      ) || "Medium";
+    }
+
     // Extract confidence
     const confidenceMatch = text.match(/Confidence:\s*(\d+)/i);
     if (confidenceMatch) {
       result.confidence = Math.min(1, Math.max(0, parseInt(confidenceMatch[1]) / 100));
     }
-    
+
+    // Extract priority confidence
+    const priorityConfidenceMatch = text.match(/PriorityConfidence:\s*(\d+)/i);
+    if (priorityConfidenceMatch) {
+      result.priorityConfidence = Math.min(1, Math.max(0, parseInt(priorityConfidenceMatch[1]) / 100));
+    }
+
     // Extract reasoning
     const reasoningMatch = text.match(/Reasoning:\s*(.+)/is);
     if (reasoningMatch) {
       result.reasoning = reasoningMatch[1].trim().substring(0, 200);
     }
-    
+
+    // Extract priority reasoning
+    const priorityReasoningMatch = text.match(/PriorityReasoning:\s*(.+)/i);
+    if (priorityReasoningMatch) {
+      result.priorityReasoning = priorityReasoningMatch[1].trim().substring(0, 200);
+    }
+
   } catch {
     // Parse error - use defaults
   }
-  
+
   // Default fallback
   if (!result.category) {
     result.category = "General Maintenance";
     result.reasoning = "Default categorization applied";
   }
-  
+  if (!result.priority) {
+    result.priority = "Medium";
+    result.priorityReasoning = "Default priority applied";
+  }
+
   return result;
 }
 
@@ -255,22 +286,30 @@ export default async function handler(req, res) {
 
     const facilityContext = FACILITY_CONTEXT[sanitizedFacility] || FACILITY_CONTEXT['Other'];
 
-    // Build categorization prompt
+    // Build categorization prompt with priority
     const systemPrompt = `You are a facility maintenance categorization expert. Analyze maintenance requests and categorize them accurately.
 
 Available categories:
 ${VALID_CATEGORIES.map(c => `- ${c}`).join('\n')}
 
+Priority Guidelines:
+- HIGH: Safety hazards, water leaks, power outages, security issues, no heating in winter, no cooling in extreme heat, systems affecting large numbers of people, any emergency or dangerous situation
+- MEDIUM: Equipment malfunctions that impact work but have workarounds, single room issues, non-critical repairs, broken but functional items
+- LOW: Cosmetic issues, preventive maintenance, minor inconveniences, nice-to-have improvements, routine scheduled work
+
 Respond in this exact format:
 Category: [exact category name from list]
+Priority: [Low|Medium|High]
 Confidence: [0-100]
-Reasoning: [brief explanation in 1-2 sentences]`;
+PriorityConfidence: [0-100]
+Reasoning: [brief explanation for category in 1-2 sentences]
+PriorityReasoning: [brief explanation for priority in 1 sentence]`;
 
     const userPrompt = `Facility Type: ${sanitizedFacility} (${facilityContext})
 Title: ${sanitizedTitle}
 Description: ${sanitizedDescription || 'No description provided'}
 
-Categorize this maintenance request:`;
+Categorize this maintenance request and assess its priority level:`;
 
     const provider = createAIGatewayProvider();
     
@@ -292,18 +331,24 @@ Categorize this maintenance request:`;
     return res.status(200).json({
       category: categorization.category,
       department: department,
+      priority: categorization.priority,
       confidence: categorization.confidence,
+      priorityConfidence: categorization.priorityConfidence,
       reasoning: categorization.reasoning,
+      priorityReasoning: categorization.priorityReasoning,
       suggested: true
     });
 
   } catch {
     // Return safe fallback
-    return res.status(500).json({ 
+    return res.status(500).json({
       category: "General Maintenance",
       department: "General Facilities",
+      priority: "Medium",
       confidence: 0,
+      priorityConfidence: 0.5,
       reasoning: "AI categorization unavailable - using default",
+      priorityReasoning: "Default priority applied",
       suggested: false,
       error: 'Failed to categorize'
     });

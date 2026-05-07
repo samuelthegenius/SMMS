@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Sparkles, Wrench, AlertTriangle, Loader2, ClipboardList, User, Wrench as WrenchIcon, MessageSquare, Info, Clock } from 'lucide-react';
+import { X, Sparkles, Wrench, AlertTriangle, Loader2, ClipboardList, User, Wrench as WrenchIcon, MessageSquare, Info, Clock, Star } from 'lucide-react';
 import { 
     updateTicketCategory, 
     updateTicketPriority, 
@@ -27,8 +27,12 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
     const [aiTyping, setAiTyping] = useState(false);
     const [aiMgmtSuggestion, setAiMgmtSuggestion] = useState(null);
 
-    const isTechnicianOrAdmin = profile?.role === 'technician' || profile?.role === 'admin';
+    const isTechnicianOrAdmin = profile?.role === 'technician' || profile?.role === 'admin' || 
+                                 profile?.role === 'facility_manager' || profile?.role === 'maintenance_supervisor' || 
+                                 profile?.role === 'team_lead';
     const isAdmin = profile?.role === 'admin';
+    const canReassignTechnicians = profile?.role === 'admin' || profile?.role === 'facility_manager' || 
+                                   profile?.role === 'maintenance_supervisor';
 
     // Use pre-fetched reporter and technician info from ticket prop
     // Dashboards already fetch this data via joins or RPC functions
@@ -284,6 +288,81 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
                             </div>
                         )}
 
+                        {/* Satisfaction Feedback - Show for Resolved/Closed tickets */}
+                        {(ticket.status === 'Resolved' || ticket.status === 'Closed') && ticket.satisfaction_status && (
+                            <div className="border-t border-slate-100 pt-6">
+                                <h4 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                                    <Star className="w-4 h-4 text-amber-500" />
+                                    Satisfaction Feedback
+                                </h4>
+                                <div className={`rounded-xl p-4 border ${
+                                    ticket.satisfaction_status === 'satisfied' 
+                                        ? 'bg-emerald-50 border-emerald-200' 
+                                        : 'bg-rose-50 border-rose-200'
+                                }`}>
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex">
+                                                {ticket.rating ? (
+                                                    [1, 2, 3, 4, 5].map((star) => (
+                                                        <Star
+                                                            key={star}
+                                                            className={`w-5 h-5 ${
+                                                                star <= ticket.rating
+                                                                    ? 'fill-amber-400 text-amber-400'
+                                                                    : 'text-slate-300'
+                                                            }`}
+                                                        />
+                                                    ))
+                                                ) : (
+                                                    <span className="text-sm text-slate-500">No rating provided</span>
+                                                )}
+                                            </div>
+                                            {ticket.rating && (
+                                                <span className="text-sm font-bold text-slate-700">
+                                                    {ticket.rating}/5
+                                                </span>
+                                            )}
+                                        </div>
+                                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                                            ticket.satisfaction_status === 'satisfied'
+                                                ? 'bg-emerald-100 text-emerald-700'
+                                                : 'bg-rose-100 text-rose-700'
+                                        }`}>
+                                            {ticket.satisfaction_status === 'satisfied' ? 'Satisfied' : 'Unsatisfied'}
+                                        </span>
+                                    </div>
+                                    
+                                    {ticket.rejection_count > 0 && (
+                                        <div className="mt-3 flex items-center gap-2">
+                                            <span className="text-xs text-amber-700 bg-amber-100 px-2 py-1 rounded">
+                                                ⚠️ Rework attempts: {ticket.rejection_count}
+                                            </span>
+                                        </div>
+                                    )}
+                                    
+                                    {ticket.customer_feedback && (
+                                        <div className="mt-3 pt-3 border-t border-slate-200">
+                                            <p className="text-xs text-slate-500 mb-1">Feedback:</p>
+                                            <p className={`text-sm ${
+                                                ticket.satisfaction_status === 'satisfied'
+                                                    ? 'text-emerald-700'
+                                                    : 'text-rose-700'
+                                            }`}>
+                                                {ticket.customer_feedback}
+                                            </p>
+                                        </div>
+                                    )}
+                                    
+                                    {ticket.satisfaction_submitted_at && (
+                                        <p className="text-xs text-slate-400 mt-3">
+                                            Submitted: {new Date(ticket.satisfaction_submitted_at).toLocaleString()}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Reporter and Technician Information */}
                         <div className="border-t border-slate-100 pt-6">
                             <h4 className="text-sm font-semibold text-slate-900 mb-4">People Involved</h4>
@@ -332,7 +411,7 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
                                                         )}
                                                     </div>
                                                 </div>
-                                                {isAdmin && (
+                                                {canReassignTechnicians && (
                                                     <div className="pt-2 border-t border-slate-200">
                                                         <ReassignTechnician 
                                                             ticket={ticket} 
@@ -347,7 +426,7 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
                                         ) : (
                                             <div className="space-y-3">
                                                 <p className="text-sm text-slate-500">No technician assigned yet</p>
-                                                {isAdmin && (
+                                                {canReassignTechnicians && (
                                                     <ReassignTechnician 
                                                         ticket={ticket} 
                                                         onReassign={() => {

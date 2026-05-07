@@ -92,14 +92,16 @@ export default async function handler(req, res) {
   if (!PASSWORD_REGEX.test(password)) {
     return res.status(400).json({ error: 'Password must be at least 8 characters with uppercase, lowercase, and number' });
   }
-  if (!['student', 'staff', 'technician', 'src', 'porter'].includes(role)) {
+  const allowedRoles = ['student', 'staff', 'technician', 'src', 'porter', 
+                        'facility_manager', 'maintenance_supervisor', 'team_lead'];
+  if (!allowedRoles.includes(role)) {
     return res.status(400).json({ error: 'Invalid role' });
   }
   if (idNumber.length < 5) {
     return res.status(400).json({ error: 'Invalid ID number format' });
   }
-  if (role === 'technician' && !specialization) {
-    return res.status(400).json({ error: 'Specialization is required for technicians' });
+  if ((role === 'technician' || role === 'team_lead') && !specialization) {
+    return res.status(400).json({ error: 'Specialization is required for technicians and team leads' });
   }
 
   // ── Step 1: Validate access code ─────────────────────────────────────────
@@ -135,7 +137,7 @@ export default async function handler(req, res) {
 
   // ── Step 4: Create the auth user ─────────────────────────────────────────
   // All validations passed — safe to create at this point.
-  const resolvedDepartment = role === 'technician' ? 'Works Department' : (department || '');
+  const resolvedDepartment = (role === 'technician' || role === 'team_lead' || role === 'maintenance_supervisor' || role === 'facility_manager') ? 'Works Department' : (department || '');
 
   const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email,
@@ -157,7 +159,7 @@ export default async function handler(req, res) {
   // ── Step 5: Create the profile ───────────────────────────────────────────
   // If this fails for any reason we immediately delete the auth user so no
   // ghost row is left in auth.users.
-  const skills = role === 'technician' && specialization ? [specialization] : null;
+  const skills = (role === 'technician' || role === 'team_lead') && specialization ? [specialization] : null;
 
   const { error: profileError } = await supabaseAdmin.from('profiles').insert({
     id: userId,

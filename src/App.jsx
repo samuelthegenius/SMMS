@@ -47,8 +47,9 @@ function DashboardRouter() {
 
   if (!profile) return <Loader variant="simple" />;
 
-  // Admin, Student Affairs staff, and SRC get admin dashboard
-  if (activeRole === 'admin' || isStudentAffairs || activeRole === 'src') {
+  // Admin, Facility Manager, Maintenance Supervisor, Student Affairs staff, and SRC get admin dashboard
+  const managementRoles = ['admin', 'facility_manager', 'maintenance_supervisor'];
+  if (managementRoles.includes(activeRole) || isStudentAffairs || activeRole === 'src') {
     return (
       <Suspense fallback={<Loader variant="admin" />}>
         <AdminDashboard />
@@ -57,6 +58,13 @@ function DashboardRouter() {
   }
 
   switch (activeRole) {
+    // Team Leads get enhanced technician dashboard with reassignment capabilities
+    case 'team_lead':
+      return (
+        <Suspense fallback={<Loader variant="technician" />}>
+          <TechnicianDashboard />
+        </Suspense>
+      );
     // Staff verify tickets in their department
     case 'staff':
     case 'technician':

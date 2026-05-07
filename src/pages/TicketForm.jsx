@@ -43,49 +43,57 @@ export default function TicketForm() {
     const [checkingDuplicate, setCheckingDuplicate] = useState(false);
     const [pendingSubmit, setPendingSubmit] = useState(false);
     
-    // AI Auto-categorization function
+    // AI Auto-categorization function (now with priority!)
     const handleAiCategorize = useCallback(async () => {
         if (!formData.title || formData.title.length < 3) {
             toast.error('Please enter a title first (at least 3 characters)');
             return;
         }
-        
+
         setAiCategorizing(true);
         setShowAiSuggestion(false);
-        
+
         try {
             const result = await autoCategorizeWithFallback(
                 formData.title,
                 formData.description,
                 formData.facilityType,
-                0.6 // Lower threshold for suggestions
+                0.6, // Category confidence threshold
+                0.5  // Priority confidence threshold (slightly lower)
             );
-            
+
             setAiSuggestion(result);
             setShowAiSuggestion(true);
-            
-            if (result.autoAssigned) {
+
+            if (result.autoAssigned && result.autoPriorityAssigned) {
+                toast.success(`AI suggests: ${result.category} (${result.department}) • Priority: ${result.priority}`);
+            } else if (result.autoAssigned) {
                 toast.success(`AI suggests: ${result.category} (${result.department})`);
             } else if (result.category) {
-                toast.info(`AI suggestion available (confidence: ${Math.round(result.confidence * 100)}%)`);
+                toast.info(`AI suggestion available (category: ${Math.round(result.confidence * 100)}%, priority: ${Math.round((result.priorityConfidence || 0.5) * 100)}%)`);
             } else {
                 toast.warning('Could not auto-categorize. Please select manually.');
             }
         } catch {
-            toast.error('AI categorization failed. Please select category manually.');
+            toast.error('AI categorization failed. Please select category and priority manually.');
         } finally {
             setAiCategorizing(false);
         }
     }, [formData.title, formData.description, formData.facilityType]);
     
-    // Apply AI suggestion
+    // Apply AI suggestion (both category and priority)
     const applyAiSuggestion = useCallback(() => {
         if (aiSuggestion?.category) {
-            setFormData(prev => ({
-                ...prev,
+            const updates = {
                 category: aiSuggestion.category
-            }));
-            toast.success(`Applied: ${aiSuggestion.category} → ${aiSuggestion.department}`);
+            };
+            // Also apply priority if available and has reasonable confidence
+            if (aiSuggestion?.priority && (aiSuggestion.priorityConfidence || 0.5) >= 0.5) {
+                updates.priority = aiSuggestion.priority;
+            }
+            setFormData(prev => ({ ...prev, ...updates }));
+            const priorityText = updates.priority ? ` • Priority: ${updates.priority}` : '';
+            toast.success(`Applied: ${aiSuggestion.category} → ${aiSuggestion.department}${priorityText}`);
         }
         setShowAiSuggestion(false);
     }, [aiSuggestion]);
@@ -500,7 +508,7 @@ export default function TicketForm() {
                                     </select>
                                 </div>
                                 
-                                {/* AI Suggestion Card */}
+                                {/* AI Suggestion Card with Priority */}
                                 {showAiSuggestion && aiSuggestion?.category && (
                                     <div className="mt-2 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-3 animate-in fade-in slide-in-from-top-2">
                                         <div className="flex items-start gap-2">
@@ -508,7 +516,7 @@ export default function TicketForm() {
                                                 <Sparkles className="w-4 h-4 text-indigo-600" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-2 flex-wrap">
                                                     <span className="font-semibold text-indigo-900 text-sm">AI Suggestion</span>
                                                     <span className={cn(
                                                         "text-xs px-1.5 py-0.5 rounded-full",
@@ -516,8 +524,18 @@ export default function TicketForm() {
                                                         aiSuggestion.confidence >= 0.6 ? "bg-amber-100 text-amber-700" :
                                                         "bg-slate-100 text-slate-600"
                                                     )}>
-                                                        {Math.round(aiSuggestion.confidence * 100)}% match
+                                                        Category: {Math.round(aiSuggestion.confidence * 100)}%
                                                     </span>
+                                                    {aiSuggestion?.priority && (
+                                                        <span className={cn(
+                                                            "text-xs px-1.5 py-0.5 rounded-full",
+                                                            aiSuggestion.priority === 'High' ? "bg-rose-100 text-rose-700" :
+                                                            aiSuggestion.priority === 'Medium' ? "bg-amber-100 text-amber-700" :
+                                                            "bg-emerald-100 text-emerald-700"
+                                                        )}>
+                                                            Priority: {aiSuggestion.priority} ({Math.round((aiSuggestion.priorityConfidence || 0.5) * 100)}%)
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <p className="text-sm text-indigo-700 mt-0.5">
                                                     {aiSuggestion.category} → {aiSuggestion.department}
@@ -525,6 +543,11 @@ export default function TicketForm() {
                                                 {aiSuggestion.reasoning && (
                                                     <p className="text-xs text-indigo-600/80 mt-1 line-clamp-2">
                                                         {aiSuggestion.reasoning}
+                                                        {aiSuggestion.priorityReasoning && (
+                                                            <span className="block mt-0.5 text-amber-600">
+                                                                Priority: {aiSuggestion.priorityReasoning}
+                                                            </span>
+                                                        )}
                                                     </p>
                                                 )}
                                                 <div className="flex gap-2 mt-2">

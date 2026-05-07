@@ -102,6 +102,12 @@ CREATE TABLE tickets (
     assigned_to uuid REFERENCES profiles(id),
     rejection_reason text,
     image_url text,
+    -- Satisfaction feedback fields
+    satisfaction_status text CHECK (satisfaction_status IN ('satisfied', 'unsatisfied', 'pending', null)),
+    rating integer CHECK (rating >= 1 AND rating <= 5),
+    rejection_count integer DEFAULT 0,
+    customer_feedback text,
+    satisfaction_submitted_at timestamptz,
     created_at timestamptz DEFAULT now(),
     updated_at timestamptz DEFAULT now(),
     CONSTRAINT tickets_pkey PRIMARY KEY (id)
@@ -151,6 +157,10 @@ CREATE INDEX idx_tickets_assigned_to ON tickets(assigned_to);
 CREATE INDEX idx_tickets_status ON tickets(status);
 CREATE INDEX idx_tickets_department ON tickets(department);
 CREATE INDEX idx_tickets_created_at ON tickets(created_at DESC);
+CREATE INDEX idx_tickets_satisfaction_status ON tickets(satisfaction_status);
+CREATE INDEX idx_tickets_rating ON tickets(rating);
+CREATE INDEX idx_tickets_rejection_count ON tickets(rejection_count);
+CREATE INDEX idx_tickets_assigned_to_rating ON tickets(assigned_to, rating);
 CREATE INDEX idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX idx_notifications_is_read ON notifications(is_read);
 CREATE INDEX idx_technician_skills_profile ON technician_skills(profile_id);
@@ -463,6 +473,182 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================================================
+-- SATISFACTION FEEDBACK FUNCTIONS
+-- ============================================================================
+
+-- Handle satisfaction feedback and auto-escalation
+CREATE OR REPLACE FUNCTION handle_satisfaction_feedback()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_rejection_threshold INTEGER := 2;
+    v_src_user_id UUID;
+BEGIN
+    IF OLD.satisfaction_status IS DISTINCT FROM NEW.satisfaction_status THEN
+        NEW.satisfaction_submitted_at := NOW();
+        
+        IF NEW.satisfaction_status = 'unsatisfied' THEN
+            NEW.rejection_count := COALESCE(OLD.rejection_count, 0) + 1;
+            NEW.status := 'In Progress';
+            
+            IF NEW.rejection_count >= v_rejection_threshold THEN
+                NEW.status := 'Escalated';
+                NEW.priority := 'High';
+                
+                SELECT id INTO v_src_user_id
+                FROM profiles WHERE role = 'src' LIMIT 1;
+                
+                IF v_src_user_id IS NOT NULL THEN
+                    INSERT INTO notifications (user_id, ticket_id, message)
+                    VALUES (v_src_user_id, NEW.id,
+                        'ESCALATION: Ticket "' || NEW.title || '" rejected ' || 
+                        NEW.rejection_count || ' times. Requires intervention.');
+                END IF;
+                
+                INSERT INTO notifications (user_id, ticket_id, message)
+                SELECT id, NEW.id, 'ESCALATION: High-priority ticket requires intervention'
+                FROM profiles WHERE role = 'admin' LIMIT 1;
+            ELSE
+                IF NEW.assigned_to IS NOT NULL THEN
+                    INSERT INTO notifications (user_id, ticket_id, message)
+                    VALUES (NEW.assigned_to, NEW.id,
+                        'REWORK NEEDED: "' || NEW.title || '" rejected (#' || 
+                        NEW.rejection_count || '). ' || 
+                        COALESCE(LEFT(NEW.customer_feedback, 50), 'No feedback'));
+                END IF;
+            END IF;
+            
+        ELSIF NEW.satisfaction_status = 'satisfied' THEN
+            NEW.status := 'Resolved';
+            NEW.updated_at := NOW();
+            
+            IF NEW.assigned_to IS NOT NULL AND NEW.rating IS NOT NULL THEN
+                INSERT INTO notifications (user_id, ticket_id, message)
+                VALUES (NEW.assigned_to, NEW.id,
+                    'Positive feedback! Rating: ' || NEW.rating || '/5 stars');
+            END IF;
+        END IF;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Get technician satisfaction metrics
+CREATE OR REPLACE FUNCTION get_technician_satisfaction_metrics(p_technician_id UUID)
+RETURNS TABLE (
+    total_completed BIGINT,
+    avg_rating NUMERIC,
+    satisfaction_rate NUMERIC,
+    total_rejections BIGINT,
+    rating_5_count BIGINT,
+    rating_4_count BIGINT,
+    rating_3_count BIGINT,
+    rating_2_count BIGINT,
+    rating_1_count BIGINT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        COUNT(*)::BIGINT as total_completed,
+        ROUND(AVG(rating)::NUMERIC, 2) as avg_rating,
+        ROUND(
+            (COUNT(*) FILTER (WHERE satisfaction_status = 'satisfied')::NUMERIC / 
+            NULLIF(COUNT(*) FILTER (WHERE satisfaction_status IS NOT NULL), 0)) * 100, 2
+        ) as satisfaction_rate,
+        SUM(rejection_count)::BIGINT as total_rejections,
+        COUNT(*) FILTER (WHERE rating = 5)::BIGINT as rating_5_count,
+        COUNT(*) FILTER (WHERE rating = 4)::BIGINT as rating_4_count,
+        COUNT(*) FILTER (WHERE rating = 3)::BIGINT as rating_3_count,
+        COUNT(*) FILTER (WHERE rating = 2)::BIGINT as rating_2_count,
+        COUNT(*) FILTER (WHERE rating = 1)::BIGINT as rating_1_count
+    FROM tickets
+    WHERE assigned_to = p_technician_id
+      AND status IN ('Resolved', 'Closed')
+      AND satisfaction_status IS NOT NULL;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Get department satisfaction analytics
+CREATE OR REPLACE FUNCTION get_department_satisfaction_analytics()
+RETURNS TABLE (
+    department_name TEXT,
+    total_tickets BIGINT,
+    avg_rating NUMERIC,
+    satisfaction_rate NUMERIC,
+    avg_rejections NUMERIC
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        COALESCE(t.department, 'Unassigned') as department_name,
+        COUNT(*)::BIGINT as total_tickets,
+        ROUND(AVG(t.rating)::NUMERIC, 2) as avg_rating,
+        ROUND(
+            (COUNT(*) FILTER (WHERE t.satisfaction_status = 'satisfied')::NUMERIC / 
+            NULLIF(COUNT(*) FILTER (WHERE t.satisfaction_status IS NOT NULL), 0)) * 100, 2
+        ) as satisfaction_rate,
+        ROUND(AVG(t.rejection_count)::NUMERIC, 2) as avg_rejections
+    FROM tickets t
+    WHERE t.status IN ('Resolved', 'Closed') AND t.satisfaction_status IS NOT NULL
+    GROUP BY t.department;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Get escalated tickets
+CREATE OR REPLACE FUNCTION get_escalated_tickets()
+RETURNS TABLE (
+    id UUID,
+    title TEXT,
+    rejection_count INTEGER,
+    customer_feedback TEXT,
+    technician_name TEXT,
+    reporter_name TEXT,
+    department TEXT,
+    created_at TIMESTAMPTZ,
+    last_updated TIMESTAMPTZ
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        t.id, t.title, t.rejection_count, t.customer_feedback,
+        COALESCE(tech.full_name, 'Unassigned') as technician_name,
+        COALESCE(rep.full_name, 'Unknown') as reporter_name,
+        t.department, t.created_at, t.updated_at as last_updated
+    FROM tickets t
+    LEFT JOIN profiles tech ON t.assigned_to = tech.id
+    LEFT JOIN profiles rep ON t.created_by = rep.id
+    WHERE t.status = 'Escalated' OR (t.rejection_count >= 2 AND t.status != 'Resolved')
+    ORDER BY t.rejection_count DESC, t.updated_at DESC;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Get category satisfaction analytics
+CREATE OR REPLACE FUNCTION get_category_satisfaction_analytics()
+RETURNS TABLE (
+    category_name TEXT,
+    total_tickets BIGINT,
+    avg_rating NUMERIC,
+    satisfaction_rate NUMERIC,
+    total_rejections BIGINT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        COALESCE(t.category, 'Uncategorized') as category_name,
+        COUNT(*)::BIGINT as total_tickets,
+        ROUND(AVG(t.rating)::NUMERIC, 2) as avg_rating,
+        ROUND(
+            (COUNT(*) FILTER (WHERE t.satisfaction_status = 'satisfied')::NUMERIC / 
+            NULLIF(COUNT(*) FILTER (WHERE t.satisfaction_status IS NOT NULL), 0)) * 100, 2
+        ) as satisfaction_rate,
+        SUM(t.rejection_count)::BIGINT as total_rejections
+    FROM tickets t
+    WHERE t.status IN ('Resolved', 'Closed') AND t.satisfaction_status IS NOT NULL
+    GROUP BY t.category ORDER BY avg_rating DESC NULLS LAST;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================================================
 -- 6. TRIGGERS
 -- ============================================================================
 CREATE TRIGGER on_ticket_created
@@ -562,6 +748,12 @@ CREATE TRIGGER enforce_ticket_rules
     FOR EACH ROW
     EXECUTE FUNCTION enforce_ticket_update_rules();
 
+-- Satisfaction feedback trigger
+CREATE TRIGGER on_satisfaction_feedback
+    BEFORE UPDATE ON tickets
+    FOR EACH ROW
+    EXECUTE FUNCTION handle_satisfaction_feedback();
+
 -- ============================================================================
 -- 7. ROW LEVEL SECURITY (RLS)
 -- ============================================================================
@@ -643,6 +835,23 @@ CREATE POLICY "Creators can update own tickets"
     TO authenticated
     USING (created_by = auth.uid())
     WITH CHECK (created_by = auth.uid());
+
+-- Users can submit satisfaction feedback when ticket is pending verification
+CREATE POLICY "Users can submit satisfaction feedback"
+    ON tickets FOR UPDATE
+    TO authenticated
+    USING (
+        created_by = auth.uid() 
+        AND status = 'Pending Verification'
+    )
+    WITH CHECK (
+        created_by = auth.uid()
+        AND (
+            satisfaction_status IN ('satisfied', 'unsatisfied', 'pending')
+            OR satisfaction_status IS NULL
+        )
+        AND (rating IS NULL OR (rating >= 1 AND rating <= 5))
+    );
 
 CREATE POLICY "Technicians can update assigned tickets"
     ON tickets FOR UPDATE

@@ -3,7 +3,7 @@ import useSWR from 'swr';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/useAuth';
-import { Clock, CheckCircle, AlertCircle, MapPin, Calendar, Activity, ThumbsUp, ThumbsDown, X, Wrench as WrenchIcon, MessageSquare } from 'lucide-react';
+import { Clock, CheckCircle, AlertCircle, MapPin, Calendar, Activity, ThumbsUp, ThumbsDown, X, Wrench as WrenchIcon, MessageSquare, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import clsx from 'clsx';
 import Loader from '../../components/Loader';
@@ -32,6 +32,8 @@ export default function UserDashboard() {
     const location = useLocation();
     const [rejectingId, setRejectingId] = useState(null);
     const [rejectionReason, setRejectionReason] = useState('');
+    const [rating, setRating] = useState(0);
+    const [hoverRating, setHoverRating] = useState(0);
 
     const isHistoryView = location.pathname === '/history';
     const viewTitle = isHistoryView ? 'History' : 'Dashboard';
@@ -58,6 +60,10 @@ export default function UserDashboard() {
                 assigned_to,
                 rejection_reason,
                 image_url,
+                satisfaction_status,
+                rating,
+                rejection_count,
+                customer_feedback,
                 technician:assigned_to(full_name, email, department)
             `)
             .eq('created_by', user.id)
@@ -82,11 +88,19 @@ export default function UserDashboard() {
 
     const handleVerification = async (ticketId, isApproved, reason = null) => {
         const previousTickets = [...tickets];
+        
+        // New satisfaction feedback fields
         const updates = {
-            status: isApproved ? 'Resolved' : 'In Progress',
-            rejection_reason: reason
+            satisfaction_status: isApproved ? 'satisfied' : 'unsatisfied',
+            rating: isApproved ? rating : null,
+            customer_feedback: reason
         };
-        const updatedTickets = tickets.map(t => t.id === ticketId ? { ...t, ...updates } : t);
+        
+        const updatedTickets = tickets.map(t => t.id === ticketId ? { 
+            ...t, 
+            ...updates,
+            status: isApproved ? 'Resolved' : 'In Progress'
+        } : t);
 
         // Optimistic update
         mutate(updatedTickets, false);
@@ -111,15 +125,18 @@ export default function UserDashboard() {
 
             if (error) throw error;
 
-            toast.success(isApproved ? 'Fix confirmed! Ticket completed.' : 'Issue reported. Technician notified.');
+            toast.success(isApproved ? 'Fix confirmed! Thank you for your feedback.' : 'Issue reported. Technician will rework.');
 
+            // Reset form states
             if (!isApproved) {
                 setRejectingId(null);
                 setRejectionReason('');
             }
+            setRating(0);
+            setHoverRating(0);
             mutate(); // Revalidate
-        } catch {
-            toast.error('Failed to update status');
+        } catch (err) {
+            toast.error(err.message || 'Failed to update status');
             mutate(previousTickets, false); // Rollback
         }
     };
@@ -225,14 +242,24 @@ export default function UserDashboard() {
                                             <div className="bg-surface-50 p-4 rounded-xl border border-surface-200 animate-in fade-in zoom-in-95 duration-200">
                                                 {rejectingId === ticket.id ? (
                                                     <div className="space-y-3">
+                                                        <div className="flex items-center gap-2 text-rose-600 mb-2">
+                                                            <ThumbsDown className="w-4 h-4" />
+                                                            <span className="text-sm font-semibold">Report Unsatisfactory Work</span>
+                                                        </div>
                                                         <textarea
                                                             value={rejectionReason}
                                                             onChange={(e) => setRejectionReason(e.target.value)}
-                                                            placeholder="Why is the issue not resolved?"
+                                                            placeholder="Please describe what was not resolved or needs improvement..."
                                                             className="w-full text-sm p-3 rounded-lg border-surface-300 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 bg-white"
-                                                            rows={2}
+                                                            rows={3}
                                                             autoFocus
                                                         />
+                                                        {ticket.rejection_count > 0 && (
+                                                            <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                                                                ⚠️ Previous rejection count: {ticket.rejection_count}. 
+                                                                {ticket.rejection_count >= 1 && ' Multiple rejections may trigger escalation.'}
+                                                            </p>
+                                                        )}
                                                         <div className="flex gap-2">
                                                             <Button
                                                                 size="sm"
@@ -256,15 +283,47 @@ export default function UserDashboard() {
                                                         </div>
                                                     </div>
                                                 ) : (
-                                                    <div className="space-y-3">
-                                                        <p className="text-sm font-semibold text-surface-700">Evaluate Fix:</p>
+                                                    <div className="space-y-4">
+                                                        <div className="text-center">
+                                                            <p className="text-sm font-semibold text-surface-700 mb-2">Rate the technician's work:</p>
+                                                            {/* Star Rating Component */}
+                                                            <div className="flex justify-center gap-1">
+                                                                {[1, 2, 3, 4, 5].map((star) => (
+                                                                    <button
+                                                                        key={star}
+                                                                        onClick={() => setRating(star)}
+                                                                        onMouseEnter={() => setHoverRating(star)}
+                                                                        onMouseLeave={() => setHoverRating(0)}
+                                                                        className="p-1 transition-all duration-150 hover:scale-110 focus:outline-none"
+                                                                        type="button"
+                                                                    >
+                                                                        <Star
+                                                                            className={`w-8 h-8 ${
+                                                                                star <= (hoverRating || rating)
+                                                                                    ? 'fill-amber-400 text-amber-400'
+                                                                                    : 'text-surface-300'
+                                                                            }`}
+                                                                        />
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                            <p className="text-xs text-surface-500 mt-1">
+                                                                {rating > 0 ? (
+                                                                    rating >= 4 ? 'Excellent!' : 
+                                                                    rating >= 3 ? 'Good' : 
+                                                                    rating >= 2 ? 'Fair' : 'Poor'
+                                                                ) : 'Click a star to rate'}
+                                                            </p>
+                                                        </div>
+                                                        
                                                         <div className="flex gap-2">
                                                             <Button
                                                                 onClick={() => handleVerification(ticket.id, true)}
                                                                 className="bg-emerald-600 hover:bg-emerald-700 flex-1 text-sm h-10"
+                                                                disabled={rating === 0}
                                                             >
                                                                 <ThumbsUp className="w-4 h-4 mr-2" />
-                                                                Confirm Fix
+                                                                {rating >= 4 ? 'Excellent Work!' : 'Confirm Fix'}
                                                             </Button>
                                                             <Button
                                                                 onClick={() => setRejectingId(ticket.id)}
@@ -272,7 +331,7 @@ export default function UserDashboard() {
                                                                 className="text-rose-600 border-rose-200 hover:bg-rose-50 hover:border-rose-300 flex-1 text-sm h-10"
                                                             >
                                                                 <ThumbsDown className="w-4 h-4 mr-2" />
-                                                                Reject
+                                                                Needs Rework
                                                             </Button>
                                                         </div>
                                                     </div>

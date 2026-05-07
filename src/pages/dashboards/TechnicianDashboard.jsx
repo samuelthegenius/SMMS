@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/useAuth';
-import { Bot, CheckCircle, MapPin, AlertTriangle, Play, CheckSquare, Clock, User, Plus, MessageSquare, Eye } from 'lucide-react';
+import { Bot, CheckCircle, MapPin, AlertTriangle, Play, CheckSquare, Clock, User, Plus, MessageSquare, Eye, Star, TrendingUp, Award } from 'lucide-react';
 import clsx from 'clsx';
 import Loader from '../../components/Loader';
 import { toast } from 'sonner';
@@ -23,6 +23,10 @@ export default function TechnicianDashboard() {
     const [aiSuggestion, setAiSuggestion] = useState({ ticketId: null, data: null, loading: false });
     const [selectedTicket, setSelectedTicket] = useState(null);
     const [activeTab, setActiveTab] = useState('assigned'); // 'assigned' | 'reported'
+    
+    // Satisfaction metrics state for technicians
+    const [satisfactionMetrics, setSatisfactionMetrics] = useState(null);
+    const [showMetrics, setShowMetrics] = useState(false);
 
     // SWR Fetcher - Only fetch necessary fields
     // Porters see Open hostel tickets pending verification, Technicians see their assigned jobs
@@ -178,6 +182,27 @@ export default function TechnicianDashboard() {
             subscription.unsubscribe();
         };
     }, [user, mutate, isPorter, isSRC, isStaff, userDepartment]);
+
+    // Fetch satisfaction metrics for technicians
+    useEffect(() => {
+        if (!user || !isTechnician) return;
+
+        const fetchMetrics = async () => {
+            try {
+                const { data, error } = await supabase
+                    .rpc('get_technician_satisfaction_metrics', {
+                        p_technician_id: user.id
+                    });
+                
+                if (error) throw error;
+                setSatisfactionMetrics(data?.[0] || null);
+            } catch {
+                // Silently fail - metrics are optional
+            }
+        };
+
+        fetchMetrics();
+    }, [user, isTechnician]);
 
     const handleStatusUpdate = async (ticketId, newStatus) => {
         const previousJobs = [...jobs];
@@ -346,6 +371,112 @@ export default function TechnicianDashboard() {
                         : 'Track tickets you have reported and chat with assigned technicians'}
                 </p>
             </div>
+
+            {/* Satisfaction Metrics - Only for technicians with completed jobs */}
+            {isTechnician && satisfactionMetrics && satisfactionMetrics.total_completed > 0 && (
+                <div className="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-2xl p-6 border border-primary-100">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                            <Award className="w-5 h-5 text-primary-600" />
+                            <h3 className="text-lg font-bold text-surface-900">Performance Metrics</h3>
+                        </div>
+                        <button
+                            onClick={() => setShowMetrics(!showMetrics)}
+                            className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                        >
+                            {showMetrics ? 'Hide Details' : 'View Details'}
+                        </button>
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-4">
+                        <div className="text-center p-3 bg-white rounded-xl border border-primary-100">
+                            <div className="text-3xl font-bold text-primary-600">
+                                {satisfactionMetrics.avg_rating || '-'}
+                            </div>
+                            <div className="flex justify-center gap-0.5 my-1">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                    <Star
+                                        key={star}
+                                        className={`w-4 h-4 ${
+                                            star <= Math.round(satisfactionMetrics.avg_rating || 0)
+                                                ? 'fill-amber-400 text-amber-400'
+                                                : 'text-surface-300'
+                                        }`}
+                                    />
+                                ))}
+                            </div>
+                            <p className="text-xs text-surface-500">Average Rating</p>
+                        </div>
+                        
+                        <div className="text-center p-3 bg-white rounded-xl border border-primary-100">
+                            <div className="text-3xl font-bold text-emerald-600">
+                                {satisfactionMetrics.satisfaction_rate || 0}%
+                            </div>
+                            <div className="flex items-center justify-center gap-1 mt-1">
+                                <TrendingUp className="w-4 h-4 text-emerald-500" />
+                            </div>
+                            <p className="text-xs text-surface-500">Satisfaction Rate</p>
+                        </div>
+                        
+                        <div className="text-center p-3 bg-white rounded-xl border border-primary-100">
+                            <div className="text-3xl font-bold text-secondary-600">
+                                {satisfactionMetrics.total_completed}
+                            </div>
+                            <p className="text-xs text-surface-500 mt-1">Completed Jobs</p>
+                        </div>
+                    </div>
+                    
+                    {/* Expanded Metrics */}
+                    {showMetrics && (
+                        <div className="mt-4 pt-4 border-t border-primary-100 grid grid-cols-5 gap-2">
+                            <div className="text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                    <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                                    <span className="text-lg font-bold text-surface-700">{satisfactionMetrics.rating_5_count}</span>
+                                </div>
+                                <p className="text-xs text-surface-500">5-Star</p>
+                            </div>
+                            <div className="text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                    <Star className="w-4 h-4 fill-amber-300 text-amber-300" />
+                                    <span className="text-lg font-bold text-surface-700">{satisfactionMetrics.rating_4_count}</span>
+                                </div>
+                                <p className="text-xs text-surface-500">4-Star</p>
+                            </div>
+                            <div className="text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                    <Star className="w-4 h-4 fill-yellow-300 text-yellow-300" />
+                                    <span className="text-lg font-bold text-surface-700">{satisfactionMetrics.rating_3_count}</span>
+                                </div>
+                                <p className="text-xs text-surface-500">3-Star</p>
+                            </div>
+                            <div className="text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                    <Star className="w-4 h-4 fill-orange-300 text-orange-300" />
+                                    <span className="text-lg font-bold text-surface-700">{satisfactionMetrics.rating_2_count}</span>
+                                </div>
+                                <p className="text-xs text-surface-500">2-Star</p>
+                            </div>
+                            <div className="text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                    <Star className="w-4 h-4 fill-rose-300 text-rose-300" />
+                                    <span className="text-lg font-bold text-surface-700">{satisfactionMetrics.rating_1_count}</span>
+                                </div>
+                                <p className="text-xs text-surface-500">1-Star</p>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {satisfactionMetrics.total_rejections > 0 && (
+                        <div className="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200 flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-amber-600" />
+                            <p className="text-sm text-amber-700">
+                                Total reworks needed: <span className="font-bold">{satisfactionMetrics.total_rejections}</span>
+                            </p>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Tab Navigation - Show only if user has reported tickets */}
             {hasReportedTickets && (

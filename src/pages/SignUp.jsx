@@ -109,7 +109,7 @@ export default function SignUp() {
             toast.error('Invalid access code format');
             return;
         }
-        if (formData.role === 'technician' && !formData.specialization) {
+        if ((formData.role === 'technician' || formData.role === 'team_lead') && !formData.specialization) {
             toast.error('Please select a specialization');
             return;
         }
@@ -228,6 +228,9 @@ export default function SignUp() {
                                     {[
                                         { label: 'Student', value: 'student' },
                                         { label: 'Staff', value: 'staff' },
+                                        { label: 'Facility Manager', value: 'facility_manager' },
+                                        { label: 'Maintenance Supervisor', value: 'maintenance_supervisor' },
+                                        { label: 'Team Lead', value: 'team_lead' },
                                         { label: 'Technician', value: 'technician' },
                                         { label: 'SRC', value: 'src' },
                                         { label: 'Hostel Porter', value: 'porter' }
@@ -261,8 +264,8 @@ export default function SignUp() {
                                 </div>
                             </div>
 
-                            {/* Department - Shown for Student and Staff Only (Technicians are auto-assigned) */}
-                            {formData.role !== 'technician' && (
+                            {/* Department - Shown for Student and Staff Only (Facility Management roles are auto-assigned to Works Department) */}
+                            {formData.role !== 'technician' && formData.role !== 'team_lead' && formData.role !== 'facility_manager' && formData.role !== 'maintenance_supervisor' && (
                                 <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
                                     <label className="text-sm font-semibold text-surface-700 leading-none" htmlFor="department">
                                         Department
@@ -296,8 +299,8 @@ export default function SignUp() {
                                 </div>
                             )}
 
-                            {/* Specialization Dropdown for Technicians */}
-                            {formData.role === 'technician' && (
+                            {/* Specialization Dropdown for Technicians and Team Leads */}
+                            {(formData.role === 'technician' || formData.role === 'team_lead') && (
                                 <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
                                     <label className="text-sm font-semibold text-surface-700 leading-none" htmlFor="specialization">
                                         Specialization

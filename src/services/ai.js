@@ -164,26 +164,34 @@ export async function categorizeTicketViaGateway(title, description = '', facili
 
 /**
  * Auto-categorize with fallback - tries Supabase (FREE) first, falls back to Vercel (PAID) if needed
+ * Now includes priority assessment!
  * @param {string} title - Ticket title
  * @param {string} description - Ticket description
  * @param {string} facilityType - Type of facility
  * @param {number} confidenceThreshold - Minimum confidence to accept AI suggestion (default 0.7)
- * @returns {Promise<{category: string, department: string, confidence: number, autoAssigned: boolean, reasoning: string}>}
+ * @param {number} priorityThreshold - Minimum confidence to accept AI priority (default 0.6)
+ * @returns {Promise<{category: string, department: string, priority: string, confidence: number, priorityConfidence: number, autoAssigned: boolean, autoPriorityAssigned: boolean, reasoning: string, priorityReasoning: string}>}
  */
-export async function autoCategorizeWithFallback(title, description = '', facilityType = 'Other', confidenceThreshold = 0.7) {
+export async function autoCategorizeWithFallback(title, description = '', facilityType = 'Other', confidenceThreshold = 0.7, priorityThreshold = 0.6) {
   try {
     // Try free tier (Supabase Edge Function with Gemini) first
     const result = await categorizeTicket(title, description, facilityType);
-    
-    // Only auto-assign if confidence is high enough
+
+    // Only auto-assign category if confidence is high enough
     const autoAssigned = result.confidence >= confidenceThreshold && result.suggested;
-    
+    // Auto-assign priority if confidence is high enough
+    const autoPriorityAssigned = (result.priorityConfidence || 0) >= priorityThreshold && result.suggested;
+
     return {
       category: result.category,
       department: result.department,
+      priority: result.priority,
       confidence: result.confidence,
+      priorityConfidence: result.priorityConfidence || 0.5,
       autoAssigned,
+      autoPriorityAssigned,
       reasoning: result.reasoning,
+      priorityReasoning: result.priorityReasoning,
       source: 'gemini-free'
     };
   } catch {
@@ -191,27 +199,57 @@ export async function autoCategorizeWithFallback(title, description = '', facili
     try {
       const result = await categorizeTicketViaGateway(title, description, facilityType);
       const autoAssigned = result.confidence >= confidenceThreshold && result.suggested;
+      const autoPriorityAssigned = (result.priorityConfidence || 0) >= priorityThreshold && result.suggested;
 
       return {
         category: result.category,
         department: result.department,
+        priority: result.priority,
         confidence: result.confidence,
+        priorityConfidence: result.priorityConfidence || 0.5,
         autoAssigned,
+        autoPriorityAssigned,
         reasoning: result.reasoning,
+        priorityReasoning: result.priorityReasoning,
         source: 'ai-gateway-fallback'
       };
     } catch {
-      // Return null to indicate manual selection needed
+      // Return defaults with keyword-based priority detection
+      const keywordPriority = detectPriorityFromText(title, description);
       return {
         category: null,
         department: null,
+        priority: keywordPriority.priority,
         confidence: 0,
+        priorityConfidence: 0.5,
         autoAssigned: false,
+        autoPriorityAssigned: false,
         reasoning: 'AI categorization unavailable',
+        priorityReasoning: keywordPriority.reason,
         source: 'failed'
       };
     }
   }
+}
+
+// Keyword-based priority detection (client-side fallback)
+function detectPriorityFromText(title, description) {
+  const text = (title + ' ' + description).toLowerCase();
+
+  const highKeywords = [
+    'emergency', 'urgent', 'critical', 'dangerous', 'hazard', 'safety', 'fire', 'flood', 'leak', 'water leak',
+    'power outage', 'no electricity', 'electrical hazard', 'shock', 'sparking', 'smoke', 'burning',
+    'gas leak', 'carbon monoxide', 'broken glass', 'injury', 'fallen', 'collapsed', 'blocked exit',
+    'no heat', 'no heating', 'freezing', 'extreme cold', 'no ac', 'no cooling', 'extreme heat',
+    'security', 'intruder', 'break-in', 'theft', 'vandalism', 'broken lock', 'door stuck'
+  ];
+
+  const highMatches = highKeywords.filter(kw => text.includes(kw.toLowerCase()));
+  if (highMatches.length > 0) {
+    return { priority: 'High', reason: `Urgency detected: ${highMatches[0]}` };
+  }
+
+  return { priority: 'Medium', reason: 'No urgent indicators detected' };
 }
 
 // ============================================================================

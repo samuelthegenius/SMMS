@@ -221,8 +221,19 @@ export function AuthProvider({ children }) {
         isStudent: profile?.role === 'student',
         isSRC: profile?.role === 'src',
         isPorter: profile?.role === 'porter',
+        // Facility Management Roles
+        isFacilityManager: profile?.role === 'facility_manager',
+        isMaintenanceSupervisor: profile?.role === 'maintenance_supervisor',
+        isTeamLead: profile?.role === 'team_lead',
+        // Combined supervisor check
+        isSupervisor: ['facility_manager', 'maintenance_supervisor', 'team_lead'].includes(profile?.role),
+        // Permission-based helpers
+        canManageTechnicians: ['admin', 'facility_manager', 'maintenance_supervisor', 'team_lead'].includes(profile?.role),
+        canReassignTechnicians: ['admin', 'facility_manager', 'maintenance_supervisor'].includes(profile?.role),
         // Department-based admin access
         hasAdminAccess: profile?.role === 'admin' || profile?.department === 'Student Affairs' || profile?.role === 'src',
+        // Facility Management Access (full oversight)
+        hasFacilityManagementAccess: ['admin', 'facility_manager', 'maintenance_supervisor'].includes(profile?.role),
     }), [user, profile, loading, authReady, backendUnreachable]);
 
     return (

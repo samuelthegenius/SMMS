@@ -82,7 +82,7 @@ export default function SettingsPage() {
               </div>
               <div className="p-3 bg-slate-50 rounded-lg">
                 <label className="text-xs font-medium text-slate-500 uppercase">Role</label>
-                <p className={`text-sm font-medium capitalize ${profile?.role === 'admin' ? 'text-emerald-600' : 'text-slate-900'}`}>
+                <p className={`text-sm font-medium capitalize ${profile?.role === 'it_admin' ? 'text-emerald-600' : 'text-slate-900'}`}>
                   {profile?.role || 'N/A'}
                   {profile?._isFallback && <span className="text-amber-500 ml-2">(fallback)</span>}
                 </p>

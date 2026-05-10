@@ -118,9 +118,12 @@ export default async function handler(req, res) {
 
       const isCreator = ticket.created_by === user.id;
       const isAssignee = ticket.assigned_to === user.id;
-      const isAdmin = profile?.role === 'admin';
+      const isITAdmin = profile?.role === 'it_admin';
+      const isFacilityManager = profile?.role === 'facility_manager';
+      const isMaintenanceSupervisor = profile?.role === 'maintenance_supervisor';
+      const isSupervisor = isFacilityManager || isMaintenanceSupervisor;
 
-      if (!isCreator && !isAssignee && !isAdmin) {
+      if (!isCreator && !isAssignee && !isITAdmin && !isSupervisor) {
         return res.status(403).json({ error: 'Access denied' });
       }
 
@@ -149,12 +152,12 @@ export default async function handler(req, res) {
         .limit(parseInt(limit, 10));
 
       // Filter out internal messages for non-staff
-      if (!isAssignee && !isAdmin) {
+      if (!isAssignee && !isITAdmin && !isSupervisor) {
         query = query.eq('is_internal', false);
       }
 
-      // Filter out deleted messages for non-admins
-      if (!isAdmin) {
+      // Filter out deleted messages for non-admins/supervisors
+      if (!isITAdmin && !isSupervisor) {
         query = query.eq('is_deleted', false);
       }
 
@@ -206,20 +209,23 @@ export default async function handler(req, res) {
 
       const isCreator = ticket.created_by === user.id;
       const isAssignee = ticket.assigned_to === user.id;
-      const isAdmin = profile?.role === 'admin';
+      const isITAdmin = profile?.role === 'it_admin';
       const isTechnician = profile?.role === 'technician';
+      const isFacilityManager = profile?.role === 'facility_manager';
+      const isMaintenanceSupervisor = profile?.role === 'maintenance_supervisor';
+      const isSupervisor = isFacilityManager || isMaintenanceSupervisor;
 
       // Determine sender type
       let senderType = 'user';
-      if (isAdmin) senderType = 'admin';
+      if (isITAdmin) senderType = 'admin'; // Keep 'admin' as sender type for UI compatibility
       else if (isTechnician && isAssignee) senderType = 'technician';
 
       // Permission checks
-      if (is_internal && !isAssignee && !isAdmin) {
+      if (is_internal && !isAssignee && !isITAdmin && !isSupervisor) {
         return res.status(403).json({ error: 'Only staff can create internal notes' });
       }
 
-      if (!isCreator && !isAssignee && !isAdmin) {
+      if (!isCreator && !isAssignee && !isITAdmin && !isSupervisor) {
         return res.status(403).json({ error: 'Access denied' });
       }
 
@@ -255,7 +261,7 @@ export default async function handler(req, res) {
 
       // If AI assist is requested, generate AI response
       let aiResponse = null;
-      if (ai_assist && (isAssignee || isAdmin)) {
+      if (ai_assist && (isAssignee || isITAdmin || isSupervisor)) {
         try {
           const { data: aiData } = await supabase.functions.invoke('ai-chat-assistant', {
             body: {

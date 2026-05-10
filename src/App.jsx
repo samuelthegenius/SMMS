@@ -47,8 +47,8 @@ function DashboardRouter() {
 
   if (!profile) return <Loader variant="simple" />;
 
-  // Admin, Facility Manager, Maintenance Supervisor, Student Affairs staff, and SRC get admin dashboard
-  const managementRoles = ['admin', 'facility_manager', 'maintenance_supervisor'];
+  // IT Admin, Department Managers, Supervisors, Student Affairs staff, and SRC get admin dashboard
+  const managementRoles = ['it_admin', 'manager', 'supervisor'];
   if (managementRoles.includes(activeRole) || isStudentAffairs || activeRole === 'src') {
     return (
       <Suspense fallback={<Loader variant="admin" />}>

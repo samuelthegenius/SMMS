@@ -27,12 +27,17 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
     const [aiTyping, setAiTyping] = useState(false);
     const [aiMgmtSuggestion, setAiMgmtSuggestion] = useState(null);
 
-    const isTechnicianOrAdmin = profile?.role === 'technician' || profile?.role === 'admin' || 
-                                 profile?.role === 'facility_manager' || profile?.role === 'maintenance_supervisor' || 
+    const isTechnicianOrAdmin = profile?.role === 'technician' || profile?.role === 'it_admin' || 
+                                 profile?.role === 'manager' || profile?.role === 'supervisor' || 
                                  profile?.role === 'team_lead';
-    const isAdmin = profile?.role === 'admin';
-    const canReassignTechnicians = profile?.role === 'admin' || profile?.role === 'facility_manager' || 
-                                   profile?.role === 'maintenance_supervisor';
+    const isITAdmin = profile?.role === 'it_admin';
+    // Admin (IT) can only reassign IT tickets; department management handles other categories
+    const canReassignTechnicians = profile?.role === 'manager' || 
+                                   profile?.role === 'supervisor';
+    // For IT tickets, admin can reassign; for other tickets, only department management
+    const canReassignThisTicket = (isITAdmin && ticket?.category === 'IT & Networking') || 
+                                   profile?.role === 'manager' || 
+                                   profile?.role === 'supervisor';
 
     // Use pre-fetched reporter and technician info from ticket prop
     // Dashboards already fetch this data via joins or RPC functions
@@ -219,6 +224,72 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
                             </div>
                         </div>
 
+                        {/* Escalation Warning - Show for Escalated tickets */}
+                        {ticket.status === 'Escalated' && (
+                            <div className="bg-rose-50 border border-rose-200 rounded-xl p-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <AlertTriangle className="w-5 h-5 text-rose-600" />
+                                    <span className="text-sm font-semibold text-rose-800">
+                                        Ticket Escalated to SRC
+                                    </span>
+                                </div>
+                                <p className="text-sm text-rose-700 mb-2">
+                                    This ticket has been escalated to the Student Representative Council due to multiple unsatisfactory resolutions.
+                                </p>
+                                <div className="flex items-center gap-2 text-xs text-rose-600 bg-rose-100 p-2 rounded">
+                                    <span>⚠️ Rejection count: {ticket.rejection_count || 0}</span>
+                                    <span className="text-rose-400">|</span>
+                                    <span>Priority: {ticket.priority?.toUpperCase() || 'HIGH'}</span>
+                                </div>
+                                <p className="text-xs text-rose-600 mt-2">
+                                    An administrator will now personally handle your case. You will be notified of any updates.
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Rework in Progress - Show for tickets in rework (unsatisfied but not yet escalated) */}
+                        {ticket.status === 'In Progress' && ticket.satisfaction_status === 'unsatisfied' && ticket.rejection_count > 0 && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Clock className="w-5 h-5 text-amber-600" />
+                                    <span className="text-sm font-semibold text-amber-800">
+                                        Rework in Progress
+                                    </span>
+                                </div>
+                                <p className="text-sm text-amber-700 mb-2">
+                                    Your ticket has been returned to the technician for rework based on your feedback.
+                                </p>
+                                <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-100 p-2 rounded">
+                                    <span>⚠️ Rework attempt: {ticket.rejection_count} of 2</span>
+                                    <span className="text-amber-400">|</span>
+                                    <span>Status: {ticket.rejection_count >= 2 ? 'Will be escalated if unresolved' : '1 more attempt before escalation'}</span>
+                                </div>
+                                {ticket.customer_feedback && (
+                                    <p className="text-xs text-amber-600 mt-2">
+                                        Your feedback: "{ticket.customer_feedback}"
+                                    </p>
+                                )}
+                                <p className="text-xs text-amber-600 mt-2">
+                                    The technician will address your concerns. You will be notified when the work is complete for your review.
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Rejection Reason - Show for Closed tickets with rejection reason */}
+                        {ticket.status === 'Closed' && ticket.rejection_reason && (
+                            <div className="bg-rose-50 border border-rose-200 rounded-xl p-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <AlertTriangle className="w-4 h-4 text-rose-600" />
+                                    <span className="text-sm font-semibold text-rose-800">
+                                        {ticket.rejection_reason.includes('Invalid complaint') ? 'Ticket Rejected' : 'Ticket Status Update'}
+                                    </span>
+                                </div>
+                                <p className="text-sm text-rose-700">
+                                    {ticket.rejection_reason}
+                                </p>
+                            </div>
+                        )}
+
                         {/* Ticket Management Panel - Only for staff */}
                         {isTechnicianOrAdmin && (
                             <div className="border-t border-slate-100 pt-6">
@@ -255,7 +326,7 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
                                                 Change Category
                                             </Button>
                                         )}
-                                        {isAdmin && (
+                                        {(isITAdmin && ticket?.category === 'IT & Networking') && (
                                             <Button
                                                 size="sm"
                                                 variant="outline"
@@ -411,7 +482,7 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
                                                         )}
                                                     </div>
                                                 </div>
-                                                {canReassignTechnicians && (
+                                                {canReassignThisTicket && (
                                                     <div className="pt-2 border-t border-slate-200">
                                                         <ReassignTechnician 
                                                             ticket={ticket} 
@@ -426,7 +497,7 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
                                         ) : (
                                             <div className="space-y-3">
                                                 <p className="text-sm text-slate-500">No technician assigned yet</p>
-                                                {canReassignTechnicians && (
+                                                {canReassignThisTicket && (
                                                     <ReassignTechnician 
                                                         ticket={ticket} 
                                                         onReassign={() => {

@@ -1,12 +1,12 @@
 /**
  * @file src/pages/AnalyticsPage.jsx
- * @description Dedicated Analytics View for Facility Managers.
+ * @description Dedicated Analytics View for Facility Managers and IT Admin.
  * @author System Administrator
  * 
  * Key Features:
  * - Strategic Insights: focus on high-level data visualization.
  * - Separation of Concerns: keeps operational dashboard focused on ticket management.
- * - Access Control: Restricted to Administrators only.
+ * - Access Control: Restricted to IT Admin, Facility Managers, Maintenance Supervisors, and SRC.
  */
 import { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 import { supabase } from '../lib/supabase';
@@ -34,11 +34,15 @@ export default function AnalyticsPage() {
 
     // Data Fetching:
     // Pulls all tickets to generate comprehensive statistics.
-    // Similar query to AdminDashboard but focused purely on data aggregation.
+    // Uses role-appropriate RPC: admin (IT) gets IT tickets, supervisors get all tickets
     const fetchTickets = useCallback(async () => {
         try {
-            // Use the same RPC function as AdminDashboard for consistency
-            const { data, error } = await supabase.rpc('get_admin_tickets');
+            // Choose appropriate RPC based on role
+            // IT Admin only sees IT & Networking tickets
+            // Facility managers and supervisors see all tickets for oversight
+            const isITAdmin = profile?.role === 'it_admin';
+            const rpcFunction = isITAdmin ? 'get_it_admin_tickets' : 'get_supervisor_all_tickets';
+            const { data, error } = await supabase.rpc(rpcFunction);
             
             if (error) {
                 // Fallback to direct query with proper joins
@@ -86,7 +90,7 @@ export default function AnalyticsPage() {
         }
     }, []);
 
-    const hasAdminAccess = profile?.role === 'admin' || profile?.department === 'Student Affairs' || profile?.role === 'src';
+    const hasAdminAccess = profile?.role === 'it_admin' || profile?.department === 'Student Affairs' || profile?.role === 'src';
 
     useEffect(() => {
         // Only fetch data if user has admin access and we haven't fetched for this profile yet
@@ -116,12 +120,12 @@ export default function AnalyticsPage() {
         );
     }
 
-    // Handle non-admin users
+    // Handle users without analytics access
     if (profile && !hasAdminAccess) {
         return (
             <div className="text-red-500 text-center mt-10">
                 <p className="text-lg font-medium">Access Denied</p>
-                <p className="text-sm mt-2">You need admin privileges to view analytics.</p>
+                <p className="text-sm mt-2">You need IT Admin, Facility Manager, Maintenance Supervisor, or SRC privileges to view analytics.</p>
             </div>
         );
     }

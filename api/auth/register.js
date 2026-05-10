@@ -93,7 +93,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Password must be at least 8 characters with uppercase, lowercase, and number' });
   }
   const allowedRoles = ['student', 'staff', 'technician', 'src', 'porter', 
-                        'facility_manager', 'maintenance_supervisor', 'team_lead'];
+                        'manager', 'supervisor', 'team_lead'];
   if (!allowedRoles.includes(role)) {
     return res.status(400).json({ error: 'Invalid role' });
   }
@@ -137,7 +137,20 @@ export default async function handler(req, res) {
 
   // ── Step 4: Create the auth user ─────────────────────────────────────────
   // All validations passed — safe to create at this point.
-  const resolvedDepartment = (role === 'technician' || role === 'team_lead' || role === 'maintenance_supervisor' || role === 'facility_manager') ? 'Works Department' : (department || '');
+  // Determine department based on role and specialization
+  let resolvedDepartment;
+  if (role === 'manager' || role === 'supervisor') {
+    // Management roles: use provided department or default to Works
+    resolvedDepartment = department || 'Works Department';
+  } else if ((role === 'technician' || role === 'team_lead') && specialization) {
+    // Technical roles: derive from specialization/skill
+    resolvedDepartment = specialization === 'IT & Networking' 
+      ? 'IT Support & Infrastructure' 
+      : 'Works Department';
+  } else {
+    // All other roles: use provided department
+    resolvedDepartment = department || 'Unassigned';
+  }
 
   const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email,

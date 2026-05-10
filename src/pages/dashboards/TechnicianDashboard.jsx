@@ -260,6 +260,15 @@ export default function TechnicianDashboard() {
         mutate(updatedJobs, false);
 
         try {
+            // Get the ticket to find the student who created it
+            const { data: ticket, error: fetchError } = await supabase
+                .from('tickets')
+                .select('id, title, created_by')
+                .eq('id', ticketId)
+                .single();
+
+            if (fetchError) throw fetchError;
+
             if (isValid) {
                 // Valid complaint - mark as In Progress (ready for technician assignment)
                 const { error } = await supabase
@@ -272,6 +281,18 @@ export default function TechnicianDashboard() {
                     .eq('id', ticketId);
 
                 if (error) throw error;
+
+                // Notify the student that their ticket was approved
+                if (ticket?.created_by) {
+                    await supabase
+                        .from('notifications')
+                        .insert({
+                            user_id: ticket.created_by,
+                            ticket_id: ticketId,
+                            message: `Your ticket "${ticket.title}" was verified by ${verifierName.toUpperCase()} and is now being assigned to a technician.`
+                        });
+                }
+
                 toast.success(`Complaint verified by ${verifierName.toUpperCase()} - technician will be assigned`);
             } else {
                 // Invalid complaint - close/reject the ticket
@@ -285,6 +306,18 @@ export default function TechnicianDashboard() {
                     .eq('id', ticketId);
 
                 if (error) throw error;
+
+                // Notify the student that their ticket was rejected
+                if (ticket?.created_by) {
+                    await supabase
+                        .from('notifications')
+                        .insert({
+                            user_id: ticket.created_by,
+                            ticket_id: ticketId,
+                            message: `Your ticket "${ticket.title}" was rejected by ${verifierName.toUpperCase()}. Reason: Invalid complaint.`
+                        });
+                }
+
                 toast.success(`Invalid complaint rejected by ${verifierName.toUpperCase()}`);
             }
             mutate(); // Revalidate

@@ -11,8 +11,9 @@ import { Button } from '../../components/ui/Button';
 import { DashboardSkeleton, CardSkeleton, StatsCardSkeleton } from '../../components/SkeletonLoader';
 import { useAuth } from '../../contexts/useAuth';
 
-// Lazy load security dashboard only when needed
+// Lazy load security dashboard and user management only when needed
 const SecurityDashboard = lazy(() => import('./SecurityDashboard'));
+const UserManagement = lazy(() => import('../../components/UserManagement'));
 
 const FACILITY_TYPES = [
     'All', 'Hostel', 'Lecture Hall', 'Laboratory', 'Office',
@@ -28,14 +29,18 @@ export default function AdminDashboard() {
     const { profile } = useAuth();
     const [filter, setFilter] = useState('All');
     const [selectedTicket, setSelectedTicket] = useState(null);
-    const [activeTab, setActiveTab] = useState('tickets'); // 'tickets' or 'security'
+    const [activeTab, setActiveTab] = useState('tickets'); // 'tickets', 'security', or 'users'
 
-    // SWR Fetcher - Use RPC function to get all admin tickets
+    // SWR Fetcher - Use role-appropriate RPC function
+    // Admin (IT) gets IT & Networking tickets only
+    // Facility managers/supervisors get all tickets for oversight
     const fetchTickets = async () => {
-        const { data, error } = await supabase.rpc('get_admin_tickets');
+        const isITAdmin = profile?.role === 'it_admin';
+        const rpcFunction = isITAdmin ? 'get_it_admin_tickets' : 'get_supervisor_all_tickets';
+        const { data, error } = await supabase.rpc(rpcFunction);
         
         if (error) {
-            // Fallback to direct query with joins
+            // Fallback to direct query with joins (will be filtered by RLS)
             const { data: fallbackData, error: fallbackError } = await supabase
                 .from('tickets')
                 .select(`
@@ -67,8 +72,12 @@ export default function AdminDashboard() {
     };
 
     // Use SWR for caching with proper loading state handling
+    // Different cache keys for IT admin vs facility management
+    const swrKey = profile?.role === 'it_admin' ? 'it_admin_tickets' : 
+                   ['manager', 'supervisor'].includes(profile?.role) ? 'supervisor_tickets' : 
+                   null;
     const { data: tickets = [], mutate, isLoading: swrLoading, error } = useSWR(
-        profile?.role === 'admin' ? 'admin_tickets' : null, 
+        swrKey, 
         fetchTickets,
         {
             revalidateOnFocus: false,
@@ -81,7 +90,7 @@ export default function AdminDashboard() {
         }
     );
 
-	const hasAdminAccess = profile?.role === 'admin' || profile?.department === 'Student Affairs' || profile?.role === 'src';
+	const hasAdminAccess = profile?.role === 'it_admin' || profile?.department === 'Student Affairs' || profile?.role === 'src';
 
 	useEffect(() => {
 		if (!profile || !hasAdminAccess) return;
@@ -128,7 +137,7 @@ export default function AdminDashboard() {
     // DashboardRouter already ensures profile is set before rendering us,
     // so these are belt-and-suspenders catches only.
     if (profile && !hasAdminAccess) {
-        return <div className="text-red-500 text-center mt-10">Access Denied: You are not an admin.</div>;
+        return <div className="text-red-500 text-center mt-10">Access Denied: You are not an IT admin or supervisor.</div>;
     }
 
     if (error) {
@@ -149,8 +158,8 @@ export default function AdminDashboard() {
             {/* Header with Tabs - Bento Style */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-surface-900 tracking-tight">Admin Dashboard</h1>
-                    <p className="text-surface-500 mt-2 text-lg">Manage maintenance and security operations</p>
+                    <h1 className="text-3xl font-bold text-surface-900 tracking-tight">IT Admin Dashboard</h1>
+                    <p className="text-surface-500 mt-2 text-lg">Manage IT & Networking tickets and system security</p>
                 </div>
 
                 {/* Tab Navigation - Modern Pill Style */}
@@ -179,6 +188,19 @@ export default function AdminDashboard() {
                         <div className="flex items-center gap-2">
                             <Shield className="w-4 h-4" />
                             Security
+                        </div>
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('users')}
+                        className={`px-5 py-2.5 rounded-xl font-semibold transition-all duration-200 ${
+                            activeTab === 'users'
+                                ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/25'
+                                : 'text-surface-600 hover:bg-white hover:shadow-sm'
+                        }`}
+                    >
+                        <div className="flex items-center gap-2">
+                            <Users className="w-4 h-4" />
+                            Users
                         </div>
                     </button>
                 </div>
@@ -304,6 +326,13 @@ export default function AdminDashboard() {
             <div className={activeTab === 'security' ? undefined : 'hidden'}>
                 <Suspense fallback={<Loader variant="security" />}>
                     <SecurityDashboard />
+                </Suspense>
+            </div>
+
+            {/* Users panel — always mounted, hidden when tickets/security tab is active */}
+            <div className={activeTab === 'users' ? undefined : 'hidden'}>
+                <Suspense fallback={<Loader variant="admin" />}>
+                    <UserManagement />
                 </Suspense>
             </div>
 

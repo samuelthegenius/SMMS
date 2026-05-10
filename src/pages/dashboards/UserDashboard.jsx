@@ -18,6 +18,7 @@ const STATUS_STYLES = {
     'Escalated': { bg: 'bg-rose-50', text: 'text-rose-700', icon: AlertCircle, border: 'border-rose-200' },
     'Resolved': { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: CheckCircle, border: 'border-emerald-200' },
     'Closed': { bg: 'bg-surface-50', text: 'text-surface-700', icon: CheckCircle, border: 'border-surface-200' },
+    'Rejected': { bg: 'bg-rose-50', text: 'text-rose-700', icon: AlertCircle, border: 'border-rose-200' },
     // Additional statuses used by the backend but not always shown to users
     'Pending': { bg: 'bg-amber-50', text: 'text-amber-700', icon: Clock, border: 'border-amber-200' },
     'Assigned': { bg: 'bg-primary-50', text: 'text-primary-700', icon: WrenchIcon, border: 'border-primary-200' },
@@ -25,7 +26,7 @@ const STATUS_STYLES = {
 };
 
 const ACTIVE_STATUSES = ['Open', 'In Progress', 'Escalated', 'Pending Verification'];
-const COMPLETED_STATUSES = ['Resolved', 'Closed'];
+const COMPLETED_STATUSES = ['Resolved', 'Closed', 'Rejected'];
 
 export default function UserDashboard() {
     const { user } = useAuth();
@@ -38,7 +39,7 @@ export default function UserDashboard() {
     const isHistoryView = location.pathname === '/history';
     const viewTitle = isHistoryView ? 'History' : 'Dashboard';
     const viewDescription = isHistoryView
-        ? 'View your completed maintenance requests'
+        ? 'View your completed and rejected maintenance requests'
         : 'Track the status of your active maintenance requests';
 
     const [selectedTicket, setSelectedTicket] = useState(null);
@@ -109,7 +110,7 @@ export default function UserDashboard() {
             // Authorization check: ensure user owns this ticket
             const { data: ticketCheck } = await supabase
                 .from('tickets')
-                .select('created_by')
+                .select('created_by, rejection_count')
                 .eq('id', ticketId)
                 .single();
 
@@ -125,7 +126,21 @@ export default function UserDashboard() {
 
             if (error) throw error;
 
-            toast.success(isApproved ? 'Fix confirmed! Thank you for your feedback.' : 'Issue reported. Technician will rework.');
+            if (isApproved) {
+                toast.success('Fix confirmed! Thank you for your feedback.');
+            } else {
+                const currentRejectionCount = ticketCheck?.rejection_count || 0;
+                const newCount = currentRejectionCount + 1;
+                if (newCount >= 2) {
+                    toast.warning('Issue reported. This ticket will be escalated to SRC for immediate intervention.', {
+                        duration: 5000
+                    });
+                } else {
+                    toast.info('Issue reported. Technician will rework. You have 1 more rework request before escalation.', {
+                        duration: 4000
+                    });
+                }
+            }
 
             // Reset form states
             if (!isApproved) {
@@ -168,11 +183,11 @@ export default function UserDashboard() {
                             <AlertCircle className="h-7 w-7 text-primary-500" />
                         </div>
                         <h3 className="text-lg font-bold text-surface-900">
-                            {isHistoryView ? 'No completed tickets yet' : 'No active tickets'}
+                            {isHistoryView ? 'No completed or rejected tickets yet' : 'No active tickets'}
                         </h3>
                         <p className="mt-2 text-surface-500 max-w-sm">
                             {isHistoryView
-                                ? 'Completed tickets will appear here once they are resolved.'
+                                ? 'Resolved and rejected tickets will appear here.'
                                 : 'Get started by creating a new maintenance request using the "New Ticket" button.'}
                         </p>
                     </CardContent>
@@ -180,7 +195,10 @@ export default function UserDashboard() {
             ) : (
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                     {filteredTickets.map((ticket) => {
-                        const statusStyle = STATUS_STYLES[ticket.status] ?? STATUS_STYLES['Open'];
+                        // Show 'Rejected' status for closed tickets with 'Invalid complaint' reason
+                        const isRejected = ticket.status === 'Closed' && ticket.rejection_reason?.includes('Invalid complaint');
+                        const displayStatus = isRejected ? 'Rejected' : ticket.status;
+                        const statusStyle = STATUS_STYLES[displayStatus] ?? STATUS_STYLES['Open'];
                         const StatusIcon = statusStyle.icon;
 
                         return (
@@ -194,7 +212,7 @@ export default function UserDashboard() {
                                             statusStyle.border
                                         )}>
                                             <StatusIcon className="w-3.5 h-3.5" />
-                                            {ticket.status}
+                                            {displayStatus}
                                         </span>
                                         <span className="text-xs font-medium text-surface-400 flex items-center gap-1">
                                             <Calendar className="w-3.5 h-3.5" />

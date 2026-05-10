@@ -497,6 +497,7 @@ BEGIN
                 SELECT id INTO v_src_user_id
                 FROM profiles WHERE role = 'src' LIMIT 1;
                 
+                -- Notify SRC about escalation
                 IF v_src_user_id IS NOT NULL THEN
                     INSERT INTO notifications (user_id, ticket_id, message)
                     VALUES (v_src_user_id, NEW.id,
@@ -504,10 +505,17 @@ BEGIN
                         NEW.rejection_count || ' times. Requires intervention.');
                 END IF;
                 
+                -- Notify admin about escalation
                 INSERT INTO notifications (user_id, ticket_id, message)
                 SELECT id, NEW.id, 'ESCALATION: High-priority ticket requires intervention'
                 FROM profiles WHERE role = 'admin' LIMIT 1;
+                
+                -- Notify student that their ticket has been escalated
+                INSERT INTO notifications (user_id, ticket_id, message)
+                VALUES (NEW.created_by, NEW.id,
+                    'Your ticket "' || NEW.title || '" has been escalated to SRC due to multiple unsatisfactory resolutions. An administrator will now handle your case.');
             ELSE
+                -- Notify assigned technician about rework needed
                 IF NEW.assigned_to IS NOT NULL THEN
                     INSERT INTO notifications (user_id, ticket_id, message)
                     VALUES (NEW.assigned_to, NEW.id,
@@ -515,6 +523,12 @@ BEGIN
                         NEW.rejection_count || '). ' || 
                         COALESCE(LEFT(NEW.customer_feedback, 50), 'No feedback'));
                 END IF;
+                
+                -- Notify student about rework status
+                INSERT INTO notifications (user_id, ticket_id, message)
+                VALUES (NEW.created_by, NEW.id,
+                    'Your ticket "' || NEW.title || '" has been returned for rework (attempt ' || 
+                    NEW.rejection_count || ' of ' || v_rejection_threshold || '). The technician will address your concerns.');
             END IF;
             
         ELSIF NEW.satisfaction_status = 'satisfied' THEN

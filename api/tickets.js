@@ -159,10 +159,14 @@ export default async function handler(req, res) {
 
       const isCreator = ticket.created_by === user.id;
       const isAssignee = ticket.assigned_to === user.id;
-      const isAdmin = profile?.role === 'admin';
+      const isITAdmin = profile?.role === 'it_admin' && ticket.category === 'IT & Networking';
       const isTechnician = profile?.role === 'technician';
+      const isManager = profile?.role === 'manager';
+      const isSupervisor = profile?.role === 'supervisor';
+      // Department management can access all tickets for oversight
+      const isLeadership = isManager || isSupervisor;
 
-      if (!isCreator && !isAssignee && !isAdmin && !isTechnician) {
+      if (!isCreator && !isAssignee && !isITAdmin && !isTechnician && !isLeadership) {
         return res.status(403).json({ error: 'Access denied' });
       }
 
@@ -198,25 +202,30 @@ export default async function handler(req, res) {
       }
 
       // Check permissions
-      const isAdmin = profile.role === 'admin';
+      const isITAdmin = profile.role === 'it_admin' && ticket.category === 'IT & Networking';
       const isTechnician = profile.role === 'technician' && ticket.assigned_to === user.id;
       const isCreator = ticket.created_by === user.id;
+      const isManager = profile.role === 'manager';
+      const isSupervisorRole = profile.role === 'supervisor';
+      // Department management can manage all tickets
+      const isLeadership = isManager || isSupervisorRole;
 
-      if (!isAdmin && !isTechnician && !isCreator) {
+      if (!isITAdmin && !isTechnician && !isCreator && !isLeadership) {
         return res.status(403).json({ error: 'Access denied' });
       }
 
-      // Field-level permissions
-      if (updates.category && !isAdmin && !isTechnician) {
-        return res.status(403).json({ error: 'Only technicians and admins can change category' });
+      // Field-level permissions - IT admin can only modify IT tickets
+      // Leadership can modify any ticket
+      if (updates.category && !isITAdmin && !isTechnician && !isLeadership) {
+        return res.status(403).json({ error: 'Only technicians, supervisors, and IT admins (for IT tickets) can change category' });
       }
 
-      if (updates.priority && !isAdmin) {
-        return res.status(403).json({ error: 'Only admins can change priority' });
+      if (updates.priority && !isITAdmin && !isLeadership) {
+        return res.status(403).json({ error: 'Only supervisors and IT admins can change priority' });
       }
 
-      if (updates.assigned_to && !isAdmin) {
-        return res.status(403).json({ error: 'Only admins can reassign tickets' });
+      if (updates.assigned_to && !isITAdmin && !isLeadership) {
+        return res.status(403).json({ error: 'Only supervisors and IT admins can reassign tickets' });
       }
 
       // Prepare update data
@@ -342,15 +351,16 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Ticket ID is required' });
       }
 
-      // Verify admin
+      // Verify IT admin or facility manager
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .single();
 
-      if (profile?.role !== 'admin') {
-        return res.status(403).json({ error: 'Only admins can delete tickets' });
+      const canDelete = profile?.role === 'it_admin' || profile?.role === 'facility_manager' || profile?.role === 'maintenance_supervisor';
+      if (!canDelete) {
+        return res.status(403).json({ error: 'Only IT admins and facility managers can delete tickets' });
       }
 
       const { error } = await supabase

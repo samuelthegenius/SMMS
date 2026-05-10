@@ -215,25 +215,34 @@ export function AuthProvider({ children }) {
         loading,
         initializing: !authReady,
         backendUnreachable,
-        isAdmin: profile?.role === 'admin',
+        isITAdmin: profile?.role === 'it_admin',
         isTechnician: profile?.role === 'technician',
         isStaff: profile?.role === 'staff',
         isStudent: profile?.role === 'student',
         isSRC: profile?.role === 'src',
         isPorter: profile?.role === 'porter',
-        // Facility Management Roles
-        isFacilityManager: profile?.role === 'facility_manager',
-        isMaintenanceSupervisor: profile?.role === 'maintenance_supervisor',
+        // Unified Role Hierarchy
+        isManager: profile?.role === 'manager',
+        isSupervisorRole: profile?.role === 'supervisor',  // Specific supervisor role
         isTeamLead: profile?.role === 'team_lead',
-        // Combined supervisor check
-        isSupervisor: ['facility_manager', 'maintenance_supervisor', 'team_lead'].includes(profile?.role),
+        // Combined supervisor check (all leadership roles including team leads)
+        isSupervisor: ['manager', 'supervisor', 'team_lead'].includes(profile?.role),
         // Permission-based helpers
-        canManageTechnicians: ['admin', 'facility_manager', 'maintenance_supervisor', 'team_lead'].includes(profile?.role),
-        canReassignTechnicians: ['admin', 'facility_manager', 'maintenance_supervisor'].includes(profile?.role),
-        // Department-based admin access
-        hasAdminAccess: profile?.role === 'admin' || profile?.department === 'Student Affairs' || profile?.role === 'src',
-        // Facility Management Access (full oversight)
-        hasFacilityManagementAccess: ['admin', 'facility_manager', 'maintenance_supervisor'].includes(profile?.role),
+        // Leadership can manage technicians in their department
+        canManageTechnicians: ['manager', 'supervisor', 'team_lead', 'it_admin'].includes(profile?.role),
+        canReassignTechnicians: ['manager', 'supervisor', 'it_admin'].includes(profile?.role),
+        // Department-based admin access (IT Admin or Student Affairs staff or SRC)
+        hasITAdminAccess: profile?.role === 'it_admin' || profile?.department === 'Student Affairs' || profile?.role === 'src',
+        // Department Management Access (full oversight) - managers and supervisors
+        hasDepartmentManagementAccess: ['manager', 'supervisor'].includes(profile?.role),
+        // Backward compatibility (deprecated)
+        isFacilityManager: profile?.role === 'manager',
+        isMaintenanceSupervisor: profile?.role === 'supervisor',
+        hasFacilityManagementAccess: ['manager', 'supervisor'].includes(profile?.role),
+        // IT Admin Access (IT & Networking tickets only)
+        canManageITTickets: profile?.role === 'it_admin',
+        // Backward compatibility - deprecated, use isITAdmin
+        isAdmin: profile?.role === 'it_admin',
     }), [user, profile, loading, authReady, backendUnreachable]);
 
     return (

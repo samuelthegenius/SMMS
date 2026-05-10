@@ -50,14 +50,14 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
 
-    const isStaff = profile?.role === 'technician' || profile?.role === 'admin';
-    const isAdmin = profile?.role === 'admin';
+    const isStaff = profile?.role === 'technician' || profile?.role === 'it_admin' || profile?.role === 'manager' || profile?.role === 'supervisor' || profile?.role === 'team_lead';
+    const isITAdmin = profile?.role === 'it_admin';
 
     // Determine user role in context of this ticket
     const getUserContext = () => {
         if (ticket.created_by === user?.id) return 'creator';
         if (ticket.assigned_to === user?.id) return 'assignee';
-        if (isAdmin) return 'admin';
+        if (isITAdmin) return 'admin'; // Return 'admin' context for UI compatibility
         return 'viewer';
     };
 

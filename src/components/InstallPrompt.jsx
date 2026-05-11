@@ -80,7 +80,6 @@ export default function InstallPrompt() {
             window.removeEventListener('smms:installable', handleInstallable);
             window.removeEventListener('beforeinstallprompt', handleNative);
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleDismiss = () => {

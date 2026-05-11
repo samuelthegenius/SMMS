@@ -305,7 +305,7 @@ export default async function handler(req, res) {
                 is_internal: false,
               });
           }
-        } catch (_aiError) {
+        } catch {
           // Repair guide generation failed silently
         }
       }

@@ -2,7 +2,7 @@
  * Vercel Cron Job: Trigger Escalation Monitor
  * Runs every 30 minutes to check for stale tickets and send escalation emails
  * 
- * Schedule: */30 * * * * (every 30 minutes)
+ * Schedule: 0,30 * * * * (every 30 minutes)
  */
 
 export default async function handler(req, res) {

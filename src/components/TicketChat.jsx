@@ -348,7 +348,7 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
             setMessages(prev => [...prev, aiMessage]);
             toast.success('AI fix suggestion generated');
 
-        } catch (err) {
+        } catch {
             toast.error('Failed to get AI suggestion');
         } finally {
             setAiTyping(false);

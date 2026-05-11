@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/useAuth';
@@ -385,7 +385,7 @@ export default function TicketForm() {
         } finally {
             setLoading(false);
         }
-    }, [formData, imageFile, navigate, user]);
+    }, [formData, imageFile, navigate, user, pendingSubmit, showDuplicateWarning, checkForDuplicates]);
 
     // Memoize selectClasses to prevent recreation
     const selectClasses = useMemo(() => 

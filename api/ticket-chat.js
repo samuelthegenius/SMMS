@@ -271,7 +271,7 @@ export default async function handler(req, res) {
             },
           });
           aiResponse = aiData;
-        } catch (_aiError) {
+        } catch {
           // AI assist failed silently
         }
       }

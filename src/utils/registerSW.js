@@ -42,7 +42,7 @@ const registerSW = async () => {
         });
       });
 
-    } catch (_error) {
+    } catch {
       // SW registration failed - will be handled gracefully
     }
   }

@@ -25,7 +25,7 @@ export function usePushNotifications(userId) {
   const urlBase64ToUint8Array = (base64String) => {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding)
-      .replace(/\-/g, '+')
+      .replace(/-/g, '+')
       .replace(/_/g, '/');
     
     const rawData = window.atob(base64);
@@ -53,7 +53,7 @@ export function usePushNotifications(userId) {
       if (!error && data && data.length > 0) {
         setSubscription(data[0].subscription_json);
       }
-    } catch (err) {
+    } catch {
       // No active subscription found
     }
   }, [userId]);

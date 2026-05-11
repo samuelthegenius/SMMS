@@ -88,7 +88,7 @@ export default function AnalyticsPage() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [profile?.role]);
 
     const hasAdminAccess = profile?.role === 'it_admin' || profile?.department === 'Student Affairs' || profile?.role === 'src';
 

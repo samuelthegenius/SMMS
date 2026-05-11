@@ -5,7 +5,7 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 
 export default [
-  { ignores: ['dist', 'scripts', 'public'] },
+  { ignores: ['dist', 'scripts', 'public', '.kilo'] },
   // Spread recommended configs directly into the array (ESLint v9 flat config)
   js.configs.recommended,
   react.configs.flat.recommended,

@@ -21,7 +21,6 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
     const [aiSuggestion, setAiSuggestion] = useState(null);
     const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState('details'); // 'details' | 'chat'
-    const [chatOpen, setChatOpen] = useState(false);
     const [managementAction, setManagementAction] = useState(null);
     const [managementLoading, setManagementLoading] = useState(false);
     const [aiTyping, setAiTyping] = useState(false);
@@ -31,9 +30,6 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
                                  profile?.role === 'manager' || profile?.role === 'supervisor' || 
                                  profile?.role === 'team_lead';
     const isITAdmin = profile?.role === 'it_admin';
-    // Admin (IT) can only reassign IT tickets; department management handles other categories
-    const canReassignTechnicians = profile?.role === 'manager' || 
-                                   profile?.role === 'supervisor';
     // For IT tickets, admin can reassign; for other tickets, only department management
     const canReassignThisTicket = (isITAdmin && ticket?.category === 'IT & Networking') || 
                                    profile?.role === 'manager' || 
@@ -69,20 +65,19 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
     const handleManagementAction = async (action, value, reason = '') => {
         setManagementLoading(true);
         try {
-            let result;
             let actionText;
 
             switch (action) {
                 case 'recategorize':
-                    result = await updateTicketCategory(ticket.id, value, reason);
+                    await updateTicketCategory(ticket.id, value, reason);
                     actionText = `recategorized to ${value}`;
                     break;
                 case 'reprioritize':
-                    result = await updateTicketPriority(ticket.id, value, reason);
+                    await updateTicketPriority(ticket.id, value, reason);
                     actionText = `reprioritized to ${value}`;
                     break;
                 case 'change_status':
-                    result = await updateTicketStatus(ticket.id, value, reason);
+                    await updateTicketStatus(ticket.id, value, reason);
                     actionText = `status changed to ${value}`;
                     break;
                 default:
@@ -120,7 +115,7 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
                 setAiMgmtSuggestion(suggestion);
             }
 
-        } catch (err) {
+        } catch {
             toast.error('Failed to get AI suggestion');
         } finally {
             setAiTyping(false);
@@ -132,6 +127,7 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
         if ((managementAction === 'recategorize' || managementAction === 'change_status' || managementAction === 'reprioritize') && !aiMgmtSuggestion) {
             handleGetAISuggestion(managementAction);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [managementAction, aiMgmtSuggestion]);
 
     if (!ticket) return null;

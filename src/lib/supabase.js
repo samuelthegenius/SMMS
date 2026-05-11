@@ -20,12 +20,8 @@ const getSupabaseClient = () => {
     
     // Custom fetch wrapper to handle rate limiting
     const customFetch = async (url, options) => {
-        try {
-            const response = await fetch(url, options);
-            return response;
-        } catch (error) {
-            throw error;
-        }
+        const response = await fetch(url, options);
+        return response;
     };
     
     supabaseInstance = createClient(

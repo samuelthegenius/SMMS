@@ -114,23 +114,19 @@ export const secureFetch = async (url, options = {}) => {
     'X-Requested-With': 'XMLHttpRequest'
   };
 
-  try {
-    const response = await fetch(url, options);
-    
-    // Check for CSRF validation errors
-    if (response.status === 403) {
-      const error = await response.json().catch(() => ({}));
-      if (error.error?.includes('CSRF')) {
-        // Clear invalid token and regenerate
-        sessionStorage.removeItem(CSRF_TOKEN_KEY);
-        throw new Error('CSRF token validation failed. Please try again.');
-      }
+  const response = await fetch(url, options);
+  
+  // Check for CSRF validation errors
+  if (response.status === 403) {
+    const error = await response.json().catch(() => ({}));
+    if (error.error?.includes('CSRF')) {
+      // Clear invalid token and regenerate
+      sessionStorage.removeItem(CSRF_TOKEN_KEY);
+      throw new Error('CSRF token validation failed. Please try again.');
     }
-    
-    return response;
-  } catch (error) {
-    throw error;
   }
+  
+  return response;
 };
 
 /**

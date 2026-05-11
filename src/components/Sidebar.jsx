@@ -24,8 +24,6 @@ export default function Sidebar({ isOpen, onClose }) {
         navigate('/login');
     };
 
-    const isStudentAffairs = profile?.department === 'Student Affairs';
-
     const navItems = [
         { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
         { label: 'Analytics', path: '/analytics', icon: BarChart, roles: ['it_admin', 'src', 'staff', 'manager', 'supervisor'], departmentAccess: 'Student Affairs' },

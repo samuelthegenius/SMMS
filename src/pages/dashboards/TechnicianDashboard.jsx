@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/useAuth';
-import { Bot, CheckCircle, MapPin, AlertTriangle, Play, CheckSquare, Clock, User, Plus, MessageSquare, Eye, Star, TrendingUp, Award } from 'lucide-react';
+import { Bot, CheckCircle, MapPin, AlertTriangle, Play, CheckSquare, Clock, User, Plus, MessageSquare, Eye, Star, TrendingUp, Award, Wrench as WrenchIcon } from 'lucide-react';
 import clsx from 'clsx';
 import Loader from '../../components/Loader';
 import { toast } from 'sonner';
@@ -123,7 +123,7 @@ export default function TechnicianDashboard() {
     );
 
     // Fetch reported tickets for staff/technicians/porters
-    const { data: reportedTickets = [], mutate: mutateReported, isLoading: isLoadingReported } = useSWR(
+    const { data: reportedTickets = [] } = useSWR(
         user ? ['reported_tickets', user.id] : null,
         fetchReportedTickets,
         {

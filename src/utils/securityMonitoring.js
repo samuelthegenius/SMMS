@@ -171,7 +171,7 @@ class SecurityLogger {
         // Re-queue events on failure
         this.eventQueue.unshift(...events);
       }
-    } catch (_error) {
+    } catch {
       // Re-queue events on failure
       this.eventQueue.unshift(...events);
     }
@@ -189,7 +189,7 @@ class SecurityLogger {
         .limit(limit);
 
       return data || [];
-    } catch (_error) {
+    } catch {
       return [];
     }
   }
@@ -210,7 +210,7 @@ class SecurityLogger {
         topEventTypes: data.top_event_types || [],
         hourlyDistribution: data.hourly_distribution || []
       };
-    } catch (_error) {
+    } catch {
       return {
         totalEvents: 0,
         criticalEvents: 0,
@@ -333,7 +333,7 @@ export const securityMonitoring = {
         { alertType: type, message, ...details },
         severity
       );
-    } catch (_error) {
+    } catch {
       // Silent fail
     }
   }

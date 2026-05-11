@@ -109,7 +109,7 @@ export default function NotificationSettings() {
     try {
       await unsubscribePush();
       toast.success('Push notifications disabled');
-    } catch (err) {
+    } catch {
       toast.error('Failed to disable push notifications');
     }
   };

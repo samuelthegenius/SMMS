@@ -18,8 +18,6 @@ export function useLocalNotifications(userId) {
     const checkSupport = () => {
       const hasServiceWorker = 'serviceWorker' in navigator;
       const hasNotification = 'Notification' in window;
-      const hasPeriodicSync = 'periodicSync' in (navigator?.serviceWorker || {});
-      const hasBackgroundSync = 'sync' in (navigator?.serviceWorker || {});
 
       const supported = hasServiceWorker && hasNotification;
       

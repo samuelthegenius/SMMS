@@ -35,6 +35,8 @@ const CACHE_STRATEGIES = {
 
 // Install event - pre-cache critical resources
 self.addEventListener('install', (event) => {
+  self.skipWaiting(); // Force update to replace any stuck broken SW
+
   event.waitUntil(
     caches.open(STATIC_CACHE)
       .then((cache) => {
@@ -47,9 +49,6 @@ self.addEventListener('install', (event) => {
           )
         );
       })
-      // Do NOT auto-skipWaiting: it fires controllerchange on every client,
-      // which triggers window.location.reload() in registerSW.js.
-      // The SW activates via the explicit SKIP_WAITING message only during real updates.
   );
 });
 
@@ -172,7 +171,11 @@ async function cacheFirst(request, cacheName, strategy) {
     if (cached) {
       return cached;
     }
-    throw error;
+    // Graceful fallback to avoid Uncaught Promise Rejection in SW
+    return new Response(
+      JSON.stringify({ error: 'Service Unavailable', offline: true }), 
+      { status: 503, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 }
 
@@ -190,7 +193,11 @@ async function staleWhileRevalidate(request, cacheName, strategy) {
     return response;
   }).catch((error) => {
     if (cached) return cached;
-    throw error;
+    // Graceful fallback
+    return new Response(
+      JSON.stringify({ error: 'Service Unavailable', offline: true }), 
+      { status: 503, headers: { 'Content-Type': 'application/json' } }
+    );
   });
 
   return cached || fetchPromise;
@@ -220,7 +227,11 @@ async function networkFirst(request, cacheName) {
       }
     }
     
-    throw error;
+    // Graceful fallback
+    return new Response(
+      'Service Unavailable - You are offline and the page is not cached.', 
+      { status: 503, headers: { 'Content-Type': 'text/plain' } }
+    );
   }
 }
 

@@ -121,14 +121,15 @@ class ErrorBoundary extends Component {
                             </Button>
                         </div>
 
-                        {/* Development-only error details */}
-                        {import.meta.env.DEV && this.state.error && (
+                        {/* Error details — visible in all environments for debugging */}
+                        {this.state.error && (
                             <details className="mt-6 text-left">
                                 <summary className="text-sm font-medium text-slate-700 cursor-pointer">
-                                    Error Details (Development Only)
+                                    Show error details
                                 </summary>
-                                <pre className="mt-2 p-3 bg-slate-100 rounded-lg text-xs text-slate-800 overflow-auto max-h-64">
-                                    {this.state.error.toString()}
+                                <pre className="mt-2 p-3 bg-slate-100 rounded-lg text-xs text-slate-800 overflow-auto max-h-64 whitespace-pre-wrap break-all">
+                                    {this.state.error.name}: {this.state.error.message}
+                                    {'\n\n'}
                                     {this.state.errorInfo?.componentStack}
                                 </pre>
                             </details>

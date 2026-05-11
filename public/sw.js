@@ -1,10 +1,10 @@
 // Optimized Service Worker for Maximum Performance
 // Implements Cache-First for static assets and Stale-While-Revalidate for dynamic content
 
-const CACHE_NAME = 'smms-v8';
-const STATIC_CACHE = 'smms-static-v8';
-const API_CACHE = 'smms-api-v8';
-const IMAGE_CACHE = 'smms-images-v8';
+const CACHE_NAME = 'smms-v9';
+const STATIC_CACHE = 'smms-static-v9';
+const API_CACHE = 'smms-api-v9';
+const IMAGE_CACHE = 'smms-images-v9';
 
 // Resources to pre-cache on install
 const PRECACHE_URLS = [
@@ -59,7 +59,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (!cacheName.includes('v8')) {
+          if (!cacheName.includes('v9')) {
             return caches.delete(cacheName);
           }
         })
@@ -98,6 +98,11 @@ self.addEventListener('fetch', (event) => {
 
   // Skip non-HTTP requests
   if (!url.startsWith('http')) {
+    return;
+  }
+
+  // Skip non-GET requests
+  if (request.method !== 'GET') {
     return;
   }
 
@@ -183,7 +188,10 @@ async function staleWhileRevalidate(request, cacheName, strategy) {
       await cleanupCache(cacheName, strategy.maxEntries);
     }
     return response;
-  }).catch(() => cached); // Fallback to cache on error
+  }).catch((error) => {
+    if (cached) return cached;
+    throw error;
+  });
 
   return cached || fetchPromise;
 }
@@ -203,6 +211,15 @@ async function networkFirst(request, cacheName) {
     if (cached) {
       return cached;
     }
+    
+    // Fallback to /index.html for SPA routing if offline
+    if (request.mode === 'navigate') {
+      const indexCached = await cache.match('/index.html');
+      if (indexCached) {
+        return indexCached;
+      }
+    }
+    
     throw error;
   }
 }

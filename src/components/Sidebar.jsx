@@ -8,7 +8,8 @@ import {
     History,
     BarChart,
     Settings,
-    Wrench
+    Wrench,
+    Users
 } from 'lucide-react';
 import clsx from 'clsx';
 import { Button } from './ui/Button';
@@ -31,7 +32,6 @@ export default function Sidebar({ isOpen, onClose }) {
         { label: 'My History', path: '/history', icon: History, roles: ['student', 'staff', 'src'] },
         { label: 'Jobs', path: '/jobs', icon: Wrench, roles: ['technician'] },
         { label: 'Verify Complaints', path: '/jobs', icon: Wrench, roles: ['porter', 'src', 'staff'] },
-        { label: 'Users', path: '/dashboard', icon: Users, roles: ['it_admin'] },
     ];
 
     const filteredNavItems = navItems.filter(item => {

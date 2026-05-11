@@ -11,8 +11,13 @@
 import { createClient } from '@supabase/supabase-js';
 
 const ALLOWED_ORIGINS = [
+  // Production domain
+  'https://mtusmms.me',
+  'https://www.mtusmms.me',
+  // Vercel preview/production deployments (VERCEL_URL is the per-deployment URL)
   process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
   process.env.PUBLIC_APP_URL,
+  // Localhost for development
   'http://localhost:3000',
   'http://localhost:5173',
   'http://localhost:5174',
@@ -20,7 +25,12 @@ const ALLOWED_ORIGINS = [
 ].filter(Boolean);
 
 function getCorsHeaders(origin) {
-  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : null;
+  // For Vercel preview deployments (*.vercel.app), allow all — these are
+  // protected by Vercel's own Deployment Protection anyway.
+  const isVercelPreview = origin && origin.endsWith('.vercel.app');
+  const allowedOrigin = isVercelPreview || ALLOWED_ORIGINS.includes(origin)
+    ? origin
+    : null;
   return {
     ...(allowedOrigin ? { 'Access-Control-Allow-Origin': allowedOrigin } : {}),
     'Access-Control-Allow-Methods': 'POST, OPTIONS',

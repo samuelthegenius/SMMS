@@ -1,10 +1,10 @@
 // Optimized Service Worker for Maximum Performance
 // Implements Cache-First for static assets and Stale-While-Revalidate for dynamic content
 
-const CACHE_NAME = 'smms-v9';
-const STATIC_CACHE = 'smms-static-v9';
-const API_CACHE = 'smms-api-v9';
-const IMAGE_CACHE = 'smms-images-v9';
+const CACHE_NAME = 'smms-v10';
+const STATIC_CACHE = 'smms-static-v10';
+const API_CACHE = 'smms-api-v10';
+const IMAGE_CACHE = 'smms-images-v10';
 
 // Resources to pre-cache on install
 const PRECACHE_URLS = [
@@ -58,7 +58,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (!cacheName.includes('v9')) {
+          if (!cacheName.includes('v10')) {
             return caches.delete(cacheName);
           }
         })
@@ -67,9 +67,13 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Helper: Check if response is valid
+// Helper: Check if response is valid and safe to cache
+// Accept 'basic' (same-origin) and 'cors' (cross-origin, e.g. Supabase)
+// Never cache auth errors (401/403) — they would lock users out
 const isValidResponse = (response) => {
-  return response && response.status === 200 && response.type === 'basic';
+  if (!response) return false;
+  if (response.status === 401 || response.status === 403) return false;
+  return response.status === 200 && (response.type === 'basic' || response.type === 'cors');
 };
 
 // Helper: Check if URL is a static asset

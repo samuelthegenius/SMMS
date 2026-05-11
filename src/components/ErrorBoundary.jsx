@@ -41,13 +41,18 @@ class ErrorBoundary extends Component {
 
         if (isChunkError) {
             const reloadKey = 'chunk_error_reloaded';
-            // Only reload once — avoid infinite loop if the chunk truly doesn't exist
+            // Only reload once — avoid infinite loop if the chunk truly doesn't exist.
+            // Use a hard reload (cache-busting URL) so the SW serves fresh HTML
+            // instead of the stale cached index.html that points to old chunk hashes.
             if (!sessionStorage.getItem(reloadKey)) {
                 sessionStorage.setItem(reloadKey, '1');
-                window.location.reload();
+                // Append a version param to force the SW to bypass its cache
+                const url = new URL(window.location.href);
+                url.searchParams.set('_cb', Date.now());
+                window.location.replace(url.toString());
                 return;
             }
-            // If we've already reloaded, fall through to show the error UI
+            // If we've already hard-reloaded and still fail, fall through to error UI
             sessionStorage.removeItem(reloadKey);
         }
 

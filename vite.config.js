@@ -119,13 +119,7 @@ export default defineConfig(({ mode }) => ({
       }
     },
     // Experimental features for faster builds
-    experimental: {
-      renderBuiltUrl: (_filename) => {
-        return {
-          relative: true
-        };
-      }
-    }
+    experimental: {}
   },
   
   // Optimize development server

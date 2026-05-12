@@ -551,7 +551,7 @@ export default function TechnicianDashboard() {
                                                 : 'bg-surface-50 text-surface-700 border-surface-200'
                                         )}>
                                             {job.priority === 'High' && <AlertTriangle className="w-3 h-3" />}
-                                            {job.priority} Priority
+                                            {job.priority} Severity
                                         </span>
                                         <span className="text-xs font-semibold text-surface-500 bg-primary-50 px-2.5 py-1.5 rounded-lg border border-primary-100">
                                             {job.category}

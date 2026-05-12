@@ -274,7 +274,7 @@ export default function AdminDashboard() {
                                             ticket.priority === 'low' ? "bg-emerald-100 text-emerald-700 border border-emerald-200" :
                                             "bg-surface-100 text-surface-700 border border-surface-200"
                                         )}>
-                                            {ticket.priority?.toUpperCase()}
+                                            {ticket.priority?.toUpperCase()} SEV.
                                         </span>
                                     </div>
 

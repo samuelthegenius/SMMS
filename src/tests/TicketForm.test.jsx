@@ -25,7 +25,7 @@ describe('TicketForm', () => {
     expect(screen.getByLabelText(/facility type/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/category/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/specific location/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/priority/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/severity/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
   });
 
@@ -46,17 +46,17 @@ describe('TicketForm', () => {
     });
   });
 
-  it('allows changing priority', () => {
+  it('allows changing severity', () => {
     render(
       <MemoryRouter>
         <TicketForm />
       </MemoryRouter>
     );
 
-    const prioritySelect = screen.getByLabelText(/priority/i);
-    fireEvent.change(prioritySelect, { target: { value: 'High' } });
+    const severitySelect = screen.getByLabelText(/severity/i);
+    fireEvent.change(severitySelect, { target: { value: 'High' } });
 
-    expect(prioritySelect).toHaveValue('High');
+    expect(severitySelect).toHaveValue('High');
   });
 
   it('renders submit button', () => {

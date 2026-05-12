@@ -92,7 +92,7 @@ export const generateTicketReport = async (tickets) => {
         // --- DATA TRANSFORMATION SECTION ---
 
         // Define the columns for the data grid
-        const tableColumn = ["Ticket ID", "Title", "Location", "Priority", "Status", "Assigned To"];
+        const tableColumn = ["Ticket ID", "Title", "Location", "Severity", "Status", "Assigned To"];
 
         // Map the raw ticket data to an array of arrays (rows)
         const tableRows = tickets.map(ticket => {

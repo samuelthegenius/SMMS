@@ -66,16 +66,16 @@ export default function TicketForm() {
             setShowAiSuggestion(true);
 
             if (result.autoAssigned && result.autoPriorityAssigned) {
-                toast.success(`AI suggests: ${result.category} (${result.department}) • Priority: ${result.priority}`);
+                toast.success(`AI suggests: ${result.category} (${result.department}) • Severity: ${result.priority}`);
             } else if (result.autoAssigned) {
                 toast.success(`AI suggests: ${result.category} (${result.department})`);
             } else if (result.category) {
-                toast.info(`AI suggestion available (category: ${Math.round(result.confidence * 100)}%, priority: ${Math.round((result.priorityConfidence || 0.5) * 100)}%)`);
+                toast.info(`AI suggestion available (category: ${Math.round(result.confidence * 100)}%, severity: ${Math.round((result.priorityConfidence || 0.5) * 100)}%)`);
             } else {
                 toast.warning('Could not auto-categorize. Please select manually.');
             }
         } catch {
-            toast.error('AI categorization failed. Please select category and priority manually.');
+            toast.error('AI categorization failed. Please select category and severity manually.');
         } finally {
             setAiCategorizing(false);
         }
@@ -92,7 +92,7 @@ export default function TicketForm() {
                 updates.priority = aiSuggestion.priority;
             }
             setFormData(prev => ({ ...prev, ...updates }));
-            const priorityText = updates.priority ? ` • Priority: ${updates.priority}` : '';
+            const priorityText = updates.priority ? ` • Severity: ${updates.priority}` : '';
             toast.success(`Applied: ${aiSuggestion.category} → ${aiSuggestion.department}${priorityText}`);
         }
         setShowAiSuggestion(false);
@@ -533,7 +533,7 @@ export default function TicketForm() {
                                                             aiSuggestion.priority === 'Medium' ? "bg-amber-100 text-amber-700" :
                                                             "bg-emerald-100 text-emerald-700"
                                                         )}>
-                                                            Priority: {aiSuggestion.priority} ({Math.round((aiSuggestion.priorityConfidence || 0.5) * 100)}%)
+                                                            Severity: {aiSuggestion.priority} ({Math.round((aiSuggestion.priorityConfidence || 0.5) * 100)}%)
                                                         </span>
                                                     )}
                                                 </div>
@@ -545,7 +545,7 @@ export default function TicketForm() {
                                                         {aiSuggestion.reasoning}
                                                         {aiSuggestion.priorityReasoning && (
                                                             <span className="block mt-0.5 text-amber-600">
-                                                                Priority: {aiSuggestion.priorityReasoning}
+                                                                Severity: {aiSuggestion.priorityReasoning}
                                                             </span>
                                                         )}
                                                     </p>
@@ -591,7 +591,7 @@ export default function TicketForm() {
                             </div>
 
                             <div>
-                                <label htmlFor="priority" className="block text-sm font-medium text-slate-700 mb-1">Priority</label>
+                                <label htmlFor="priority" className="block text-sm font-medium text-slate-700 mb-1">Severity</label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                         <AlertTriangle className="h-5 w-5 text-slate-400" />

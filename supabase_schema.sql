@@ -350,13 +350,13 @@ BEGIN
         SELECT COUNT(*)
         FROM tickets t
         WHERE t.assigned_to = p.id
-          AND t.status IN ('Open', 'Assigned', 'In Progress', 'Pending Verification')
+          AND t.status IN ('Open', 'In Progress', 'Pending Verification')
     ) ASC
     LIMIT 1;
 
     IF selected_tech_id IS NOT NULL THEN
         NEW.assigned_to := selected_tech_id;
-        NEW.status := 'Assigned';
+        -- Status remains as set by the caller (default 'Open' on INSERT)
 
         INSERT INTO notifications (user_id, ticket_id, message)
         VALUES (
@@ -694,13 +694,13 @@ BEGIN
             SELECT COUNT(*)
             FROM tickets t
             WHERE t.assigned_to = p.id
-              AND t.status IN ('Open', 'Assigned', 'In Progress', 'Pending Verification')
+              AND t.status IN ('Open', 'In Progress', 'Pending Verification')
         ) ASC
         LIMIT 1;
 
         IF selected_tech_id IS NOT NULL THEN
             NEW.assigned_to := selected_tech_id;
-            NEW.status := 'Assigned';
+            -- Status remains 'In Progress' (set by the verifier), which is a valid status
 
             INSERT INTO notifications (user_id, ticket_id, message)
             VALUES (

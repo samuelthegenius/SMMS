@@ -108,7 +108,7 @@ export default function TechnicianDashboard() {
         return ['technician_jobs', user.id];
     };
     const swrKey = getSWRKey();
-    const { data: jobs = [], mutate, isLoading } = useSWR(
+    const { data: jobs = [], mutate, isLoading, error: jobsError } = useSWR(
         swrKey,
         fetchJobs,
         {
@@ -123,7 +123,7 @@ export default function TechnicianDashboard() {
     );
 
     // Fetch reported tickets for staff/technicians/porters
-    const { data: reportedTickets = [] } = useSWR(
+    const { data: reportedTickets = [], error: reportedError } = useSWR(
         user ? ['reported_tickets', user.id] : null,
         fetchReportedTickets,
         {
@@ -377,6 +377,7 @@ export default function TechnicianDashboard() {
     if (isLoading && !jobs.length && !reportedTickets.length) return <Loader variant="technician" />;
 
     const hasReportedTickets = reportedTickets.length > 0;
+    const fetchError = jobsError || reportedError;
 
     return (
         <div className="space-y-8">
@@ -508,6 +509,25 @@ export default function TechnicianDashboard() {
                             </p>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Error banner */}
+            {fetchError && (
+                <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-rose-600 mt-0.5 shrink-0" />
+                    <div>
+                        <p className="font-semibold text-rose-800">Failed to load tickets</p>
+                        <p className="text-sm text-rose-600 mt-1">
+                            {fetchError?.message || 'Could not fetch your assigned tickets. The database may have a configuration issue.'}
+                        </p>
+                        <button
+                            onClick={() => mutate()}
+                            className="mt-2 text-sm font-medium text-rose-700 hover:text-rose-800 underline"
+                        >
+                            Retry
+                        </button>
+                    </div>
                 </div>
             )}
 

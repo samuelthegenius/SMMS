@@ -90,7 +90,7 @@ export default function AnalyticsPage() {
         }
     }, [profile?.role]);
 
-    const hasAdminAccess = profile?.role === 'it_admin' || profile?.department === 'Student Affairs' || profile?.role === 'src';
+    const hasAdminAccess = profile?.role === 'it_admin' || profile?.department === 'Student Affairs' || profile?.role === 'src' || profile?.role === 'manager' || profile?.role === 'supervisor';
 
     useEffect(() => {
         // Only fetch data if user has admin access and we haven't fetched for this profile yet

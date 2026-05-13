@@ -119,9 +119,7 @@ export default async function handler(req, res) {
       const isCreator = ticket.created_by === user.id;
       const isAssignee = ticket.assigned_to === user.id;
       const isITAdmin = profile?.role === 'it_admin';
-      const isFacilityManager = profile?.role === 'facility_manager';
-      const isMaintenanceSupervisor = profile?.role === 'maintenance_supervisor';
-      const isSupervisor = isFacilityManager || isMaintenanceSupervisor;
+      const isSupervisor = profile?.role === 'manager' || profile?.role === 'supervisor';
 
       if (!isCreator && !isAssignee && !isITAdmin && !isSupervisor) {
         return res.status(403).json({ error: 'Access denied' });
@@ -211,9 +209,7 @@ export default async function handler(req, res) {
       const isAssignee = ticket.assigned_to === user.id;
       const isITAdmin = profile?.role === 'it_admin';
       const isTechnician = profile?.role === 'technician';
-      const isFacilityManager = profile?.role === 'facility_manager';
-      const isMaintenanceSupervisor = profile?.role === 'maintenance_supervisor';
-      const isSupervisor = isFacilityManager || isMaintenanceSupervisor;
+      const isSupervisor = profile?.role === 'manager' || profile?.role === 'supervisor';
 
       // Determine sender type
       let senderType = 'user';

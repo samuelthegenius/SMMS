@@ -90,7 +90,7 @@ export default function AdminDashboard() {
         }
     );
 
-	const hasAdminAccess = profile?.role === 'it_admin' || profile?.department === 'Student Affairs' || profile?.role === 'src';
+	const hasAdminAccess = profile?.role === 'it_admin' || profile?.department === 'Student Affairs' || profile?.role === 'src' || profile?.role === 'manager' || profile?.role === 'supervisor';
 
 	useEffect(() => {
 		if (!profile || !hasAdminAccess) return;

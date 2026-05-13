@@ -358,7 +358,7 @@ export default async function handler(req, res) {
         .eq('id', user.id)
         .single();
 
-      const canDelete = profile?.role === 'it_admin' || profile?.role === 'facility_manager' || profile?.role === 'maintenance_supervisor';
+      const canDelete = profile?.role === 'it_admin' || profile?.role === 'manager' || profile?.role === 'supervisor';
       if (!canDelete) {
         return res.status(403).json({ error: 'Only IT admins and facility managers can delete tickets' });
       }

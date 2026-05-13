@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import useSWR from 'swr';
 import { supabase } from '../../lib/supabase';
-import { Filter, AlertCircle, Clock, Wrench, CheckCircle, Eye, BarChart3, User } from 'lucide-react';
+import { Filter, AlertCircle, Clock, Wrench, CheckCircle, Eye, BarChart3, User, PlusCircle } from 'lucide-react';
 import clsx from 'clsx';
 import TicketDetails from '../../components/TicketDetails';
 import { toast } from 'sonner';
@@ -16,6 +17,7 @@ const FACILITY_TYPES = [
 
 export default function ManagerDashboard() {
     const { profile } = useAuth();
+    const navigate = useNavigate();
     const [filter, setFilter] = useState('All');
     const [selectedTicket, setSelectedTicket] = useState(null);
 
@@ -123,6 +125,13 @@ export default function ManagerDashboard() {
                     <h1 className="text-3xl font-bold text-surface-900 tracking-tight">Facility Management Dashboard</h1>
                     <p className="text-surface-500 mt-2 text-lg">Oversee all facility tickets and maintenance operations</p>
                 </div>
+                <button
+                    onClick={() => navigate('/new-ticket')}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-semibold text-sm shadow-md"
+                >
+                    <PlusCircle className="w-4 h-4" />
+                    New Ticket
+                </button>
             </div>
 
             {/* Filter */}

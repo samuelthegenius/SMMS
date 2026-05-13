@@ -28,7 +28,7 @@ export default function Sidebar({ isOpen, onClose }) {
     const navItems = [
         { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
         { label: 'Analytics', path: '/analytics', icon: BarChart, roles: ['it_admin', 'src', 'staff', 'manager', 'supervisor'], departmentAccess: 'Student Affairs' },
-        { label: 'New Ticket', path: '/new-ticket', icon: PlusCircle, roles: ['student', 'staff', 'it_admin', 'src', 'porter'] },
+        { label: 'New Ticket', path: '/new-ticket', icon: PlusCircle, roles: ['student', 'staff', 'it_admin', 'src', 'porter', 'manager', 'supervisor'] },
         { label: 'My History', path: '/history', icon: History, roles: ['student', 'staff', 'src'] },
         { label: 'Jobs', path: '/jobs', icon: Wrench, roles: ['technician'] },
         { label: 'Verify Complaints', path: '/jobs', icon: Wrench, roles: ['porter', 'src', 'staff'] },

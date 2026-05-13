@@ -35,9 +35,7 @@ export default function AdminDashboard() {
     // Admin (IT) gets IT & Networking tickets only
     // Facility managers/supervisors get all tickets for oversight
     const fetchTickets = async () => {
-        const isITAdmin = profile?.role === 'it_admin';
-        const rpcFunction = isITAdmin ? 'get_it_admin_tickets' : 'get_supervisor_all_tickets';
-        const { data, error } = await supabase.rpc(rpcFunction);
+        const { data, error } = await supabase.rpc('get_it_admin_tickets');
         
         if (error) {
             // Fallback to direct query with joins (will be filtered by RLS)
@@ -71,13 +69,8 @@ export default function AdminDashboard() {
         }));
     };
 
-    // Use SWR for caching with proper loading state handling
-    // Different cache keys for IT admin vs facility management
-    const swrKey = profile?.role === 'it_admin' ? 'it_admin_tickets' : 
-                   ['manager', 'supervisor'].includes(profile?.role) ? 'supervisor_tickets' : 
-                   null;
     const { data: tickets = [], mutate, isLoading: swrLoading, error } = useSWR(
-        swrKey, 
+        'it_admin_tickets',
         fetchTickets,
         {
             revalidateOnFocus: false,
@@ -90,7 +83,7 @@ export default function AdminDashboard() {
         }
     );
 
-	const hasAdminAccess = profile?.role === 'it_admin' || profile?.department === 'Student Affairs' || profile?.role === 'src' || profile?.role === 'manager' || profile?.role === 'supervisor';
+	const hasAdminAccess = profile?.role === 'it_admin' || profile?.department === 'Student Affairs' || profile?.role === 'src';
 
 	useEffect(() => {
 		if (!profile || !hasAdminAccess) return;

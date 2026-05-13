@@ -26,6 +26,7 @@ const TicketForm = lazy(() => import('./pages/TicketForm'));
 const UserDashboard = lazy(() => import('./pages/dashboards/UserDashboard'));
 const TechnicianDashboard = lazy(() => import('./pages/dashboards/TechnicianDashboard'));
 const AdminDashboard = lazy(() => import('./pages/dashboards/AdminDashboard'));
+const ManagerDashboard = lazy(() => import('./pages/dashboards/ManagerDashboard'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
@@ -47,9 +48,17 @@ function DashboardRouter() {
 
   if (!profile) return <Loader variant="simple" />;
 
-  // IT Admin, Department Managers, Supervisors, Student Affairs staff, and SRC get admin dashboard
-  const managementRoles = ['it_admin', 'manager', 'supervisor'];
-  if (managementRoles.includes(activeRole) || isStudentAffairs || activeRole === 'src') {
+  // Facility Managers and Supervisors get the facility management dashboard
+  if (activeRole === 'manager' || activeRole === 'supervisor') {
+    return (
+      <Suspense fallback={<Loader variant="admin" />}>
+        <ManagerDashboard />
+      </Suspense>
+    );
+  }
+
+  // IT Admin, Student Affairs staff, and SRC get IT admin dashboard
+  if (activeRole === 'it_admin' || isStudentAffairs || activeRole === 'src') {
     return (
       <Suspense fallback={<Loader variant="admin" />}>
         <AdminDashboard />

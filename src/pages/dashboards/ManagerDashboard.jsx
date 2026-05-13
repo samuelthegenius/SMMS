@@ -1,0 +1,250 @@
+import { useEffect, useState } from 'react';
+import useSWR from 'swr';
+import { supabase } from '../../lib/supabase';
+import { Filter, AlertCircle, Clock, Wrench, CheckCircle, Eye, BarChart3, User } from 'lucide-react';
+import clsx from 'clsx';
+import TicketDetails from '../../components/TicketDetails';
+import { toast } from 'sonner';
+import { Card, CardContent } from '../../components/ui/Card';
+import { StatsCardSkeleton, CardSkeleton } from '../../components/SkeletonLoader';
+import { useAuth } from '../../contexts/useAuth';
+
+const FACILITY_TYPES = [
+    'All', 'Hostel', 'Lecture Hall', 'Laboratory', 'Office',
+    'Sports Complex', 'Chapel', 'Other'
+];
+
+export default function ManagerDashboard() {
+    const { profile } = useAuth();
+    const [filter, setFilter] = useState('All');
+    const [selectedTicket, setSelectedTicket] = useState(null);
+
+    const fetchTickets = async () => {
+        const { data, error } = await supabase.rpc('get_supervisor_all_tickets');
+
+        if (error) {
+            const { data: fallbackData, error: fallbackError } = await supabase
+                .from('tickets')
+                .select(`
+                    *,
+                    reporter:created_by(full_name, email, department),
+                    technician:assigned_to(full_name, email, department)
+                `)
+                .order('created_at', { ascending: false });
+
+            if (fallbackError) throw fallbackError;
+            return fallbackData || [];
+        }
+
+        return data.map(ticket => ({
+            ...ticket,
+            id: ticket.ticket_id,
+            reporter: ticket.creator_full_name ? {
+                full_name: ticket.creator_full_name,
+                email: ticket.creator_email,
+                department: ticket.creator_department
+            } : null,
+            technician: ticket.technician_full_name ? {
+                full_name: ticket.technician_full_name,
+                email: ticket.technician_email,
+                department: ticket.technician_department
+            } : null
+        }));
+    };
+
+    const { data: tickets = [], mutate, isLoading: swrLoading, error } = useSWR(
+        'supervisor_all_tickets',
+        fetchTickets,
+        {
+            revalidateOnFocus: false,
+            revalidateOnReconnect: true,
+            dedupingInterval: 30000,
+            errorRetryCount: 2,
+            errorRetryInterval: 5000,
+            refreshInterval: 0,
+            suspense: false
+        }
+    );
+
+    useEffect(() => {
+        if (!profile) return;
+
+        let timeoutId = null;
+
+        const subscription = supabase
+            .channel(`manager_tickets_${profile.id}`)
+            .on('postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'tickets',
+                    filter: `created_at=gt.${new Date(Date.now() - 60000).toISOString()}`
+                },
+                () => {
+                    if (timeoutId) clearTimeout(timeoutId);
+                    timeoutId = setTimeout(() => {
+                        mutate();
+                    }, 1000);
+                }
+            )
+            .subscribe();
+
+        return () => {
+            if (timeoutId) clearTimeout(timeoutId);
+            subscription.unsubscribe();
+        };
+    }, [mutate, profile?.id, profile]);
+
+    const filteredTickets = filter === 'All'
+        ? tickets
+        : tickets.filter(t => t.facility_type === filter);
+
+    const stats = {
+        total: tickets.length,
+        pending: tickets.filter(t => t.status === 'Open').length,
+        resolved: tickets.filter(t => t.status === 'Resolved').length,
+        inProgress: tickets.filter(t => t.status === 'In Progress').length,
+    };
+
+    if (error) {
+        return (
+            <div className="text-red-500 text-center mt-10">
+                <p className="text-lg font-medium">Error loading tickets</p>
+                <p className="text-sm mt-2">Please try refreshing the page</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-8">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-surface-900 tracking-tight">Facility Management Dashboard</h1>
+                    <p className="text-surface-500 mt-2 text-lg">Oversee all facility tickets and maintenance operations</p>
+                </div>
+            </div>
+
+            {/* Filter */}
+            <div className="flex items-center gap-3 bg-white p-3 rounded-2xl border border-surface-200 shadow-sm hover:shadow-md transition-shadow">
+                <div className="bg-primary-50 p-2 rounded-xl">
+                    <Filter className="w-5 h-5 text-primary-600" />
+                </div>
+                <select
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
+                    className="border-none focus:ring-0 text-sm text-surface-700 bg-transparent font-semibold cursor-pointer outline-none min-w-[150px]"
+                >
+                    {FACILITY_TYPES.map(type => (
+                        <option key={type} value={type}>{type === 'All' ? 'All Facilities' : type}</option>
+                    ))}
+                </select>
+            </div>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 mt-6">
+                {swrLoading && !tickets.length ? (
+                    Array.from({ length: 4 }).map((_, idx) => <StatsCardSkeleton key={idx} />)
+                ) : (
+                    [
+                        { label: 'Total Tickets', value: stats.total, icon: AlertCircle, color: 'text-primary-600', bg: 'bg-primary-50', border: 'border-primary-100' },
+                        { label: 'Pending', value: stats.pending, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100' },
+                        { label: 'In Progress', value: stats.inProgress, icon: Wrench, color: 'text-secondary-600', bg: 'bg-secondary-50', border: 'border-secondary-100' },
+                        { label: 'Resolved', value: stats.resolved, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
+                    ].map((stat, idx) => (
+                        <Card key={idx} className={clsx("hover:shadow-lg transition-all duration-300 border", stat.border)}>
+                            <CardContent className="p-5 flex flex-col gap-3">
+                                <div className={clsx("w-fit p-2.5 rounded-xl", stat.bg)}>
+                                    <stat.icon className={clsx("w-5 h-5", stat.color)} />
+                                </div>
+                                <p className="text-3xl font-extrabold text-surface-900 leading-none">{stat.value}</p>
+                                <p className="text-sm font-semibold text-surface-500">{stat.label}</p>
+                            </CardContent>
+                        </Card>
+                    ))
+                )}
+            </div>
+
+            {/* Tickets Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-6">
+                {swrLoading && !tickets.length ? (
+                    Array.from({ length: 4 }).map((_, idx) => <CardSkeleton key={idx} />)
+                ) : (
+                    filteredTickets.map((ticket) => (
+                        <Card key={ticket.id} className="hover:shadow-xl transition-all duration-300 cursor-pointer group border-surface-200" onClick={() => setSelectedTicket(ticket)}>
+                            <CardContent className="p-6">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className="flex-1 min-w-0 mr-4">
+                                        <h3 className="font-bold text-surface-900 text-lg leading-tight mb-1 group-hover:text-primary-600 transition-colors">{ticket.title}</h3>
+                                        <p className="text-surface-500 text-sm">{ticket.facility_type} • {ticket.specific_location}</p>
+                                    </div>
+                                    <span className={clsx(
+                                        "px-3 py-1.5 rounded-full text-xs font-bold shrink-0",
+                                        ticket.priority === 'high' ? "bg-red-100 text-red-700 border border-red-200" :
+                                        ticket.priority === 'medium' ? "bg-amber-100 text-amber-700 border border-amber-200" :
+                                        ticket.priority === 'low' ? "bg-emerald-100 text-emerald-700 border border-emerald-200" :
+                                        "bg-surface-100 text-surface-700 border border-surface-200"
+                                    )}>
+                                        {ticket.priority?.toUpperCase()} SEV.
+                                    </span>
+                                </div>
+
+                                <div className="flex items-center justify-between pt-4 border-t border-surface-100">
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-4 text-sm text-surface-500">
+                                            <span className="flex items-center gap-1.5">
+                                                <div className="bg-primary-50 p-1 rounded">
+                                                    <User className="w-3.5 h-3.5 text-primary-600" />
+                                                </div>
+                                                {ticket.reporter?.full_name || 'Unknown Reporter'}
+                                            </span>
+                                            <span className="flex items-center gap-1.5">
+                                                <Clock className="w-3.5 h-3.5 text-surface-400" />
+                                                {new Date(ticket.created_at).toLocaleDateString()}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <span className="flex items-center gap-1.5">
+                                                <div className="bg-secondary-50 p-1 rounded">
+                                                    <Wrench className="w-3.5 h-3.5 text-secondary-600" />
+                                                </div>
+                                                <span className="text-secondary-700 font-medium">
+                                                    {ticket.technician?.full_name || 'Unassigned'}
+                                                </span>
+                                            </span>
+                                            {ticket.technician?.department && (
+                                                <span className="text-surface-400 text-xs">
+                                                    ({ticket.technician.department})
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="bg-surface-50 p-2 rounded-lg group-hover:bg-primary-50 transition-colors">
+                                        <Eye className="w-5 h-5 text-surface-400 group-hover:text-primary-500" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))
+                )}
+            </div>
+
+            {/* Ticket Details Modal */}
+            {selectedTicket && (
+                <TicketDetails
+                    ticket={selectedTicket}
+                    onClose={() => setSelectedTicket(null)}
+                    onUpdate={() => {
+                        setSelectedTicket(null);
+                        mutate();
+                    }}
+                    onReassign={() => {
+                        setSelectedTicket(null);
+                        mutate();
+                        toast.success('Ticket reassigned successfully');
+                    }}
+                />
+            )}
+        </div>
+    );
+}

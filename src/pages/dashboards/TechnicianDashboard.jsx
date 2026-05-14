@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/useAuth';
-import { Bot, CheckCircle, MapPin, AlertTriangle, Play, CheckSquare, Clock, User, Plus, MessageSquare, Eye, Star, TrendingUp, Award, Wrench as WrenchIcon } from 'lucide-react';
+import { CheckCircle, MapPin, AlertTriangle, Play, CheckSquare, Clock, User, Plus, MessageSquare, Eye, Star, TrendingUp, Award, Wrench as WrenchIcon } from 'lucide-react';
 import clsx from 'clsx';
 import Loader from '../../components/Loader';
 import { toast } from 'sonner';
@@ -18,9 +18,16 @@ export default function TechnicianDashboard() {
     const isSRC = profile?.role === 'src';
     const isStaff = profile?.role === 'staff';
     const userDepartment = profile?.department;
+
+    console.log('[TECH_DBG] Init:', { 
+        userId: user?.id, 
+        role: profile?.role, 
+        isPorter, isTechnician, isSRC, isStaff, 
+        department: userDepartment,
+        profileId: profile?.id 
+    });
     // Staff verify tickets in their department, SRC verifies all, Porters verify hostel
     const canVerify = isPorter || isSRC || isStaff;
-    const [aiSuggestion, setAiSuggestion] = useState({ ticketId: null, data: null, loading: false });
     const [selectedTicket, setSelectedTicket] = useState(null);
     const [activeTab, setActiveTab] = useState('assigned'); // 'assigned' | 'reported'
     
@@ -64,38 +71,37 @@ export default function TechnicianDashboard() {
             `);
 
         if (isPorter) {
-            // Porters see Open hostel tickets that need verification
             query = query
                 .eq('facility_type', 'Hostel')
                 .eq('status', 'Open');
         } else if (isSRC) {
-            // SRC sees ALL Open tickets school-wide that need verification
             query = query
                 .eq('status', 'Open');
         } else if (isStaff && userDepartment) {
-            // Staff see Open tickets in their department that need verification
             query = query
                 .eq('department', userDepartment)
                 .eq('status', 'Open');
         } else {
-            // Technicians see their assigned non-resolved tickets
             query = query
                 .eq('assigned_to', user.id)
                 .neq('status', 'Resolved');
         }
 
+        console.log('[TECH_DBG] fetchJobs sending query, userId:', user?.id, 'role:', profile?.role);
         const { data, error } = await query.order('priority', { ascending: false });
+        console.log('[TECH_DBG] fetchJobs result:', { dataLength: data?.length, error, firstRow: data?.[0] });
         if (error) throw error;
-        // Enrich tickets with reporter profile data
         const enriched = await Promise.all(data.map(async (ticket) => ({
             ...ticket,
             reporter: await fetchReporterProfile(ticket.created_by)
         })));
+        console.log('[TECH_DBG] fetchJobs enriched:', enriched.length, 'tickets');
         return enriched;
     };
 
     // Fetch tickets that the current user has reported (for staff/technicians/porters who also report issues)
     const fetchReportedTickets = async () => {
+        console.log('[TECH_DBG] fetchReportedTickets, userId:', user?.id);
         const { data, error } = await supabase
             .from('tickets')
             .select(`
@@ -114,8 +120,8 @@ export default function TechnicianDashboard() {
             `)
             .eq('created_by', user.id)
             .order('created_at', { ascending: false });
+        console.log('[TECH_DBG] fetchReportedTickets result:', { dataLength: data?.length, error });
         if (error) throw error;
-        // Enrich with technician profile
         const enriched = await Promise.all(data.map(async (ticket) => ({
             ...ticket,
             technician: await fetchReporterProfile(ticket.assigned_to)
@@ -352,52 +358,15 @@ export default function TechnicianDashboard() {
         }
     };
 
-    const getAiHelp = async (ticket) => {
-        if (aiSuggestion.ticketId === ticket.id && aiSuggestion.data) {
-            setAiSuggestion({ ticketId: null, data: null, loading: false }); // Toggle off
-            return;
-        }
-
-        setAiSuggestion({ ticketId: ticket.id, data: null, loading: true });
-        try {
-            // Securely Call Supabase Edge Function
-            const { data, error } = await supabase.functions.invoke('suggest-fix', {
-                body: {
-                    ticketDescription: ticket.description,
-                    ticketCategory: ticket.category
-                }
-            });
-
-            if (error) throw error;
-
-            // Store structured data for rendering
-            let suggestionData = null;
-            if (data.technical_diagnosis && data.tools_required && data.safety_precaution) {
-                suggestionData = {
-                    technical_diagnosis: data.technical_diagnosis,
-                    tools_required: data.tools_required,
-                    safety_precaution: data.safety_precaution
-                };
-            } else if (data.error) {
-                suggestionData = { error: data.error };
-            } else {
-                suggestionData = { error: 'AI response format error. Please try again.' };
-            }
-
-            setAiSuggestion({
-                ticketId: ticket.id,
-                data: suggestionData,
-                loading: false
-            });
-        } catch {
-            toast.error('Could not get AI suggestion');
-            setAiSuggestion({
-                ticketId: ticket.id,
-                data: { error: 'Failed to access AI service. Please try again.' },
-                loading: false
-            });
-        }
-    };
+    // Debug: log state changes
+    console.log('[TECH_DBG] Render state:', { 
+        jobsCount: jobs?.length, 
+        reportedCount: reportedTickets?.length, 
+        isLoading,
+        jobsErr: jobsError?.message,
+        reportedErr: reportedError?.message,
+        activeTab
+    });
 
     if (isLoading && !jobs.length && !reportedTickets.length) return <Loader variant="technician" />;
 
@@ -736,75 +705,6 @@ export default function TechnicianDashboard() {
                                 </div>
                             </div>
 
-                            <div className="mt-6 pt-6 border-t border-surface-100">
-                                <button
-                                    onClick={() => getAiHelp(job)}
-                                    className="flex items-center gap-2 text-primary-600 text-sm font-bold hover:text-primary-700 transition-colors group/ai"
-                                >
-                                    <div className="p-1.5 bg-primary-50 rounded-lg group-hover/ai:bg-primary-100 transition-colors">
-                                        <Bot className="w-4 h-4" />
-                                    </div>
-                                    {aiSuggestion.ticketId === job.id ? 'Close AI Suggestion' : 'Ask AI for Repair Guide'}
-                                </button>
-
-                                {aiSuggestion.ticketId === job.id && (
-                                    <div className="mt-4 p-5 bg-primary-50/30 rounded-xl border border-primary-100 text-sm text-surface-900 shadow-sm animate-in fade-in slide-in-from-top-2">
-                                        {aiSuggestion.loading ? (
-                                            <div className="flex items-center gap-3">
-                                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary-600 border-t-transparent"></div>
-                                                <span className="font-medium">Analyzing ticket details...</span>
-                                            </div>
-                                        ) : aiSuggestion.data?.error ? (
-                                            <div className="text-rose-600 font-medium">
-                                                Error: {aiSuggestion.data.error}
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-4">
-                                                <div>
-                                                    <h3 className="font-semibold text-surface-900 mb-2 flex items-center gap-2">
-                                                        <svg className="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1v-7.686a3 3 0 1 0-5.828 0M4.75 12a3.25 3.25 0 1 0 6.5 0 3.25 3.25 0 0 0-6.5 0M12 17.25h.008"></path>
-                                                        </svg>
-                                                        Technical Diagnosis
-                                                    </h3>
-                                                    <p className="text-surface-700 leading-relaxed bg-primary-50 p-3 rounded-lg border border-primary-100">
-                                                        {aiSuggestion.data?.technical_diagnosis}
-                                                    </p>
-                                                </div>
-                                                
-                                                <div>
-                                                    <h3 className="font-semibold text-surface-900 mb-2 flex items-center gap-2">
-                                                        <svg className="w-4 h-4 text-secondary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.121 14.121L19 19m-7-7l-7 7m-7-7l7 7m6.5-3.5a2.121 2.121 0 0 1 3 3L12 15l3-3m6.5-3.5a2.121 2.121 0 0 1 3 3L12 15l3-3"></path>
-                                                        </svg>
-                                                        Tools Required
-                                                    </h3>
-                                                    <ul className="space-y-1 bg-secondary-50 p-3 rounded-lg border border-secondary-100">
-                                                        {(aiSuggestion.data?.tools_required || []).map((tool, i) => (
-                                                            <li key={i} className="flex items-center gap-2 text-surface-700">
-                                                                <span className="w-2 h-2 bg-secondary-500 rounded-full"></span>
-                                                                {tool}
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                </div>
-                                                
-                                                <div>
-                                                    <h3 className="font-semibold text-surface-900 mb-2 flex items-center gap-2">
-                                                        <svg className="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 2.502-3.181V8c0-1.51-1.963-2.58-3.181-2.581A2.25 2.25 0 0 0 11.938 6H8.062a2.25 2.25 0 0 0-2.181 2.419C5.62 8.62 4 9.629 4 11v2.5c0 1.514 1.962 2.58 3.181 2.581h5.876c1.54 0 2.502-1.667 2.502-3.181Z"></path>
-                                                        </svg>
-                                                        Safety Precaution
-                                                    </h3>
-                                                    <div className="bg-rose-50 border border-rose-200 text-rose-800 p-3 rounded-lg font-medium">
-                                                        {aiSuggestion.data?.safety_precaution}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
                         </CardContent>
                     </Card>
                 ))}

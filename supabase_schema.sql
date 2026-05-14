@@ -46,7 +46,7 @@ CREATE TABLE profiles (
     id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     email text NOT NULL,
     full_name text,
-    role text NOT NULL CHECK (role IN ('student', 'staff', 'technician', 'admin')),
+    role text NOT NULL CHECK (role IN ('student', 'staff', 'manager', 'supervisor', 'team_lead', 'technician', 'it_admin', 'src', 'porter')),
     identification_number text,
     department text,
     is_on_duty boolean DEFAULT true,
@@ -175,8 +175,29 @@ CREATE INDEX idx_security_events_severity ON security_events(severity);
 -- Rate limit checker
 CREATE OR REPLACE FUNCTION is_admin()
 RETURNS boolean AS $$
+DECLARE
+    jwt_role text;
 BEGIN
-    RETURN EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin');
+    BEGIN
+        jwt_role := current_setting('request.jwt.claims', true)::jsonb->'user_metadata'->>'role';
+    EXCEPTION WHEN OTHERS THEN
+        RETURN false;
+    END;
+    RETURN COALESCE(jwt_role = 'it_admin', false);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION is_it_admin()
+RETURNS boolean AS $$
+DECLARE
+    jwt_role text;
+BEGIN
+    BEGIN
+        jwt_role := current_setting('request.jwt.claims', true)::jsonb->'user_metadata'->>'role';
+    EXCEPTION WHEN OTHERS THEN
+        RETURN false;
+    END;
+    RETURN COALESCE(jwt_role = 'it_admin', false);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

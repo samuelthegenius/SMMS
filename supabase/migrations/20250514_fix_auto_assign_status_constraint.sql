@@ -83,3 +83,34 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 3. Restore missing RLS policy: "Technicians can view assigned tickets"
+-- This was DROPPED by 20250425_fix_rls_nuclear.sql (which dropped ALL tickets policies)
+-- but was never recreated, leaving only the "Users see own tickets" (created_by) policy.
+-- Without this, technicians cannot see tickets assigned to them.
+DROP POLICY IF EXISTS "Technicians can view assigned tickets" ON tickets;
+CREATE POLICY "Technicians can view assigned tickets"
+    ON tickets FOR SELECT
+    TO authenticated
+    USING (assigned_to = auth.uid());
+
+-- 4. Restore profiles RLS for ticket-based access 
+-- The nuclear migration reduced profiles to "see own profile" only, which blocks
+-- technicians from viewing the reporter's (student's) profile on assigned tickets.
+-- Recreate the composite policy that allows ticket-creator and ticket-assignee access.
+DROP POLICY IF EXISTS "Users see own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
+CREATE POLICY "Users can view own profile"
+    ON profiles FOR SELECT
+    TO authenticated
+    USING (
+        auth.uid() = id
+        OR id IN (
+            SELECT assigned_to FROM tickets 
+            WHERE created_by = auth.uid() AND assigned_to IS NOT NULL
+        )
+        OR id IN (
+            SELECT created_by FROM tickets 
+            WHERE assigned_to = auth.uid()
+        )
+    );

@@ -28,6 +28,21 @@ export default function TechnicianDashboard() {
     const [satisfactionMetrics, setSatisfactionMetrics] = useState(null);
     const [showMetrics, setShowMetrics] = useState(false);
 
+    // Helper to fetch reporter profile for a ticket
+    const fetchReporterProfile = async (userId) => {
+        if (!userId) return null;
+        try {
+            const { data } = await supabase
+                .from('profiles')
+                .select('full_name, email, department')
+                .eq('id', userId)
+                .maybeSingle();
+            return data;
+        } catch {
+            return null;
+        }
+    };
+
     // SWR Fetcher - Only fetch necessary fields
     // Porters see Open hostel tickets pending verification, Technicians see their assigned jobs
     const fetchJobs = async () => {
@@ -45,7 +60,7 @@ export default function TechnicianDashboard() {
                 created_at,
                 assigned_to,
                 image_url,
-                reporter:created_by(full_name, email, department)
+                created_by
             `);
 
         if (isPorter) {
@@ -71,7 +86,12 @@ export default function TechnicianDashboard() {
 
         const { data, error } = await query.order('priority', { ascending: false });
         if (error) throw error;
-        return data;
+        // Enrich tickets with reporter profile data
+        const enriched = await Promise.all(data.map(async (ticket) => ({
+            ...ticket,
+            reporter: await fetchReporterProfile(ticket.created_by)
+        })));
+        return enriched;
     };
 
     // Fetch tickets that the current user has reported (for staff/technicians/porters who also report issues)
@@ -90,12 +110,17 @@ export default function TechnicianDashboard() {
                 created_at,
                 assigned_to,
                 image_url,
-                technician:assigned_to(full_name, email, department)
+                created_by
             `)
             .eq('created_by', user.id)
             .order('created_at', { ascending: false });
         if (error) throw error;
-        return data;
+        // Enrich with technician profile
+        const enriched = await Promise.all(data.map(async (ticket) => ({
+            ...ticket,
+            technician: await fetchReporterProfile(ticket.assigned_to)
+        })));
+        return enriched;
     };
 
     // Use SWR

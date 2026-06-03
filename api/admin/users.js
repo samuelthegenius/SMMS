@@ -13,7 +13,6 @@ import { createClient } from '@supabase/supabase-js';
 
 // Allowed origins for CORS
 const ALLOWED_ORIGINS = [
-  process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
   process.env.PUBLIC_APP_URL,
   process.env.NODE_ENV === 'development' ? 'http://localhost:5173' : null,
 ].filter(Boolean);

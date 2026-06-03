@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/useAuth';
 import NotificationSettings from '../components/NotificationSettings';
+import SecuritySettings from '../components/SecuritySettings';
 import { supabase } from '../lib/supabase';
 import { Bell, User, Shield, ChevronRight, RefreshCw } from 'lucide-react';
 import { Button } from '../components/ui/Button';
@@ -106,21 +107,8 @@ export default function SettingsPage() {
           {/* Notification Settings */}
           <NotificationSettings />
 
-          {/* Security Settings Placeholder */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-green-100 rounded-lg">
-                  <Shield className="w-6 h-6 text-green-600" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900">Security</h2>
-                  <p className="text-sm text-slate-500">Password and authentication settings</p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-slate-400" />
-            </div>
-          </div>
+          {/* Security Settings */}
+          <SecuritySettings />
         </div>
       </div>
     </div>

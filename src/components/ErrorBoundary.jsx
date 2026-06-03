@@ -28,7 +28,7 @@ class ErrorBoundary extends Component {
     }
 
     componentDidCatch(error, errorInfo) {
-        // ChunkLoadError: after a Vercel deployment the chunk hashes change.
+        // ChunkLoadError: after a deployment the chunk hashes change.
         // Any user who still has the old HTML loaded will get a 404 on lazy-loaded
         // chunks → ChunkLoadError. Auto-reload once to get the fresh assets.
         const isChunkError = (
@@ -54,22 +54,6 @@ class ErrorBoundary extends Component {
             }
             // If we've already hard-reloaded and still fail, fall through to error UI
             sessionStorage.removeItem(reloadKey);
-        }
-
-        // Report to server in production so errors are visible in Supabase/Vercel logs
-        if (!import.meta.env.DEV) {
-            fetch('/api/log-error', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    message:        error?.message || String(error),
-                    stack:          error?.stack || '',
-                    componentStack: errorInfo?.componentStack || '',
-                    url:            window.location.href,
-                    userAgent:      navigator.userAgent,
-                    timestamp:      new Date().toISOString(),
-                }),
-            }).catch(() => {/* never throw from error reporter */});
         }
 
         this.setState({ error, errorInfo });

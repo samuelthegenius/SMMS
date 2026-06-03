@@ -87,116 +87,24 @@ describe('API Security & Integration Tests', () => {
     });
   });
 
-  describe('Upload Authentication (api/upload/index.js)', () => {
+  describe('Auth Config Validation', () => {
     /**
-     * REGRESSION TEST for:
-     * Fixed in: api/upload/index.js validateAuth function
-     * 
-     * Before fix: Upload API could fall back to VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY
-     * which is exposed to clients and not suitable for server-side auth
-     * 
-     * After fix: Upload API requires SUPABASE_SERVICE_ROLE_KEY with explicit validation
+     * Verifies that server-side auth routes correctly require SUPABASE_SERVICE_ROLE_KEY.
      */
-    it('should require service role key for upload auth validation', async () => {
-      // Simulate the fixed auth validation
+    it('should require service role key for server-side auth validation', async () => {
       const validateAuthConfig = (supabaseUrl, serviceRoleKey) => {
         if (!supabaseUrl || !serviceRoleKey) {
-          return { valid: false, error: 'Upload service misconfigured' };
+          return { valid: false, error: 'Service misconfigured' };
         }
         return { valid: true };
       };
 
-      // Test when only publishable key exists (should fail)
       const resultWithoutServiceKey = validateAuthConfig('https://example.supabase.co', undefined);
       expect(resultWithoutServiceKey.valid).toBe(false);
       expect(resultWithoutServiceKey.error).toContain('misconfigured');
 
-      // Test when service key present (should pass)
       const resultWithServiceKey = validateAuthConfig('https://example.supabase.co', 'sk_service_key_123');
       expect(resultWithServiceKey.valid).toBe(true);
-    });
-
-    it('should validate token with service role key only', async () => {
-      // This test verifies the logic path that validates with service key
-      const validateAuthToken = (token, isServiceKey) => {
-        if (!isServiceKey) {
-          return { valid: false, error: 'Must use service role key' };
-        }
-        if (!token) {
-          return { valid: false, error: 'Missing token' };
-        }
-        return { valid: true, userId: 'user-123' };
-      };
-
-      const resultWithServiceKey = validateAuthToken('valid-token', true);
-      expect(resultWithServiceKey.valid).toBe(true);
-
-      const resultWithPublishableKey = validateAuthToken('valid-token', false);
-      expect(resultWithPublishableKey.valid).toBe(false);
-      expect(resultWithPublishableKey.error).toContain('service role key');
-    });
-  });
-
-  describe('Blob Client Authentication (src/services/blob.js)', () => {
-    /**
-     * REGRESSION TEST for:
-     * Fixed in: src/services/blob.js getAuthHeaders function
-     * 
-     * Before fix: blob.js upload/list/delete functions didn't send auth headers
-     * API required Bearer token but client never sent it
-     * 
-     * After fix: All blob operations include Authorization Bearer header
-     */
-    it('should include Bearer token in blob upload requests', async () => {
-      const mockSession = {
-        session: {
-          access_token: 'valid-token-abc123'
-        }
-      };
-
-      const getAuthHeaders = (session) => {
-        if (!session?.session?.access_token) {
-          throw new Error('You must be signed in to manage uploads');
-        }
-        return {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.session.access_token}`,
-        };
-      };
-
-      const headers = getAuthHeaders(mockSession);
-      expect(headers.Authorization).toBe('Bearer valid-token-abc123');
-      expect(headers['Content-Type']).toBe('application/json');
-    });
-
-    it('should throw error when no session token exists', async () => {
-      const getAuthHeaders = (session) => {
-        if (!session?.session?.access_token) {
-          throw new Error('You must be signed in to manage uploads');
-        }
-        return { Authorization: `Bearer ${session.session.access_token}` };
-      };
-
-      const noSession = { session: null };
-      expect(() => getAuthHeaders(noSession)).toThrow('You must be signed in');
-    });
-
-    it('should include auth headers in all blob operations', async () => {
-      const operations = ['upload', 'list', 'delete'];
-      const expectedHeader = 'Authorization';
-
-      operations.forEach(_op => {
-        // Each operation should use getAuthHeaders before making fetch call
-        const mockFetch = vi.fn(() => Promise.resolve({ ok: true, json: () => ({}) }));
-        
-        // Operations should call getAuthHeaders and include it in fetch
-        const headers = { Authorization: 'Bearer token' };
-        mockFetch('/api/upload', { method: 'POST', headers });
-
-        expect(mockFetch).toHaveBeenCalled();
-        const callArgs = mockFetch.mock.calls[0];
-        expect(callArgs[1]?.headers).toHaveProperty(expectedHeader);
-      });
     });
   });
 
@@ -261,15 +169,10 @@ describe('API Security & Integration Tests', () => {
     });
   });
 
-  describe('Image Validation in AI Suggest-Fix (api/ai/suggest-fix.js)', () => {
+  describe('Image Validation in Supabase Edge Functions', () => {
     /**
-     * REGRESSION TEST for:
-     * Fixed in: api/ai/suggest-fix.js image handling
-     * 
-     * Before fix: Image validation checked but then silently dropped failed images
-     * User didn't know why AI suggestion was missing image context
-     * 
-     * After fix: Invalid or failed images return explicit 400 errors
+     * Image URLs must be HTTPS from Supabase storage.
+     * (File uploads go to Supabase Storage; validation is done in Edge Functions)
      */
     it('should validate image URL format before processing', async () => {
       const validateImageUrl = (url) => {
@@ -277,7 +180,7 @@ describe('API Security & Integration Tests', () => {
           const urlObj = new URL(url);
           return (
             urlObj.protocol === 'https:' &&
-            (urlObj.hostname.includes('supabase.co') || urlObj.hostname.includes('vercel-storage.com'))
+            urlObj.hostname.includes('supabase.co')
           );
         } catch {
           return false;
@@ -285,7 +188,6 @@ describe('API Security & Integration Tests', () => {
       };
 
       expect(validateImageUrl('https://example.supabase.co/image.jpg')).toBe(true);
-      expect(validateImageUrl('https://blob.vercel-storage.com/image.jpg')).toBe(true);
       expect(validateImageUrl('http://example.com/image.jpg')).toBe(false); // No https
       expect(validateImageUrl('https://untrusted.com/image.jpg')).toBe(false); // Not whitelisted
       expect(validateImageUrl('not-a-url')).toBe(false); // Invalid URL
@@ -293,15 +195,12 @@ describe('API Security & Integration Tests', () => {
 
     it('should return explicit error when image provided but invalid', async () => {
       const handleImageValidation = (imageUrl) => {
-        if (!imageUrl) return { valid: true, error: null }; // No image provided is OK
+        if (!imageUrl) return { valid: true, error: null };
 
         const validateImageUrl = (url) => {
           try {
             const urlObj = new URL(url);
-            return (
-              urlObj.protocol === 'https:' &&
-              (urlObj.hostname.includes('supabase.co') || urlObj.hostname.includes('vercel-storage.com'))
-            );
+            return urlObj.protocol === 'https:' && urlObj.hostname.includes('supabase.co');
           } catch {
             return false;
           }
@@ -310,7 +209,7 @@ describe('API Security & Integration Tests', () => {
         if (!validateImageUrl(imageUrl)) {
           return {
             valid: false,
-            error: 'Invalid image URL. Only HTTPS URLs from Supabase or Vercel Blob are allowed.'
+            error: 'Invalid image URL. Only HTTPS URLs from Supabase storage are allowed.'
           };
         }
         return { valid: true, error: null };
@@ -321,11 +220,10 @@ describe('API Security & Integration Tests', () => {
 
       const invalidUrlResult = handleImageValidation('https://untrusted.com/image.jpg');
       expect(invalidUrlResult.valid).toBe(false);
-      expect(invalidUrlResult.error).toContain('Only HTTPS URLs from Supabase or Vercel Blob');
+      expect(invalidUrlResult.error).toContain('Only HTTPS URLs from Supabase');
     });
 
     it('should return error when image fails to fetch', async () => {
-      // Verify error handling for failed image fetches
       const failedResult = { data: null, error: 'Could not process provided image. Please upload a valid image and try again.' };
       expect(failedResult.error).toContain('Could not process provided image');
     });
@@ -334,12 +232,11 @@ describe('API Security & Integration Tests', () => {
       const processImage = (imageUrl, imageData) => {
         if (imageUrl) {
           if (!imageData) {
-            // FIXED: Return error instead of silently continuing
             return { success: false, error: 'Could not process provided image. Please upload a valid image and try again.' };
           }
           return { success: true, imageData };
         }
-        return { success: true }; // No image provided is OK
+        return { success: true };
       };
 
       const noImageResult = processImage(null);

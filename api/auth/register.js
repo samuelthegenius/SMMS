@@ -20,7 +20,6 @@ import { createClient } from '@supabase/supabase-js';
 
 // Build allowed origins list
 const ALLOWED_ORIGINS = [
-  process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
   process.env.PUBLIC_APP_URL,
   'http://localhost:5173',
   'http://localhost:5174',

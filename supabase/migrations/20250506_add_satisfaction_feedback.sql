@@ -252,6 +252,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 8. UPDATE RLS POLICIES FOR NEW FIELDS
 -- ============================================================================
 -- Users can update satisfaction fields on their own tickets when pending verification
+DROP POLICY IF EXISTS "Users can submit satisfaction feedback" ON tickets;
 CREATE POLICY "Users can submit satisfaction feedback"
     ON tickets FOR UPDATE
     TO authenticated
@@ -302,7 +303,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ============================================================================
 -- 10. CREATE VIEW FOR TECHNICIAN PERFORMANCE DASHBOARD
 -- ============================================================================
-CREATE OR REPLACE VIEW technician_performance_summary AS
+CREATE OR REPLACE VIEW technician_performance_summary WITH (security_invoker = on) AS
 SELECT 
     p.id as technician_id,
     p.full_name as technician_name,

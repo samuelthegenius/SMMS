@@ -648,14 +648,14 @@ export default function TechnicianDashboard() {
                                     {canVerify && job.status === 'Open' && (
                                         <>
                                             <Button
-                                                onClick={() => handleVerifyComplaint(job.id, true)}
+                                                onClick={(e) => { e.stopPropagation(); handleVerifyComplaint(job.id, true); }}
                                                 className="bg-emerald-600 hover:bg-emerald-700 w-full"
                                             >
                                                 <CheckCircle className="w-4 h-4 mr-2" />
                                                 Verify - Valid
                                             </Button>
                                             <Button
-                                                onClick={() => handleVerifyComplaint(job.id, false)}
+                                                onClick={(e) => { e.stopPropagation(); handleVerifyComplaint(job.id, false); }}
                                                 variant="outline"
                                                 className="border-rose-300 text-rose-700 hover:bg-rose-50 w-full"
                                             >
@@ -668,7 +668,7 @@ export default function TechnicianDashboard() {
                                     {/* Technician buttons - only for technicians */}
                                     {isTechnician && (job.status === 'Open' || job.status === 'Assigned' || job.status === 'Pending') && (
                                         <Button
-                                            onClick={() => handleStatusUpdate(job.id, 'In Progress')}
+                                            onClick={(e) => { e.stopPropagation(); handleStatusUpdate(job.id, 'In Progress'); }}
                                             className="bg-blue-600 hover:bg-blue-700 w-full"
                                         >
                                             <Play className="w-4 h-4 mr-2" />
@@ -678,9 +678,9 @@ export default function TechnicianDashboard() {
 
                                     {job.status === 'In Progress' && (
                                         <Button
-                                            onClick={() => {
+                                            onClick={(e) => {
+                                                e.stopPropagation();
                                                 handleStatusUpdate(job.id, 'Pending Verification');
-                                                toast.success('Job submitted for verification');
                                             }}
                                             className="bg-emerald-600 hover:bg-emerald-700 w-full"
                                         >

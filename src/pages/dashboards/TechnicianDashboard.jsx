@@ -240,7 +240,7 @@ export default function TechnicianDashboard() {
         const updatedJobs = jobs.map(j => j.id === ticketId ? { ...j, status: newStatus } : j);
 
         // Optimistic update
-        mutate(updatedJobs, { revalidate: false });
+        mutate(updatedJobs, false);
 
         try {
             const { error, data } = await supabase
@@ -267,11 +267,11 @@ export default function TechnicianDashboard() {
             }
 
             toast.success(`Ticket marked as ${newStatus}`);
-            mutate(); // Revalidate to ensure consistency
+            mutate(updatedJobs); // Push the updated data explicitly and revalidate
         } catch (error) {
             console.error('handleStatusUpdate error:', error);
             toast.error(error.message || 'Failed to update status');
-            mutate(previousJobs, { revalidate: false }); // Rollback
+            mutate(previousJobs, false); // Rollback
         }
     };
 

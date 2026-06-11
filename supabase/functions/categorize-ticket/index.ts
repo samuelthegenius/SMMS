@@ -360,15 +360,7 @@ Categorize this maintenance request and assess its priority level:`
                 headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
                 status: 200,
             })
-
-        } catch (apiError: unknown) {
-            const err = apiError as Error
-            if (err.name === 'AbortError') {
-                throw new Error("AI request timed out. Please try again.")
-            }
-            throw apiError
-        }
-
+        // The API call try-catch was replaced with a retry loop that throws errors correctly
     } catch (error: unknown) {
         const errMsg = error instanceof Error ? error.message : String(error)
         console.error("Categorize Ticket Edge Function Error:", errMsg)

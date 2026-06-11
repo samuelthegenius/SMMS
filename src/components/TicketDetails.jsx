@@ -53,6 +53,10 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
             });
 
             if (error) throw error;
+            if (data?.error) {
+                console.error("AI Assistant Error:", data.error);
+                toast.error(`AI Assistant Error: ${data.error}`);
+            }
             setAiSuggestion(data);
         } catch {
             setError('Failed to load AI suggestion. Please try again.');

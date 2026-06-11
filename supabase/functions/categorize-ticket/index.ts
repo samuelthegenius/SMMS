@@ -260,36 +260,63 @@ Description: ${sanitizedDescription || 'No description provided'}
 
 Categorize this maintenance request and assess its priority level:`
 
-        // Call Gemini API with timeout
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 25000) // 25s timeout for categorization
+        // Call Gemini API with retry logic for 503 high demand errors
+        let data = null;
+        let lastError = null;
+        let retries = 3;
+        
+        for (let i = 0; i < retries; i++) {
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), i === 0 ? 15000 : 25000)
+            
+            try {
+                const response = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [
+                                    { text: `${systemPrompt}\n${userPrompt}` }
+                                ]
+                            }],
+                            generationConfig: {
+                                temperature: 0.1, // Low temperature for consistent categorization
+                                maxOutputTokens: 200,
+                            }
+                        }),
+                        signal: controller.signal
+                    }
+                )
 
-        try {
-            const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        contents: [{
-                            parts: [
-                                { text: `${systemPrompt}\n${userPrompt}` }
-                            ]
-                        }],
-                        generationConfig: {
-                            temperature: 0.1, // Low temperature for consistent categorization
-                            maxOutputTokens: 200,
-                        }
-                    }),
-                    signal: controller.signal
+                clearTimeout(timeoutId)
+                data = await response.json()
+                
+                // If it's a 503 overloaded error, throw to trigger retry
+                if (data.error && data.error.message && data.error.message.includes('high demand')) {
+                    throw new Error(`Gemini API Error: ${data.error.message}`);
                 }
-            )
-
-            clearTimeout(timeoutId)
-
-            const data = await response.json()
+                
+                // Success or other error - break out of retry loop
+                break;
+            } catch (err) {
+                clearTimeout(timeoutId)
+                lastError = err;
+                
+                // Only retry on network errors or high demand errors, not parsing errors
+                if (i < retries - 1 && (err.name === 'AbortError' || err.message.includes('high demand'))) {
+                    // Exponential backoff: 1s, 2s
+                    await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+                    continue;
+                }
+                
+                // Throw if we've exhausted retries or it's a non-retriable error
+                throw err;
+            }
+        }
 
             if (data.error) {
                 throw new Error(`Gemini API Error: ${data.error.message || 'Unknown error'}`)

@@ -556,65 +556,80 @@ function repairIncompleteJSON(jsonStr: string): string {
     return cleaned;
 }
 
-// Call Gemini API with optional JSON mode
+// Call Gemini API with optional JSON mode and retry logic
 async function callGemini(apiKey: string, prompt: string, maxTokens: number = 500, jsonMode: boolean = false): Promise<string> {
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 25000)
-
-    try {
-        const generationConfig: { temperature: number; maxOutputTokens: number; responseMimeType?: string } = {
-            temperature: 0.2, // Lower temperature for more consistent output
-            maxOutputTokens: maxTokens,
-        }
-
-        // Enable JSON mode for structured responses
-        if (jsonMode) {
-            generationConfig.responseMimeType = 'application/json'
-        }
-
-        const requestBody = {
-            contents: [{
-                parts: [{ text: prompt }]
-            }],
-            generationConfig
-        }
-
-        const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`,
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestBody),
-                signal: controller.signal
-            }
-        )
-
-        clearTimeout(timeoutId)
-
-        const data = await response.json()
-
-        if (data.error) {
-            throw new Error(`Gemini API Error: ${data.error.message || 'Unknown error'}`)
-        }
-
-        const candidate = data.candidates?.[0]
-        if (!candidate && data.promptFeedback) {
-            throw new Error("AI Request was blocked by safety filters")
-        }
-
-        const text = candidate?.content?.parts?.[0]?.text
-        if (!text) {
-            throw new Error("AI returned no response")
-        }
-
-        return text.trim()
-
-    } catch (error: unknown) {
-        if (error instanceof Error && error.name === 'AbortError') {
-            throw new Error("AI request timed out. Please try again.")
-        }
-        throw error
+    const generationConfig: { temperature: number; maxOutputTokens: number; responseMimeType?: string } = {
+        temperature: 0.2, // Lower temperature for more consistent output
+        maxOutputTokens: maxTokens,
     }
+
+    // Enable JSON mode for structured responses
+    if (jsonMode) {
+        generationConfig.responseMimeType = 'application/json'
+    }
+
+    const requestBody = {
+        contents: [{
+            parts: [{ text: prompt }]
+        }],
+        generationConfig
+    }
+
+    let data = null;
+    let lastError = null;
+    let retries = 3;
+
+    for (let i = 0; i < retries; i++) {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), i === 0 ? 15000 : 25000)
+
+        try {
+            const response = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody),
+                    signal: controller.signal
+                }
+            )
+
+            clearTimeout(timeoutId)
+            data = await response.json()
+
+            if (data.error && data.error.message && data.error.message.includes('high demand')) {
+                throw new Error(`Gemini API Error: ${data.error.message}`);
+            }
+
+            break;
+        } catch (err) {
+            clearTimeout(timeoutId)
+            lastError = err;
+
+            if (i < retries - 1 && (err.name === 'AbortError' || err.message.includes('high demand'))) {
+                await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+                continue;
+            }
+
+            throw err;
+        }
+    }
+
+    if (data.error) {
+        throw new Error(`Gemini API Error: ${data.error.message || 'Unknown error'}`)
+    }
+
+    const candidate = data.candidates?.[0]
+    if (!candidate && data.promptFeedback) {
+        throw new Error("AI Request was blocked by safety filters")
+    }
+
+    const text = candidate?.content?.parts?.[0]?.text
+    if (!text) {
+        throw new Error("AI returned no response")
+    }
+
+    return text.trim()
 }

@@ -57,8 +57,8 @@ function DashboardRouter() {
     );
   }
 
-  // IT Admin, Student Affairs staff, and SRC get IT admin dashboard
-  if (activeRole === 'it_admin' || isStudentAffairs || activeRole === 'src') {
+  // IT Admin, Student Affairs staff, SRC, and Dean get IT admin dashboard
+  if (activeRole === 'it_admin' || isStudentAffairs || activeRole === 'src' || activeRole === 'dean') {
     return (
       <Suspense fallback={<Loader variant="admin" />}>
         <AdminDashboard />

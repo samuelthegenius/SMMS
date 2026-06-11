@@ -28,6 +28,7 @@ export default function AdminDashboard() {
     // DashboardRouter already ensures we only render when profile is set.
     const { profile } = useAuth();
     const [filter, setFilter] = useState('All');
+    const [timeframe, setTimeframe] = useState('Last 30 Days');
     const [selectedTicket, setSelectedTicket] = useState(null);
     const [activeTab, setActiveTab] = useState('tickets'); // 'tickets', 'security', or 'users'
 
@@ -53,7 +54,7 @@ export default function AdminDashboard() {
         }
         
         // Transform RPC data to match expected structure
-        return data.map(ticket => ({
+        const mappedData = data.map(ticket => ({
             ...ticket,
             id: ticket.ticket_id, // Map ticket_id back to id
             reporter: ticket.creator_full_name ? {
@@ -67,6 +68,8 @@ export default function AdminDashboard() {
                 department: ticket.technician_department
             } : null
         }));
+        
+        return mappedData.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     };
 
     const { data: tickets = [], mutate, isLoading: swrLoading, error } = useSWR(
@@ -114,15 +117,29 @@ export default function AdminDashboard() {
 		};
 	}, [mutate, profile?.id, profile, hasAdminAccess]);
 
-    const filteredTickets = filter === 'All'
-        ? tickets
-        : tickets.filter(t => t.facility_type === filter);
+    const isWithinTimeframe = (dateString, timeframeSelection) => {
+        if (timeframeSelection === 'All Time') return true;
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffTime = Math.abs(now - date);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+        
+        if (timeframeSelection === 'Today') return diffDays <= 1;
+        if (timeframeSelection === 'Last 7 Days') return diffDays <= 7;
+        if (timeframeSelection === 'Last 30 Days') return diffDays <= 30;
+        return true;
+    };
+
+    const filteredTickets = tickets.filter(t => {
+        const matchesFacility = filter === 'All' || t.facility_type === filter;
+        return matchesFacility && isWithinTimeframe(t.created_at, timeframe);
+    });
 
     const stats = {
-        total: tickets.length,
-        pending: tickets.filter(t => t.status === 'Open').length,
-        resolved: tickets.filter(t => t.status === 'Resolved').length,
-        inProgress: tickets.filter(t => t.status === 'In Progress').length,
+        total: filteredTickets.length,
+        pending: filteredTickets.filter(t => t.status === 'Open').length,
+        resolved: filteredTickets.filter(t => t.status === 'Resolved').length,
+        inProgress: filteredTickets.filter(t => t.status === 'In Progress').length,
     };
 
     // Safety guards — these CAN early-return because AdminDashboard
@@ -204,20 +221,37 @@ export default function AdminDashboard() {
 
             {/* Tickets panel */}
             <div className={activeTab === 'tickets' ? undefined : 'hidden'}>
-                {/* Filter for tickets tab - Modern Style */}
-                <div className="flex items-center gap-3 bg-white p-3 rounded-2xl border border-surface-200 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="bg-primary-50 p-2 rounded-xl">
-                        <Filter className="w-5 h-5 text-primary-600" />
+                {/* Filters for tickets tab - Modern Style */}
+                <div className="flex flex-wrap items-center gap-4 bg-white p-3 rounded-2xl border border-surface-200 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-3 bg-surface-50 p-1.5 rounded-xl border border-surface-100">
+                        <div className="bg-white p-1.5 rounded-lg shadow-sm">
+                            <Filter className="w-4 h-4 text-surface-500" />
+                        </div>
+                        <select
+                            value={filter}
+                            onChange={(e) => setFilter(e.target.value)}
+                            className="border-none focus:ring-0 text-sm text-surface-700 bg-transparent font-medium cursor-pointer outline-none min-w-[140px]"
+                        >
+                            {FACILITY_TYPES.map(type => (
+                                <option key={type} value={type}>{type === 'All' ? 'All Facilities' : type}</option>
+                            ))}
+                        </select>
                     </div>
-                    <select
-                        value={filter}
-                        onChange={(e) => setFilter(e.target.value)}
-                        className="border-none focus:ring-0 text-sm text-surface-700 bg-transparent font-semibold cursor-pointer outline-none min-w-[150px]"
-                    >
-                        {FACILITY_TYPES.map(type => (
-                            <option key={type} value={type}>{type === 'All' ? 'All Facilities' : type}</option>
-                        ))}
-                    </select>
+                    
+                    <div className="flex items-center gap-3 bg-surface-50 p-1.5 rounded-xl border border-surface-100">
+                        <div className="bg-white p-1.5 rounded-lg shadow-sm">
+                            <Clock className="w-4 h-4 text-surface-500" />
+                        </div>
+                        <select
+                            value={timeframe}
+                            onChange={(e) => setTimeframe(e.target.value)}
+                            className="border-none focus:ring-0 text-sm text-surface-700 bg-transparent font-medium cursor-pointer outline-none min-w-[120px]"
+                        >
+                            {['Today', 'Last 7 Days', 'Last 30 Days', 'All Time'].map(t => (
+                                <option key={t} value={t}>{t}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
 
                 {/* Stats Cards - Bento Grid Style */}

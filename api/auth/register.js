@@ -92,7 +92,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Password must be at least 8 characters with uppercase, lowercase, and number' });
   }
   const allowedRoles = ['student', 'staff', 'technician', 'src', 'porter', 
-                        'manager', 'supervisor', 'team_lead'];
+                        'manager', 'supervisor', 'team_lead', 'dean'];
   if (!allowedRoles.includes(role)) {
     return res.status(400).json({ error: 'Invalid role' });
   }
@@ -141,6 +141,8 @@ export default async function handler(req, res) {
   if (role === 'manager' || role === 'supervisor') {
     // Management roles: use provided department or default to Works
     resolvedDepartment = department || 'Works Department';
+  } else if (role === 'dean') {
+    resolvedDepartment = 'Student Affairs';
   } else if ((role === 'technician' || role === 'team_lead') && specialization) {
     // Technical roles: derive from specialization/skill
     resolvedDepartment = specialization === 'IT & Networking' 

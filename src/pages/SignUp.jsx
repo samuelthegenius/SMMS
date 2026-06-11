@@ -232,6 +232,7 @@ export default function SignUp() {
                                         { label: 'Supervisor', value: 'supervisor' },
                                         { label: 'Team Lead', value: 'team_lead' },
                                         { label: 'Technician', value: 'technician' },
+                                        { label: 'Dean of Student Affairs', value: 'dean' },
                                         { label: 'SRC', value: 'src' },
                                         { label: 'Hostel Porter', value: 'porter' }
                                     ].map(role => (
@@ -332,7 +333,7 @@ export default function SignUp() {
                             {formData.role && (
                                 <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
                                     <label className="text-sm font-medium leading-none text-indigo-600" htmlFor="accessCode">
-                                        Access Code (Required for {formData.role === 'student' ? 'Student' : formData.role === 'staff' ? 'Staff' : formData.role === 'src' ? 'SRC' : formData.role.charAt(0).toUpperCase() + formData.role.slice(1)})
+                                        Access Code (Required for {formData.role === 'student' ? 'Student' : formData.role === 'staff' ? 'Staff' : formData.role === 'src' ? 'SRC' : formData.role === 'dean' ? 'Dean' : formData.role.charAt(0).toUpperCase() + formData.role.slice(1)})
                                     </label>
                                     <Input
                                         id="accessCode"

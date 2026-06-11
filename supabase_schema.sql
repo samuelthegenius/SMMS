@@ -46,7 +46,7 @@ CREATE TABLE profiles (
     id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     email text NOT NULL,
     full_name text,
-    role text NOT NULL CHECK (role IN ('student', 'staff', 'manager', 'supervisor', 'team_lead', 'technician', 'it_admin', 'src', 'porter')),
+    role text NOT NULL CHECK (role IN ('student', 'staff', 'manager', 'supervisor', 'team_lead', 'technician', 'it_admin', 'src', 'porter', 'dean')),
     identification_number text,
     department text,
     is_on_duty boolean DEFAULT true,
@@ -102,6 +102,7 @@ CREATE TABLE tickets (
     assigned_to uuid REFERENCES profiles(id),
     rejection_reason text,
     image_url text,
+    resolution_proof_url text,
     -- Satisfaction feedback fields
     satisfaction_status text CHECK (satisfaction_status IN ('satisfied', 'unsatisfied', 'pending', null)),
     rating integer CHECK (rating >= 1 AND rating <= 5),
@@ -263,7 +264,7 @@ RETURNS boolean AS $$
 DECLARE
     expected_code text;
 BEGIN
-    IF p_role NOT IN ('student', 'staff', 'technician', 'src', 'porter') THEN
+    IF p_role NOT IN ('student', 'staff', 'technician', 'src', 'porter', 'manager', 'supervisor', 'team_lead', 'dean') THEN
         RETURN false;
     END IF;
 
@@ -312,7 +313,7 @@ BEGIN
     END IF;
 
     -- Validate role (explicitly prevent admin registration through public API)
-    IF p_role NOT IN ('student', 'staff', 'technician', 'src', 'porter') THEN
+    IF p_role NOT IN ('student', 'staff', 'technician', 'src', 'porter', 'manager', 'supervisor', 'team_lead', 'dean') THEN
         RAISE EXCEPTION 'Role % registration is not permitted', p_role;
     END IF;
 

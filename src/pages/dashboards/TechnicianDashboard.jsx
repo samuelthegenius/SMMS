@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/useAuth';
-import { CheckCircle, MapPin, AlertTriangle, Play, CheckSquare, Clock, User, Plus, MessageSquare, Eye, Star, TrendingUp, Award, Wrench as WrenchIcon } from 'lucide-react';
+import { CheckCircle, MapPin, AlertTriangle, Play, CheckSquare, Clock, User, Plus, MessageSquare, Eye, Star, TrendingUp, Award, Wrench as WrenchIcon, Upload, X, Image } from 'lucide-react';
 import clsx from 'clsx';
 import Loader from '../../components/Loader';
 import { toast } from 'sonner';
@@ -30,6 +30,11 @@ export default function TechnicianDashboard() {
     const canVerify = isPorter || isSRC || isStaff;
     const [selectedTicket, setSelectedTicket] = useState(null);
     const [activeTab, setActiveTab] = useState('assigned'); // 'assigned' | 'reported'
+    const [timeframe, setTimeframe] = useState('Last 30 Days');
+    const [resolvingTicket, setResolvingTicket] = useState(null);
+    const [proofFile, setProofFile] = useState(null);
+    const [proofPreview, setProofPreview] = useState(null);
+    const [isUploadingProof, setIsUploadingProof] = useState(false);
     
     // Satisfaction metrics state for technicians
     const [satisfactionMetrics, setSatisfactionMetrics] = useState(null);
@@ -168,7 +173,22 @@ export default function TechnicianDashboard() {
         }
     );
 
-    const displayedJobs = activeTab === 'assigned' ? jobs : reportedTickets;
+    const isWithinTimeframe = (dateString, timeframeSelection) => {
+        if (timeframeSelection === 'All Time') return true;
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffTime = Math.abs(now - date);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+        
+        if (timeframeSelection === 'Today') return diffDays <= 1;
+        if (timeframeSelection === 'Last 7 Days') return diffDays <= 7;
+        if (timeframeSelection === 'Last 30 Days') return diffDays <= 30;
+        return true;
+    };
+
+    const displayedJobs = (activeTab === 'assigned' ? jobs : reportedTickets).filter(
+        job => isWithinTimeframe(job.created_at, timeframe)
+    );
 
     useEffect(() => {
         if (!user) return;
@@ -235,17 +255,25 @@ export default function TechnicianDashboard() {
         fetchMetrics();
     }, [user, isTechnician]);
 
-    const handleStatusUpdate = async (ticketId, newStatus) => {
+    const handleStatusUpdate = async (ticketId, newStatus, proofUrl = null) => {
         const previousJobs = [...jobs];
-        const updatedJobs = jobs.map(j => j.id === ticketId ? { ...j, status: newStatus } : j);
-
+        
         // Optimistic update
+        let updatedJobs;
+        if (proofUrl) {
+            updatedJobs = jobs.map(j => j.id === ticketId ? { ...j, status: newStatus, resolution_proof_url: proofUrl } : j);
+        } else {
+            updatedJobs = jobs.map(j => j.id === ticketId ? { ...j, status: newStatus } : j);
+        }
         mutate(updatedJobs, false);
 
         try {
+            const updates = { status: newStatus };
+            if (proofUrl) updates.resolution_proof_url = proofUrl;
+
             const { error, data } = await supabase
                 .from('tickets')
-                .update({ status: newStatus })
+                .update(updates)
                 .eq('id', ticketId)
                 .select(); // Select to ensure RLS doesn't silently fail by returning 0 rows
 
@@ -272,6 +300,47 @@ export default function TechnicianDashboard() {
             console.error('handleStatusUpdate error:', error);
             toast.error(error.message || 'Failed to update status');
             mutate(previousJobs, false); // Rollback
+        }
+    };
+
+    const handleProofChange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('File size must be less than 5MB');
+            e.target.value = '';
+            return;
+        }
+        setProofFile(file);
+        setProofPreview(URL.createObjectURL(file));
+    };
+
+    const submitResolution = async () => {
+        if (!resolvingTicket) return;
+        setIsUploadingProof(true);
+        try {
+            let proofUrl = null;
+            if (proofFile) {
+                const fileExt = proofFile.name.split('.').pop();
+                const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+                const { error: uploadError } = await supabase.storage
+                    .from('ticket-images')
+                    .upload(fileName, proofFile);
+                if (uploadError) throw uploadError;
+                const { data: { publicUrl } } = supabase.storage
+                    .from('ticket-images')
+                    .getPublicUrl(fileName);
+                proofUrl = publicUrl;
+            }
+            await handleStatusUpdate(resolvingTicket.id, 'Pending Verification', proofUrl);
+            setResolvingTicket(null);
+            setProofFile(null);
+            if (proofPreview) URL.revokeObjectURL(proofPreview);
+            setProofPreview(null);
+        } catch (err) {
+            toast.error('Failed to submit resolution');
+        } finally {
+            setIsUploadingProof(false);
         }
     };
 
@@ -401,6 +470,22 @@ export default function TechnicianDashboard() {
                             : 'Manage and resolve your maintenance tasks')
                         : 'Track tickets you have reported and chat with assigned technicians'}
                 </p>
+            </div>
+
+            {/* Timeframe Filter */}
+            <div className="flex items-center gap-3 bg-white p-3 rounded-2xl border border-surface-200 shadow-sm hover:shadow-md transition-shadow w-fit">
+                <div className="bg-surface-50 p-2 rounded-xl border border-surface-100">
+                    <Clock className="w-5 h-5 text-surface-500" />
+                </div>
+                <select
+                    value={timeframe}
+                    onChange={(e) => setTimeframe(e.target.value)}
+                    className="border-none focus:ring-0 text-sm text-surface-700 bg-transparent font-medium cursor-pointer outline-none min-w-[120px]"
+                >
+                    {['Today', 'Last 7 Days', 'Last 30 Days', 'All Time'].map(t => (
+                        <option key={t} value={t}>{t}</option>
+                    ))}
+                </select>
             </div>
 
             {/* Satisfaction Metrics - Only for technicians with completed jobs */}
@@ -683,7 +768,7 @@ export default function TechnicianDashboard() {
                                         <Button
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                handleStatusUpdate(job.id, 'Pending Verification');
+                                                setResolvingTicket(job);
                                             }}
                                             className="bg-emerald-600 hover:bg-emerald-700 w-full"
                                         >
@@ -727,6 +812,60 @@ export default function TechnicianDashboard() {
                         toast.success('Ticket updated successfully');
                     }}
                 />
+            )}
+
+            {/* Resolution Modal */}
+            {resolvingTicket && (
+                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-bold text-slate-900">Mark as Done</h3>
+                            <button onClick={() => {
+                                setResolvingTicket(null);
+                                setProofFile(null);
+                                setProofPreview(null);
+                            }} className="p-2 hover:bg-slate-100 rounded-full">
+                                <X className="w-5 h-5 text-slate-500" />
+                            </button>
+                        </div>
+                        <p className="text-slate-600 mb-6 text-sm">
+                            Upload a photo as proof of your work (optional). This helps the student verify the fix.
+                        </p>
+                        
+                        <div className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md transition-colors ${proofPreview ? 'border-indigo-300 bg-indigo-50' : 'border-slate-300 hover:bg-slate-50'} mb-6`}>
+                            <div className="space-y-1 text-center">
+                                {proofPreview ? (
+                                    <div className="relative inline-block">
+                                        <img src={proofPreview} alt="Preview" className="max-h-48 rounded-lg shadow-sm border border-slate-200" />
+                                        <button type="button" onClick={() => { setProofFile(null); setProofPreview(null); }} className="absolute -top-2 -right-2 bg-rose-500 text-white p-1 rounded-full shadow hover:bg-rose-600">
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <Upload className="mx-auto h-12 w-12 text-slate-400" />
+                                        <div className="flex text-sm text-slate-600 justify-center">
+                                            <label className="relative cursor-pointer rounded-md font-medium text-indigo-600 hover:text-indigo-500">
+                                                <span>Upload proof</span>
+                                                <input type="file" className="sr-only" accept="image/jpeg,image/png,image/webp" onChange={handleProofChange} />
+                                            </label>
+                                        </div>
+                                        <p className="text-xs text-slate-500 mt-1">PNG, JPG up to 5MB</p>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 justify-end">
+                            <Button variant="outline" onClick={() => { setResolvingTicket(null); setProofFile(null); setProofPreview(null); }}>
+                                Cancel
+                            </Button>
+                            <Button onClick={submitResolution} disabled={isUploadingProof} className="bg-emerald-600 hover:bg-emerald-700">
+                                {isUploadingProof ? 'Submitting...' : 'Confirm Done'}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
             )}
 
                 {jobs.length === 0 && (

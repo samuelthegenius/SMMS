@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Sparkles, Wrench, AlertTriangle, Loader2, ClipboardList, User, Wrench as WrenchIcon, MessageSquare, Info, Clock, Star } from 'lucide-react';
+import { X, Sparkles, Wrench, AlertTriangle, Loader2, ClipboardList, User, Wrench as WrenchIcon, MessageSquare, Info, Clock, Star, ThumbsUp, ThumbsDown, CheckCircle } from 'lucide-react';
 import { 
     updateTicketCategory, 
     updateTicketPriority, 
@@ -15,8 +15,8 @@ import ReassignTechnician from './ReassignTechnician';
 import TicketChat from './TicketChat';
 import { toast } from 'sonner';
 
-export default function TicketDetails({ ticket, onClose, onReassign }) {
-    const { profile } = useAuth();
+export default function TicketDetails({ ticket, onClose, onUpdate, onReassign }) {
+    const { user, profile } = useAuth();
     const [loading, setLoading] = useState(false);
     const [aiSuggestion, setAiSuggestion] = useState(null);
     const [error, setError] = useState(null);
@@ -25,6 +25,14 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
     const [managementLoading, setManagementLoading] = useState(false);
     const [aiTyping, setAiTyping] = useState(false);
     const [aiMgmtSuggestion, setAiMgmtSuggestion] = useState(null);
+    
+    // Student Verification States
+    const [rejectingId, setRejectingId] = useState(null);
+    const [rejectionReason, setRejectionReason] = useState('');
+    const [rating, setRating] = useState(0);
+    const [hoverRating, setHoverRating] = useState(0);
+    
+    const isReporter = user?.id === ticket?.created_by;
 
     const isTechnicianOrAdmin = profile?.role === 'technician' || profile?.role === 'it_admin' || 
                                  profile?.role === 'manager' || profile?.role === 'supervisor' || 
@@ -134,6 +142,49 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [managementAction, aiMgmtSuggestion]);
 
+    const handleStudentVerification = async (isApproved) => {
+        setManagementLoading(true);
+        try {
+            const updates = {
+                satisfaction_status: isApproved ? 'satisfied' : 'unsatisfied',
+                rating: isApproved ? rating : null,
+                customer_feedback: rejectionReason,
+                status: isApproved ? 'Resolved' : 'In Progress'
+            };
+            
+            const { data: ticketCheck } = await supabase
+                .from('tickets')
+                .select('rejection_count')
+                .eq('id', ticket.id)
+                .single();
+                
+            if (isApproved) {
+                toast.success('Fix confirmed! Thank you for your feedback.');
+            } else {
+                const currentRejectionCount = ticketCheck?.rejection_count || 0;
+                const newCount = currentRejectionCount + 1;
+                if (newCount >= 2) {
+                    toast.warning('Issue reported. This ticket will be escalated to SRC for immediate intervention.', { duration: 5000 });
+                } else {
+                    toast.info('Issue reported. Technician will rework. 1 more request before escalation.', { duration: 4000 });
+                }
+            }
+            
+            const { error } = await supabase
+                .from('tickets')
+                .update(updates)
+                .eq('id', ticket.id);
+                
+            if (error) throw error;
+            
+            if (onUpdate) onUpdate();
+        } catch (err) {
+            toast.error(err.message || 'Failed to update ticket');
+        } finally {
+            setManagementLoading(false);
+        }
+    };
+
     if (!ticket) return null;
 
     return (
@@ -223,6 +274,27 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
                                 </span>
                             </div>
                         </div>
+
+                        {(ticket.image_url || ticket.resolution_proof_url) && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                                {ticket.image_url && (
+                                    <div>
+                                        <span className="text-slate-500 block mb-2 text-sm">Issue Image</span>
+                                        <a href={ticket.image_url} target="_blank" rel="noopener noreferrer">
+                                            <img src={ticket.image_url} alt="Issue" className="max-h-48 rounded-lg border border-slate-200 hover:opacity-90" />
+                                        </a>
+                                    </div>
+                                )}
+                                {ticket.resolution_proof_url && (
+                                    <div>
+                                        <span className="text-slate-500 block mb-2 text-sm">Technician Proof of Fix</span>
+                                        <a href={ticket.resolution_proof_url} target="_blank" rel="noopener noreferrer">
+                                            <img src={ticket.resolution_proof_url} alt="Proof" className="max-h-48 rounded-lg border border-slate-200 hover:opacity-90" />
+                                        </a>
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         {/* Escalation Warning - Show for Escalated tickets */}
                         {ticket.status === 'Escalated' && (
@@ -431,6 +503,108 @@ export default function TicketDetails({ ticket, onClose, onReassign }) {
                                         </p>
                                     )}
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Student Verification UI */}
+                        {isReporter && ticket.status === 'Pending Verification' && (
+                            <div className="bg-surface-50 p-6 rounded-xl border border-surface-200 mt-6 shadow-sm">
+                                <h4 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+                                    <CheckCircle className="w-5 h-5 text-primary-500" />
+                                    Verify Technician's Work
+                                </h4>
+                                
+                                {rejectingId === ticket.id ? (
+                                    <div className="space-y-4 animate-in fade-in duration-200">
+                                        <div className="flex items-center gap-2 text-rose-600 mb-2">
+                                            <ThumbsDown className="w-5 h-5" />
+                                            <span className="font-semibold text-base">Report Unsatisfactory Work</span>
+                                        </div>
+                                        <textarea
+                                            value={rejectionReason}
+                                            onChange={(e) => setRejectionReason(e.target.value)}
+                                            placeholder="Please describe what was not resolved or needs improvement..."
+                                            className="w-full text-sm p-4 rounded-xl border-surface-300 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 bg-white shadow-sm"
+                                            rows={4}
+                                            autoFocus
+                                        />
+                                        <div className="flex gap-3">
+                                            <Button
+                                                onClick={() => handleStudentVerification(false)}
+                                                className="bg-rose-600 hover:bg-rose-700 text-white flex-1 py-6 text-base font-semibold"
+                                                disabled={!rejectionReason.trim() || managementLoading}
+                                            >
+                                                {managementLoading ? 'Submitting...' : 'Submit Report'}
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setRejectingId(null);
+                                                    setRejectionReason('');
+                                                }}
+                                                className="px-6 py-6"
+                                            >
+                                                <X className="w-5 h-5" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-6">
+                                        <div className="text-center bg-white p-6 rounded-xl border border-surface-100 shadow-sm">
+                                            <p className="text-base font-semibold text-surface-700 mb-4">How would you rate the technician's work?</p>
+                                            <div className="flex justify-center gap-2">
+                                                {[1, 2, 3, 4, 5].map((star) => (
+                                                    <button
+                                                        key={star}
+                                                        onClick={() => setRating(star)}
+                                                        onMouseEnter={() => setHoverRating(star)}
+                                                        onMouseLeave={() => setHoverRating(0)}
+                                                        className="p-2 transition-all duration-150 hover:scale-110 focus:outline-none"
+                                                        type="button"
+                                                    >
+                                                        <Star
+                                                            className={`w-10 h-10 ${
+                                                                star <= (hoverRating || rating)
+                                                                    ? 'fill-amber-400 text-amber-400'
+                                                                    : 'text-surface-200'
+                                                            }`}
+                                                        />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <p className="text-sm font-medium mt-3 h-5">
+                                                {rating > 0 ? (
+                                                    <span className="text-primary-700">
+                                                        {rating >= 4 ? 'Excellent!' : 
+                                                         rating >= 3 ? 'Good' : 
+                                                         rating >= 2 ? 'Fair' : 'Poor'}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-surface-400">Click a star to rate to enable confirmation</span>
+                                                )}
+                                            </p>
+                                        </div>
+                                        
+                                        <div className="flex flex-col sm:flex-row gap-3">
+                                            <Button
+                                                onClick={() => handleStudentVerification(true)}
+                                                className="bg-emerald-600 hover:bg-emerald-700 flex-1 py-6 text-base font-semibold shadow-sm"
+                                                disabled={rating === 0 || managementLoading}
+                                            >
+                                                <ThumbsUp className="w-5 h-5 mr-2" />
+                                                {rating >= 4 ? 'Excellent Work!' : 'Confirm Fix'}
+                                            </Button>
+                                            <Button
+                                                onClick={() => setRejectingId(ticket.id)}
+                                                variant="outline"
+                                                className="text-rose-600 border-rose-200 hover:bg-rose-50 hover:border-rose-300 flex-1 py-6 text-base font-semibold"
+                                            >
+                                                <ThumbsDown className="w-5 h-5 mr-2" />
+                                                Needs Rework
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 

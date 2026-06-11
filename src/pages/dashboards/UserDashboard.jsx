@@ -35,6 +35,7 @@ export default function UserDashboard() {
     const [rejectionReason, setRejectionReason] = useState('');
     const [rating, setRating] = useState(0);
     const [hoverRating, setHoverRating] = useState(0);
+    const [timeframe, setTimeframe] = useState('Last 30 Days');
 
     const isHistoryView = location.pathname === '/history';
     const viewTitle = isHistoryView ? 'History' : 'Dashboard';
@@ -58,9 +59,11 @@ export default function UserDashboard() {
                 priority,
                 created_at,
                 updated_at,
+                created_by,
                 assigned_to,
                 rejection_reason,
                 image_url,
+                resolution_proof_url,
                 satisfaction_status,
                 rating,
                 rejection_count,
@@ -158,22 +161,55 @@ export default function UserDashboard() {
 
     if (isLoading && !tickets.length) return <Loader variant="user" />;
 
-    // Filter tickets based on view mode
-    const filteredTickets = tickets.filter(ticket =>
-        isHistoryView
+    const isWithinTimeframe = (dateString, timeframeSelection) => {
+        if (timeframeSelection === 'All Time') return true;
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffTime = Math.abs(now - date);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+        
+        if (timeframeSelection === 'Today') return diffDays <= 1;
+        if (timeframeSelection === 'Last 7 Days') return diffDays <= 7;
+        if (timeframeSelection === 'Last 30 Days') return diffDays <= 30;
+        return true;
+    };
+
+    // Filter tickets based on view mode and timeframe
+    const filteredTickets = tickets.filter(ticket => {
+        const matchesView = isHistoryView
             ? COMPLETED_STATUSES.includes(ticket.status)
-            : ACTIVE_STATUSES.includes(ticket.status)
-    );
+            : ACTIVE_STATUSES.includes(ticket.status);
+            
+        return matchesView && isWithinTimeframe(ticket.created_at, timeframe);
+    });
 
     return (
         <div className="space-y-8">
-            <div>
-                <h1 className="text-3xl font-bold text-surface-900 tracking-tight">
-                    {viewTitle}
-                </h1>
-                <p className="text-surface-500 mt-2 text-lg">
-                    {viewDescription}
-                </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-surface-900 tracking-tight">
+                        {viewTitle}
+                    </h1>
+                    <p className="text-surface-500 mt-2 text-lg">
+                        {viewDescription}
+                    </p>
+                </div>
+                
+                {/* Timeframe Filter */}
+                <div className="flex items-center gap-3 bg-white p-3 rounded-2xl border border-surface-200 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="bg-surface-50 p-2 rounded-xl border border-surface-100">
+                        <Clock className="w-5 h-5 text-surface-500" />
+                    </div>
+                    <select
+                        value={timeframe}
+                        onChange={(e) => setTimeframe(e.target.value)}
+                        className="border-none focus:ring-0 text-sm text-surface-700 bg-transparent font-medium cursor-pointer outline-none min-w-[120px]"
+                    >
+                        {['Today', 'Last 7 Days', 'Last 30 Days', 'All Time'].map(t => (
+                            <option key={t} value={t}>{t}</option>
+                        ))}
+                    </select>
+                </div>
             </div>
 
             {filteredTickets.length === 0 ? (
@@ -202,7 +238,7 @@ export default function UserDashboard() {
                         const StatusIcon = statusStyle.icon;
 
                         return (
-                            <Card key={ticket.id} className="hover:shadow-xl transition-all duration-300 border-surface-200 group">
+                            <Card key={ticket.id} className="hover:shadow-xl transition-all duration-300 border-surface-200 group cursor-pointer" onClick={() => setSelectedTicket(ticket)}>
                                 <CardContent className="p-6 h-full flex flex-col">
                                     <div className="flex justify-between items-start mb-4">
                                         <span className={clsx(
@@ -220,8 +256,7 @@ export default function UserDashboard() {
                                         </span>
                                     </div>
 
-                                    <h3 className="text-lg font-bold text-surface-900 mb-2 line-clamp-1 group-hover:text-primary-600 transition-colors cursor-pointer"
-                                        onClick={() => setSelectedTicket(ticket)}>
+                                    <h3 className="text-lg font-bold text-surface-900 mb-2 line-clamp-1 group-hover:text-primary-600 transition-colors">
                                         {ticket.title}
                                     </h3>
                                     <p className="text-sm text-surface-600 mb-4 line-clamp-2 flex-1 leading-relaxed">
@@ -230,7 +265,7 @@ export default function UserDashboard() {
 
                                     {/* Chat Button */}
                                     <button
-                                        onClick={() => setSelectedTicket(ticket)}
+                                        onClick={(e) => { e.stopPropagation(); setSelectedTicket(ticket); }}
                                         className="flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 font-medium mb-2"
                                     >
                                         <MessageSquare className="w-4 h-4" />
@@ -258,6 +293,18 @@ export default function UserDashboard() {
 
                                         {ticket.status === 'Pending Verification' && (
                                             <div className="bg-surface-50 p-4 rounded-xl border border-surface-200 animate-in fade-in zoom-in-95 duration-200">
+                                                {ticket.resolution_proof_url && (
+                                                    <div className="mb-4">
+                                                        <span className="text-sm font-semibold text-slate-700 block mb-2">Technician's Proof of Fix:</span>
+                                                        <a href={ticket.resolution_proof_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                                                            <img 
+                                                                src={ticket.resolution_proof_url} 
+                                                                alt="Proof of Fix" 
+                                                                className="max-h-48 rounded-lg shadow-sm border border-slate-200 hover:opacity-90 transition-opacity"
+                                                            />
+                                                        </a>
+                                                    </div>
+                                                )}
                                                 {rejectingId === ticket.id ? (
                                                     <div className="space-y-3">
                                                         <div className="flex items-center gap-2 text-rose-600 mb-2">
@@ -267,6 +314,7 @@ export default function UserDashboard() {
                                                         <textarea
                                                             value={rejectionReason}
                                                             onChange={(e) => setRejectionReason(e.target.value)}
+                                                            onClick={(e) => e.stopPropagation()}
                                                             placeholder="Please describe what was not resolved or needs improvement..."
                                                             className="w-full text-sm p-3 rounded-lg border-surface-300 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 bg-white"
                                                             rows={3}
@@ -281,7 +329,7 @@ export default function UserDashboard() {
                                                         <div className="flex gap-2">
                                                             <Button
                                                                 size="sm"
-                                                                onClick={() => handleVerification(ticket.id, false, rejectionReason)}
+                                                                onClick={(e) => { e.stopPropagation(); handleVerification(ticket.id, false, rejectionReason); }}
                                                                 className="bg-rose-600 hover:bg-rose-700 text-white flex-1"
                                                                 disabled={!rejectionReason.trim()}
                                                             >
@@ -290,7 +338,8 @@ export default function UserDashboard() {
                                                             <Button
                                                                 size="sm"
                                                                 variant="outline"
-                                                                onClick={() => {
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
                                                                     setRejectingId(null);
                                                                     setRejectionReason('');
                                                                 }}
@@ -309,7 +358,7 @@ export default function UserDashboard() {
                                                                 {[1, 2, 3, 4, 5].map((star) => (
                                                                     <button
                                                                         key={star}
-                                                                        onClick={() => setRating(star)}
+                                                                        onClick={(e) => { e.stopPropagation(); setRating(star); }}
                                                                         onMouseEnter={() => setHoverRating(star)}
                                                                         onMouseLeave={() => setHoverRating(0)}
                                                                         className="p-1 transition-all duration-150 hover:scale-110 focus:outline-none"
@@ -336,7 +385,7 @@ export default function UserDashboard() {
                                                         
                                                         <div className="flex gap-2">
                                                             <Button
-                                                                onClick={() => handleVerification(ticket.id, true)}
+                                                                onClick={(e) => { e.stopPropagation(); handleVerification(ticket.id, true); }}
                                                                 className="bg-emerald-600 hover:bg-emerald-700 flex-1 text-sm h-10"
                                                                 disabled={rating === 0}
                                                             >
@@ -344,7 +393,7 @@ export default function UserDashboard() {
                                                                 {rating >= 4 ? 'Excellent Work!' : 'Confirm Fix'}
                                                             </Button>
                                                             <Button
-                                                                onClick={() => setRejectingId(ticket.id)}
+                                                                onClick={(e) => { e.stopPropagation(); setRejectingId(ticket.id); }}
                                                                 variant="outline"
                                                                 className="text-rose-600 border-rose-200 hover:bg-rose-50 hover:border-rose-300 flex-1 text-sm h-10"
                                                             >

@@ -53,9 +53,10 @@ const loadPdfLibraries = async () => {
  * Generates and downloads a PDF report detailing all maintenance tickets.
  * 
  * @param {Array<Object>} tickets - The raw array of ticket objects from the database.
+ * @param {string} [timeframe='all'] - The timeframe of the report (e.g. 'all', '7', '30', '90').
  * @returns {void} - Triggers a file download directly in the browser.
  */
-export const generateTicketReport = async (tickets) => {
+export const generateTicketReport = async (tickets, timeframe = 'all') => {
     try {
         // Load PDF libraries only when needed
         const { jsPDF: JsPDF, autoTable: AutoTable } = await loadPdfLibraries();
@@ -87,6 +88,13 @@ export const generateTicketReport = async (tickets) => {
         doc.setFontSize(10);
         doc.setTextColor(100); // Gray color for metadata
         doc.text(`Generated on: ${date}`, 40, 85);
+        
+        let timeframeText = 'All Time';
+        if (timeframe === '7') timeframeText = 'Last 7 Days';
+        else if (timeframe === '30') timeframeText = 'Last 30 Days';
+        else if (timeframe === '90') timeframeText = 'Last 90 Days';
+        
+        doc.text(`Timeframe: ${timeframeText}`, 40, 100);
         doc.setTextColor(0); // Reset to black
 
         // --- DATA TRANSFORMATION SECTION ---
@@ -117,7 +125,7 @@ export const generateTicketReport = async (tickets) => {
         AutoTable(doc, {
             head: [tableColumn],
             body: tableRows,
-            startY: 100, // Start drawing the table 100pts from top (below headers)
+            startY: 115, // Start drawing the table 115pts from top (below headers)
             theme: 'grid', // 'grid' | 'striped' | 'plain'
             styles: {
                 fontSize: 9,

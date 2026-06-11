@@ -21,10 +21,10 @@ import { generateTicketReport } from '../utils/generateReport';
 export default function AnalyticsPage() {
     const { profile, loading: authLoading } = useAuth();
     // State Management:
-    // 'tickets': Holds the raw data for visualization.
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [reportTimeframe, setReportTimeframe] = useState('all');
     const hasFetched = useRef(false);
     const ticketsRef = useRef([]);
     const fetchedProfileId = useRef(null);
@@ -92,6 +92,28 @@ export default function AnalyticsPage() {
 
     const hasAdminAccess = profile?.role === 'it_admin' || profile?.department === 'Student Affairs' || profile?.role === 'src' || profile?.role === 'manager' || profile?.role === 'supervisor';
 
+    const handleDownloadReport = () => {
+        let filteredTickets = tickets;
+
+        if (reportTimeframe !== 'all') {
+            const daysToSubtract = parseInt(reportTimeframe, 10);
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - daysToSubtract);
+            
+            filteredTickets = tickets.filter(ticket => {
+                const ticketDate = new Date(ticket.created_at);
+                return ticketDate >= cutoffDate;
+            });
+        }
+
+        if (filteredTickets.length === 0) {
+            alert('No tickets found for the selected timeframe.');
+            return;
+        }
+
+        generateTicketReport(filteredTickets, reportTimeframe);
+    };
+
     useEffect(() => {
         // Only fetch data if user has admin access and we haven't fetched for this profile yet
         if (hasAdminAccess && profile.id !== fetchedProfileId.current) {
@@ -141,14 +163,26 @@ export default function AnalyticsPage() {
                     <p className="text-slate-500 mt-1">Strategic insights and system performance metrics.</p>
                 </div>
 
-                <button
-                    onClick={() => generateTicketReport(tickets)}
-                    disabled={tickets.length === 0}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    <span>📄</span>
-                    Download Official Report
-                </button>
+                <div className="flex items-center gap-3">
+                    <select
+                        value={reportTimeframe}
+                        onChange={(e) => setReportTimeframe(e.target.value)}
+                        className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                    >
+                        <option value="all">All Time</option>
+                        <option value="7">Last 7 Days</option>
+                        <option value="30">Last 30 Days</option>
+                        <option value="90">Last 90 Days</option>
+                    </select>
+                    <button
+                        onClick={handleDownloadReport}
+                        disabled={tickets.length === 0}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <span>📄</span>
+                        Download Official Report
+                    </button>
+                </div>
             </div>
 
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">

@@ -29,6 +29,7 @@ export default function TechnicianDashboard() {
     // Staff verify tickets in their department, SRC verifies all, Porters verify hostel
     const canVerify = isPorter || isSRC || isStaff;
     const [selectedTicket, setSelectedTicket] = useState(null);
+    const [modalTab, setModalTab] = useState('details');
     const [activeTab, setActiveTab] = useState('assigned'); // 'assigned' | 'reported'
     const [timeframe, setTimeframe] = useState('Last 30 Days');
     const [resolvingTicket, setResolvingTicket] = useState(null);
@@ -641,7 +642,7 @@ export default function TechnicianDashboard() {
 
             <div className="space-y-6">
                 {displayedJobs.map((job) => (
-                    <Card key={job.id} className="hover:shadow-lg transition-all duration-300 border-surface-200 group cursor-pointer" onClick={() => setSelectedTicket(job)}>
+                    <Card key={job.id} className="hover:shadow-lg transition-all duration-300 border-surface-200 group cursor-pointer" onClick={() => { setSelectedTicket(job); setModalTab('details'); }}>
                         <CardContent className="p-6">
                             <div className="flex flex-col md:flex-row justify-between items-start gap-6">
                                 <div className="flex-1 space-y-4">
@@ -711,6 +712,7 @@ export default function TechnicianDashboard() {
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             setSelectedTicket(job);
+                                            setModalTab('details');
                                         }}
                                         variant="outline"
                                         className="w-full"
@@ -724,6 +726,7 @@ export default function TechnicianDashboard() {
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             setSelectedTicket(job);
+                                            setModalTab('chat');
                                         }}
                                         variant="outline"
                                         className="w-full border-primary-200 text-primary-700 hover:bg-primary-50"
@@ -801,6 +804,7 @@ export default function TechnicianDashboard() {
             {selectedTicket && (
                 <TicketDetails
                     ticket={selectedTicket}
+                    initialTab={modalTab}
                     onClose={() => setSelectedTicket(null)}
                     onUpdate={() => {
                         setSelectedTicket(null);

@@ -11,6 +11,7 @@ import Loader from '../components/Loader';
 import { cn } from '../lib/utils';
 import { FACILITY_TYPES, MAINTENANCE_CATEGORIES, getDepartmentForCategory } from '../utils/constants';
 import { autoCategorizeWithFallback } from '../services/ai';
+import { mutate } from 'swr';
 
 export default function TicketForm() {
     const navigate = useNavigate();
@@ -384,6 +385,10 @@ export default function TicketForm() {
 
             toast.success('Report Submitted Successfully!');
             setSuccess(true);
+            
+            // Invalidate the dashboard ticket cache so the new ticket appears immediately
+            mutate(['user_tickets', user.id]);
+            
             setTimeout(() => navigate('/dashboard'), 2000);
         } catch {
             toast.error('Failed to submit report. Please try again.');

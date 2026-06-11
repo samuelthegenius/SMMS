@@ -15,12 +15,12 @@ import ReassignTechnician from './ReassignTechnician';
 import TicketChat from './TicketChat';
 import { toast } from 'sonner';
 
-export default function TicketDetails({ ticket, onClose, onUpdate, onReassign }) {
+export default function TicketDetails({ ticket, onClose, onUpdate, onReassign, initialTab = 'details' }) {
     const { user, profile } = useAuth();
     const [loading, setLoading] = useState(false);
     const [aiSuggestion, setAiSuggestion] = useState(null);
     const [error, setError] = useState(null);
-    const [activeTab, setActiveTab] = useState('details'); // 'details' | 'chat'
+    const [activeTab, setActiveTab] = useState(initialTab); // 'details' | 'chat'
     const [managementAction, setManagementAction] = useState(null);
     const [managementLoading, setManagementLoading] = useState(false);
     const [aiTyping, setAiTyping] = useState(false);

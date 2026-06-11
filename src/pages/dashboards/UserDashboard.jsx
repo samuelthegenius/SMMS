@@ -44,6 +44,7 @@ export default function UserDashboard() {
         : 'Track the status of your active maintenance requests';
 
     const [selectedTicket, setSelectedTicket] = useState(null);
+    const [modalTab, setModalTab] = useState('details');
 
     const fetchTickets = async () => {
         const { data, error } = await supabase
@@ -238,7 +239,7 @@ export default function UserDashboard() {
                         const StatusIcon = statusStyle.icon;
 
                         return (
-                            <Card key={ticket.id} className="hover:shadow-xl transition-all duration-300 border-surface-200 group cursor-pointer" onClick={() => setSelectedTicket(ticket)}>
+                            <Card key={ticket.id} className="hover:shadow-xl transition-all duration-300 border-surface-200 group cursor-pointer" onClick={() => { setSelectedTicket(ticket); setModalTab('details'); }}>
                                 <CardContent className="p-6 h-full flex flex-col">
                                     <div className="flex justify-between items-start mb-4">
                                         <span className={clsx(
@@ -265,7 +266,7 @@ export default function UserDashboard() {
 
                                     {/* Chat Button */}
                                     <button
-                                        onClick={(e) => { e.stopPropagation(); setSelectedTicket(ticket); }}
+                                        onClick={(e) => { e.stopPropagation(); setSelectedTicket(ticket); setModalTab('chat'); }}
                                         className="flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 font-medium mb-2"
                                     >
                                         <MessageSquare className="w-4 h-4" />
@@ -417,6 +418,7 @@ export default function UserDashboard() {
             {selectedTicket && (
                 <TicketDetails
                     ticket={selectedTicket}
+                    initialTab={modalTab}
                     onClose={() => setSelectedTicket(null)}
                     onUpdate={() => {
                         setSelectedTicket(null);

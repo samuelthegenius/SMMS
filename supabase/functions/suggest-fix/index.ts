@@ -177,7 +177,7 @@ Keep responses concise and professional.
                         }],
                         generationConfig: {
                             temperature: 0.3, // Lower temperature for more consistent outputs
-                            maxOutputTokens: 500,
+                            maxOutputTokens: 1000,
                         }
                     }),
                     signal: controller.signal
@@ -267,9 +267,9 @@ Keep responses concise and professional.
                 }
                 
                 // Clean up lengths
-                jsonResponse.technical_diagnosis = jsonResponse.technical_diagnosis.substring(0, 500)
-                jsonResponse.tools_required = jsonResponse.tools_required.slice(0, 10)
-                jsonResponse.safety_precaution = jsonResponse.safety_precaution.substring(0, 200)
+                jsonResponse.technical_diagnosis = jsonResponse.technical_diagnosis.substring(0, 2000)
+                jsonResponse.tools_required = jsonResponse.tools_required.slice(0, 15)
+                jsonResponse.safety_precaution = jsonResponse.safety_precaution.substring(0, 1000)
                 
             } catch (_e) {
                 // Fallback response

@@ -240,15 +240,17 @@ export default function TechnicianDashboard() {
         const updatedJobs = jobs.map(j => j.id === ticketId ? { ...j, status: newStatus } : j);
 
         // Optimistic update
-        mutate(updatedJobs, false);
+        mutate(updatedJobs, { revalidate: false });
 
         try {
-            const { error } = await supabase
+            const { error, data } = await supabase
                 .from('tickets')
                 .update({ status: newStatus })
-                .eq('id', ticketId);
+                .eq('id', ticketId)
+                .select(); // Select to ensure RLS doesn't silently fail by returning 0 rows
 
             if (error) throw error;
+            if (!data || data.length === 0) throw new Error('Update failed. You might not have permission, or the ticket was not found.');
 
             // Trigger Email Notification on Completion
             if (newStatus === 'Resolved') {
@@ -266,9 +268,10 @@ export default function TechnicianDashboard() {
 
             toast.success(`Ticket marked as ${newStatus}`);
             mutate(); // Revalidate to ensure consistency
-        } catch {
-            toast.error('Failed to update status');
-            mutate(previousJobs, false); // Rollback
+        } catch (error) {
+            console.error('handleStatusUpdate error:', error);
+            toast.error(error.message || 'Failed to update status');
+            mutate(previousJobs, { revalidate: false }); // Rollback
         }
     };
 

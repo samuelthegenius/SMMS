@@ -344,6 +344,8 @@ Categorize this maintenance request and assess its priority level:`
 
     } catch (error: unknown) {
         const errMsg = error instanceof Error ? error.message : String(error)
+        console.error("Categorize Ticket Edge Function Error:", errMsg)
+        console.error("Full error object:", error)
 
         // Return safe fallback with keyword-based priority detection (if inputs available)
         // Use requestBody values if they exist, otherwise use empty strings

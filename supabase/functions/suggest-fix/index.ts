@@ -293,6 +293,8 @@ Keep responses concise and professional.
 
     } catch (error: unknown) {
         const errMsg = error instanceof Error ? error.message : String(error)
+        console.error("Suggest Fix Edge Function Error:", errMsg)
+        console.error("Full error object:", error)
         // Return a safe fallback response instead of a hard 400 error
         return new Response(JSON.stringify({
             technical_diagnosis: "Maintenance issue detected but could not generate specific AI advice. Professional assessment required.",

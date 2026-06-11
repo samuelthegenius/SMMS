@@ -69,9 +69,11 @@ export async function categorizeTicket(title, description = '', facilityType = '
 export async function autoCategorizeWithFallback(title, description = '', facilityType = 'Other', confidenceThreshold = 0.7, priorityThreshold = 0.6) {
   try {
     const result = await categorizeTicket(title, description, facilityType);
+    
+    console.log("[DEBUG AI] Full result from categorizeTicket:", result);
 
     if (result.error) {
-        console.error("AI Categorization Edge Function Error:", result.error);
+        console.error("[DEBUG AI ERROR] Edge Function Error:", result.error);
     }
 
     // If the edge function returned its own fallback (0 confidence), don't treat it as a category suggestion

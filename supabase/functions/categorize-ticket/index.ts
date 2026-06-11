@@ -260,13 +260,14 @@ Description: ${sanitizedDescription || 'No description provided'}
 
 Categorize this maintenance request and assess its priority level:`
 
-        // Call Gemini API with retry logic for 503 high demand errors
+        // Call Gemini API with extended retry logic for 503 high demand errors
         let data = null;
         let lastError = null;
-        let retries = 3;
+        let retries = 5; // Increased retries since we are strictly using one model
         
         for (let i = 0; i < retries; i++) {
             const controller = new AbortController()
+            // Give it plenty of time to respond
             const timeoutId = setTimeout(() => controller.abort(), i === 0 ? 15000 : 25000)
             
             try {
@@ -300,91 +301,87 @@ Categorize this maintenance request and assess its priority level:`
                     throw new Error(`Gemini API Error: ${data.error.message}`);
                 }
                 
-                // Success or other error - break out of retry loop
-                break;
+                // Success or non-high-demand error
+                if (!data.error) {
+                    break;
+                } else {
+                    throw new Error(`Gemini API Error: ${data.error.message}`);
+                }
             } catch (err) {
                 clearTimeout(timeoutId)
                 lastError = err;
                 
-                // Only retry on network errors or high demand errors, not parsing errors
-                if (i < retries - 1 && (err.name === 'AbortError' || err.message.includes('high demand'))) {
-                    // Exponential backoff: 1s, 2s
-                    await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
-                    continue;
+                // If it's a high demand error, we wait and retry
+                if (err.name === 'AbortError' || (err instanceof Error && err.message.includes('high demand'))) {
+                    if (i < retries - 1) {
+                        // Exponential backoff: 2s, 4s, 8s, 16s
+                        const delay = Math.pow(2, i + 1) * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        continue;
+                    }
                 }
                 
-                // Throw if we've exhausted retries or it's a non-retriable error
-                throw err;
+                // Exhausted retries or fatal error
+                break;
             }
         }
+        
+        // If all retries failed, throw the last error
+        if (!data || data.error) {
+            throw lastError || new Error(`Gemini API Error: ${data?.error?.message || 'Failed to contact Gemini API after multiple attempts'}`);
+        }
 
-            if (data.error) {
-                throw new Error(`Gemini API Error: ${data.error.message || 'Unknown error'}`)
-            }
+        const candidate = data.candidates?.[0]
+        if (!candidate && data.promptFeedback) {
+            throw new Error("AI Request was blocked by safety filters.")
+        }
 
-            const candidate = data.candidates?.[0]
-            if (!candidate && data.promptFeedback) {
-                throw new Error("AI Request was blocked by safety filters.")
-            }
+        const responseText = candidate?.content?.parts?.[0]?.text
+        if (!responseText) {
+            throw new Error("AI returned no response content.")
+        }
 
-            const responseText = candidate?.content?.parts?.[0]?.text
-            if (!responseText) {
-                throw new Error("AI returned no response content.")
-            }
+        // Parse the response
+        const categorization = parseCategorizationResponse(responseText)
+        const department = CATEGORY_TO_DEPARTMENT[categorization.category] || "General Facilities"
 
-            // Parse the response
-            const categorization = parseCategorizationResponse(responseText)
-            const department = CATEGORY_TO_DEPARTMENT[categorization.category] || "General Facilities"
+        // Validate priority - if AI returned Low but keywords suggest High, use keyword detection
+        let finalPriority = categorization.priority
+        let finalPriorityConfidence = categorization.priorityConfidence
+        let finalPriorityReasoning = categorization.priorityReasoning
 
-            // Validate priority - if AI returned Low but keywords suggest High, use keyword detection
-            let finalPriority = categorization.priority
-            let finalPriorityConfidence = categorization.priorityConfidence
-            let finalPriorityReasoning = categorization.priorityReasoning
+        if (fallbackPriority.priority === "High" && categorization.priority !== "High") {
+          finalPriority = "High"
+          finalPriorityConfidence = Math.max(categorization.priorityConfidence, 0.85)
+          finalPriorityReasoning = fallbackPriority.reason
+        }
 
-            if (fallbackPriority.priority === "High" && categorization.priority !== "High") {
-              finalPriority = "High"
-              finalPriorityConfidence = Math.max(categorization.priorityConfidence, 0.85)
-              finalPriorityReasoning = fallbackPriority.reason
-            }
-
-            return new Response(JSON.stringify({
-                category: categorization.category,
-                department: department,
-                priority: finalPriority,
-                confidence: categorization.confidence,
-                priorityConfidence: finalPriorityConfidence,
-                reasoning: categorization.reasoning,
-                priorityReasoning: finalPriorityReasoning,
-                suggested: true
-            }), {
-                headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
-                status: 200,
-            })
-        // The API call try-catch was replaced with a retry loop that throws errors correctly
+        return new Response(JSON.stringify({
+            category: categorization.category,
+            department: department,
+            priority: finalPriority,
+            confidence: categorization.confidence,
+            priorityConfidence: finalPriorityConfidence,
+            reasoning: categorization.reasoning,
+            priorityReasoning: finalPriorityReasoning,
+            suggested: true
+        }), {
+            headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
+            status: 200,
+        })
     } catch (error: unknown) {
         const errMsg = error instanceof Error ? error.message : String(error)
         console.error("Categorize Ticket Edge Function Error:", errMsg)
         console.error("Full error object:", error)
 
-        // Return safe fallback with keyword-based priority detection (if inputs available)
-        // Use requestBody values if they exist, otherwise use empty strings
-        const titleForFallback = (typeof requestBody?.title === 'string') ? requestBody.title : ''
-        const descForFallback = (typeof requestBody?.description === 'string') ? requestBody.description : ''
-        const fallbackPriority = detectPriority(titleForFallback, descForFallback)
-
+        // Strict mode: No fake fallback responses. It either worked or it didn't.
         return new Response(JSON.stringify({
-            category: "General Maintenance",
-            department: "General Facilities",
-            priority: fallbackPriority.priority,
-            confidence: 0,
-            priorityConfidence: 0.5,
-            reasoning: "AI categorization unavailable - using default",
-            priorityReasoning: fallbackPriority.reason,
-            suggested: false,
-            error: errMsg || 'Internal server error'
+            error: errMsg || 'Internal server error',
+            message: "AI categorization failed. Please try again or categorize manually."
         }), {
             headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
-            status: 200 // Changed to 200 to avoid console 500 errors; client uses fallback safely
+            // Return 503 for high demand, 500 otherwise, so the frontend knows it failed
+            status: errMsg.includes('high demand') ? 503 : 500
         })
     }
 })

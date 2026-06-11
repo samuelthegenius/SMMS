@@ -159,10 +159,10 @@ Keep responses concise and professional.
             text: `${systemPrompt}\n${taskPrompt}`
         })
 
-        // Call Gemini API with retry logic
+        // Call Gemini API with extended retry logic
         let data = null;
         let lastError = null;
-        let retries = 3;
+        let retries = 5; // Increased retries
         
         for (let i = 0; i < retries; i++) {
             const controller = new AbortController()
@@ -196,130 +196,138 @@ Keep responses concise and professional.
                     throw new Error(`Gemini API Error: ${data.error.message}`);
                 }
                 
-                break;
+                if (!data.error) {
+                    break;
+                } else {
+                    throw new Error(`Gemini API Error: ${data.error.message}`);
+                }
             } catch (err) {
                 clearTimeout(timeoutId)
                 lastError = err;
                 
-                if (i < retries - 1 && (err.name === 'AbortError' || err.message.includes('high demand'))) {
-                    await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
-                    continue;
-                }
-                
-                throw err;
-            }
-        }
-
-            if (data.error) {
-                throw new Error(`Gemini API Error: ${data.error.message || 'Unknown error'}`)
-            }
-
-            const candidate = data.candidates?.[0]
-            if (!candidate && data.promptFeedback) {
-                throw new Error("AI Request was blocked by safety filters.")
-            }
-
-            const suggestionText = candidate?.content?.parts?.[0]?.text
-            if (!suggestionText) {
-                throw new Error("AI returned no suggestion content.")
-            }
-
-            // Parse the structured text response
-            const jsonResponse: {
-                technical_diagnosis: string
-                tools_required: string[]
-                safety_precaution: string
-            } = {
-                technical_diagnosis: "",
-                tools_required: [],
-                safety_precaution: ""
-            }
-
-            try {
-                // Split by lines and parse each section
-                const lines = suggestionText.split('\n').map((line: string) => line.trim())
-                
-                let currentSection = ""
-                const toolsList: string[] = []
-                let diagnosisText = ""
-                
-                for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i]
-                    
-                    // Handle multi-line diagnosis
-                    if (line.toLowerCase().includes('technical diagnosis:')) {
-                        diagnosisText = line.replace(/technical diagnosis:/gi, '').trim()
-                        // Check if next lines continue the diagnosis
-                        let j = i + 1
-                        while (j < lines.length && !lines[j].toLowerCase().includes('tools required:') && !lines[j].toLowerCase().includes('safety precaution:')) {
-                            diagnosisText += ' ' + lines[j].trim()
-                            j++
-                        }
-                        jsonResponse.technical_diagnosis = diagnosisText.trim()
-                        i = j - 1 // Skip the processed lines
-                    } else if (line.toLowerCase().includes('tools required:')) {
-                        currentSection = 'tools'
-                    } else if (line.toLowerCase().includes('safety precaution:')) {
-                        jsonResponse.safety_precaution = line.replace(/safety precaution:/gi, '').trim()
-                        currentSection = 'safety'
-                    } else if ((line.startsWith('•') || line.startsWith('-') || line.startsWith('*')) && currentSection === 'tools') {
-                        const tool = line.replace(/^[•\-\*]\s*/, '').trim()
-                        if (tool) {
-                            toolsList.push(tool)
-                        }
+                if (err.name === 'AbortError' || (err instanceof Error && err.message.includes('high demand'))) {
+                    if (i < retries - 1) {
+                        const delay = Math.pow(2, i + 1) * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        continue;
                     }
                 }
                 
-                jsonResponse.tools_required = toolsList
-                
-                // Validation and fallbacks
-                if (!jsonResponse.technical_diagnosis) {
-                    jsonResponse.technical_diagnosis = "Technical issue identified - analysis in progress."
-                }
-                if (jsonResponse.tools_required.length === 0) {
-                    jsonResponse.tools_required = ["Basic toolkit", "Safety equipment", "Testing devices"]
-                }
-                if (!jsonResponse.safety_precaution) {
-                    jsonResponse.safety_precaution = "WARNING: Always follow proper safety procedures."
-                }
-                
-                // Ensure safety precaution starts with WARNING
-                if (!jsonResponse.safety_precaution.startsWith('WARNING:')) {
-                    jsonResponse.safety_precaution = `WARNING: ${jsonResponse.safety_precaution}`;
-                }
-                
-                // Clean up lengths
-                jsonResponse.technical_diagnosis = jsonResponse.technical_diagnosis.substring(0, 2000)
-                jsonResponse.tools_required = jsonResponse.tools_required.slice(0, 15)
-                jsonResponse.safety_precaution = jsonResponse.safety_precaution.substring(0, 1000)
-                
-            } catch (_e) {
-                // Fallback response
-                jsonResponse.technical_diagnosis = "Maintenance issue detected. Professional assessment required."
-                jsonResponse.tools_required = ["Basic tools", "Safety equipment", "Testing devices"]
-                jsonResponse.safety_precaution = "WARNING: Always follow proper safety procedures."
+                break;
             }
+        }
 
-            return new Response(JSON.stringify(jsonResponse), {
-                headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
-                status: 200,
-            })
+        if (!data || data.error) {
+            throw lastError || new Error(`Gemini API Error: ${data?.error?.message || 'Failed to contact Gemini API after multiple attempts'}`);
+        }
 
-        // The API call try-catch was replaced with a retry loop that throws errors correctly
+        const candidate = data.candidates?.[0]
+        if (!candidate && data.promptFeedback) {
+            throw new Error("AI Request was blocked by safety filters.")
+        }
 
+        const suggestionText = candidate?.content?.parts?.[0]?.text
+        if (!suggestionText) {
+            throw new Error("AI returned no suggestion content.")
+        }
+
+        // Parse the structured text response
+        const jsonResponse: {
+            technical_diagnosis: string
+            tools_required: string[]
+            safety_precaution: string
+        } = {
+            technical_diagnosis: "",
+            tools_required: [],
+            safety_precaution: ""
+        }
+
+        try {
+            // Split by lines and parse each section
+            const lines = suggestionText.split('\n').map((line: string) => line.trim())
+            
+            let currentSection = ""
+            const toolsList: string[] = []
+            let diagnosisText = ""
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i]
+                
+                // Handle multi-line diagnosis
+                if (line.toLowerCase().includes('technical diagnosis:')) {
+                    currentSection = "diagnosis"
+                    diagnosisText += line.substring(line.toLowerCase().indexOf('technical diagnosis:') + 20).trim() + " "
+                }
+                else if (line.toLowerCase().includes('tools required:')) {
+                    currentSection = "tools"
+                }
+                else if (line.toLowerCase().includes('safety precautions:')) {
+                    currentSection = "safety"
+                    jsonResponse.safety_precaution = line.substring(line.toLowerCase().indexOf('safety precautions:') + 19).trim()
+                }
+                else if (line.toLowerCase().includes('step-by-step repair approach:')) {
+                    currentSection = "steps"
+                }
+                // Continue adding to multi-line sections if no new section header is found
+                else if (line.length > 0) {
+                    if (currentSection === "diagnosis") {
+                        diagnosisText += line + " "
+                    } else if (currentSection === "tools" && line.startsWith('-')) {
+                        toolsList.push(line.substring(1).trim())
+                    } else if (currentSection === "tools" && line.match(/^\d+\./)) {
+                        toolsList.push(line.substring(line.indexOf('.') + 1).trim())
+                    } else if (currentSection === "safety") {
+                        if (jsonResponse.safety_precaution) jsonResponse.safety_precaution += " "
+                        jsonResponse.safety_precaution += line.startsWith('-') ? line.substring(1).trim() : line
+                    } else if (currentSection === "steps") {
+                        // For steps, we could append them to diagnosis if we wanted them all in one field
+                        // Or we can just ignore them for now as the db schema doesn't have a specific field for steps
+                    }
+                }
+            }
+            
+            // Clean up parsed values
+            jsonResponse.technical_diagnosis = diagnosisText.trim()
+            jsonResponse.tools_required = toolsList.filter(Boolean)
+            
+            // Provide sensible defaults if sections were missing
+            if (!jsonResponse.technical_diagnosis) {
+                jsonResponse.technical_diagnosis = suggestionText.substring(0, 500) + (suggestionText.length > 500 ? "..." : "")
+            }
+            if (jsonResponse.tools_required.length === 0) {
+                jsonResponse.tools_required = ["Review task details for necessary tools"]
+            }
+            if (!jsonResponse.safety_precaution) {
+                jsonResponse.safety_precaution = "Follow standard safety protocols for this type of maintenance."
+            }
+            
+            // Clean up lengths
+            jsonResponse.technical_diagnosis = jsonResponse.technical_diagnosis.substring(0, 2000)
+            jsonResponse.tools_required = jsonResponse.tools_required.slice(0, 15)
+            jsonResponse.safety_precaution = jsonResponse.safety_precaution.substring(0, 1000)
+            
+        } catch (_e) {
+            // Throw original error so it's not swallowed by this catch
+            throw new Error(`Failed to parse AI response: ${suggestionText.substring(0, 100)}`);
+        }
+
+        return new Response(JSON.stringify(jsonResponse), {
+            headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
+            status: 200,
+        })
     } catch (error: unknown) {
         const errMsg = error instanceof Error ? error.message : String(error)
         console.error("Suggest Fix Edge Function Error:", errMsg)
         console.error("Full error object:", error)
-        // Return a safe fallback response instead of a hard 400 error
+        
+        // Strict mode: Return real error response
         return new Response(JSON.stringify({
-            technical_diagnosis: "Maintenance issue detected but could not generate specific AI advice. Professional assessment required.",
-            tools_required: ["Basic tools", "Safety equipment", "Testing devices"],
-            safety_precaution: "WARNING: Always follow proper safety procedures.",
-            error: errMsg // Include error message for debugging purposes
+            error: errMsg,
+            message: "AI suggestion failed. Please try again later."
         }), {
             headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
-            status: 200, // Changed to 200 to avoid client-side errors, using fallback safely
+            // Return 503 for high demand, 500 otherwise
+            status: errMsg.includes('high demand') ? 503 : 500
         })
     }
 })

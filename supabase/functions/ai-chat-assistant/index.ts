@@ -556,7 +556,7 @@ function repairIncompleteJSON(jsonStr: string): string {
     return cleaned;
 }
 
-// Call Gemini API with optional JSON mode and retry logic
+// Call Gemini API with extended retry logic
 async function callGemini(apiKey: string, prompt: string, maxTokens: number = 500, jsonMode: boolean = false): Promise<string> {
     const generationConfig: { temperature: number; maxOutputTokens: number; responseMimeType?: string } = {
         temperature: 0.2, // Lower temperature for more consistent output
@@ -577,7 +577,7 @@ async function callGemini(apiKey: string, prompt: string, maxTokens: number = 50
 
     let data = null;
     let lastError = null;
-    let retries = 3;
+    let retries = 5; // Increased retries since we are strictly using one model
 
     for (let i = 0; i < retries; i++) {
         const controller = new AbortController()
@@ -603,22 +603,29 @@ async function callGemini(apiKey: string, prompt: string, maxTokens: number = 50
                 throw new Error(`Gemini API Error: ${data.error.message}`);
             }
 
-            break;
+            if (!data.error) {
+                break;
+            } else {
+                throw new Error(`Gemini API Error: ${data.error.message}`);
+            }
         } catch (err) {
             clearTimeout(timeoutId)
             lastError = err;
 
-            if (i < retries - 1 && (err.name === 'AbortError' || err.message.includes('high demand'))) {
-                await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
-                continue;
+            if (err.name === 'AbortError' || (err instanceof Error && err.message.includes('high demand'))) {
+                if (i < retries - 1) {
+                    const delay = Math.pow(2, i + 1) * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    continue;
+                }
             }
 
-            throw err;
+            break;
         }
     }
 
-    if (data.error) {
-        throw new Error(`Gemini API Error: ${data.error.message || 'Unknown error'}`)
+    if (!data || data.error) {
+        throw lastError || new Error(`Gemini API Error: ${data?.error?.message || 'Failed to contact Gemini API after multiple attempts'}`);
     }
 
     const candidate = data.candidates?.[0]

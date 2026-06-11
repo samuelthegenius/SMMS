@@ -70,6 +70,26 @@ export async function autoCategorizeWithFallback(title, description = '', facili
   try {
     const result = await categorizeTicket(title, description, facilityType);
 
+    if (result.error) {
+        console.error("AI Categorization Edge Function Error:", result.error);
+    }
+
+    // If the edge function returned its own fallback (0 confidence), don't treat it as a category suggestion
+    if (result.confidence === 0) {
+      return {
+        category: null,
+        department: null,
+        priority: result.priority,
+        confidence: 0,
+        priorityConfidence: result.priorityConfidence || 0.5,
+        autoAssigned: false,
+        autoPriorityAssigned: false,
+        reasoning: result.reasoning || 'AI categorization unavailable',
+        priorityReasoning: result.priorityReasoning,
+        source: 'edge-fallback'
+      };
+    }
+
     const autoAssigned = result.confidence >= confidenceThreshold && result.suggested;
     const autoPriorityAssigned = (result.priorityConfidence || 0) >= priorityThreshold && result.suggested;
 
@@ -85,8 +105,9 @@ export async function autoCategorizeWithFallback(title, description = '', facili
       priorityReasoning: result.priorityReasoning,
       source: 'gemini-free'
     };
-  } catch {
-    // Fall back to keyword-based priority detection on failure
+  } catch (error) {
+    console.error("autoCategorizeWithFallback network/invocation error:", error);
+    // Fall back to keyword-based priority detection on network/invocation failure
     const keywordPriority = detectPriorityFromText(title, description);
     return {
       category: null,

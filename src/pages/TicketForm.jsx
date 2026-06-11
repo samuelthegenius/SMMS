@@ -71,6 +71,8 @@ export default function TicketForm() {
                 toast.success(`AI suggests: ${result.category} (${result.department})`);
             } else if (result.category) {
                 toast.info(`AI suggestion available (category: ${Math.round(result.confidence * 100)}%, severity: ${Math.round((result.priorityConfidence || 0.5) * 100)}%)`);
+            } else if (result.priority) {
+                toast.info(`AI suggestion available (severity: ${result.priority})`);
             } else {
                 toast.warning('Could not auto-categorize. Please select manually.');
             }
@@ -81,19 +83,22 @@ export default function TicketForm() {
         }
     }, [formData.title, formData.description, formData.facilityType]);
     
-    // Apply AI suggestion (both category and priority)
     const applyAiSuggestion = useCallback(() => {
+        const updates = {};
         if (aiSuggestion?.category) {
-            const updates = {
-                category: aiSuggestion.category
-            };
-            // Also apply priority if available and has reasonable confidence
-            if (aiSuggestion?.priority && (aiSuggestion.priorityConfidence || 0.5) >= 0.5) {
-                updates.priority = aiSuggestion.priority;
-            }
+            updates.category = aiSuggestion.category;
+        }
+        if (aiSuggestion?.priority && (aiSuggestion.priorityConfidence || 0.5) >= 0.5) {
+            updates.priority = aiSuggestion.priority;
+        }
+
+        if (Object.keys(updates).length > 0) {
             setFormData(prev => ({ ...prev, ...updates }));
-            const priorityText = updates.priority ? ` • Severity: ${updates.priority}` : '';
-            toast.success(`Applied: ${aiSuggestion.category} → ${aiSuggestion.department}${priorityText}`);
+            
+            let msg = 'Applied: ';
+            if (updates.category) msg += `${aiSuggestion.category} → ${aiSuggestion.department}`;
+            if (updates.priority) msg += updates.category ? ` • Severity: ${updates.priority}` : `Severity: ${updates.priority}`;
+            toast.success(msg);
         }
         setShowAiSuggestion(false);
     }, [aiSuggestion]);
@@ -509,7 +514,7 @@ export default function TicketForm() {
                                 </div>
                                 
                                 {/* AI Suggestion Card with Priority */}
-                                {showAiSuggestion && aiSuggestion?.category && (
+                                {showAiSuggestion && (aiSuggestion?.category || aiSuggestion?.priority) && (
                                     <div className="mt-2 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-3 animate-in fade-in slide-in-from-top-2">
                                         <div className="flex items-start gap-2">
                                             <div className="p-1.5 bg-indigo-100 rounded-full shrink-0">
@@ -518,14 +523,16 @@ export default function TicketForm() {
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2 flex-wrap">
                                                     <span className="font-semibold text-indigo-900 text-sm">AI Suggestion</span>
-                                                    <span className={cn(
-                                                        "text-xs px-1.5 py-0.5 rounded-full",
-                                                        aiSuggestion.confidence >= 0.8 ? "bg-emerald-100 text-emerald-700" :
-                                                        aiSuggestion.confidence >= 0.6 ? "bg-amber-100 text-amber-700" :
-                                                        "bg-slate-100 text-slate-600"
-                                                    )}>
-                                                        Category: {Math.round(aiSuggestion.confidence * 100)}%
-                                                    </span>
+                                                    {aiSuggestion?.category && (
+                                                        <span className={cn(
+                                                            "text-xs px-1.5 py-0.5 rounded-full",
+                                                            aiSuggestion.confidence >= 0.8 ? "bg-emerald-100 text-emerald-700" :
+                                                            aiSuggestion.confidence >= 0.6 ? "bg-amber-100 text-amber-700" :
+                                                            "bg-slate-100 text-slate-600"
+                                                        )}>
+                                                            Category: {Math.round(aiSuggestion.confidence * 100)}%
+                                                        </span>
+                                                    )}
                                                     {aiSuggestion?.priority && (
                                                         <span className={cn(
                                                             "text-xs px-1.5 py-0.5 rounded-full",
@@ -537,12 +544,15 @@ export default function TicketForm() {
                                                         </span>
                                                     )}
                                                 </div>
-                                                <p className="text-sm text-indigo-700 mt-0.5">
-                                                    {aiSuggestion.category} → {aiSuggestion.department}
-                                                </p>
+                                                {aiSuggestion?.category && (
+                                                    <p className="text-sm text-indigo-700 mt-0.5">
+                                                        {aiSuggestion.category} → {aiSuggestion.department}
+                                                    </p>
+                                                )}
                                                 {aiSuggestion.reasoning && (
                                                     <p className="text-xs text-indigo-600/80 mt-1 line-clamp-2">
-                                                        {aiSuggestion.reasoning}
+                                                        {aiSuggestion.category && `${aiSuggestion.reasoning} `}
+                                                        {!aiSuggestion.category && aiSuggestion.reasoning && `${aiSuggestion.reasoning} `}
                                                         {aiSuggestion.priorityReasoning && (
                                                             <span className="block mt-0.5 text-amber-600">
                                                                 Severity: {aiSuggestion.priorityReasoning}

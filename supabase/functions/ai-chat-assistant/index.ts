@@ -505,10 +505,15 @@ Important:
 
     } catch (error: unknown) {
         const errMsg = error instanceof Error ? error.message : String(error)
-        return new Response(JSON.stringify({ error: errMsg || 'Internal server error' }), {
+        // Strict mode: Return real error response, but use status 200 to prevent 
+        // scary red POST errors in the browser console. The frontend knows how 
+        // to check for the "error" field and show a clean toast notification.
+        return new Response(JSON.stringify({
+            error: errMsg,
+            message: "AI chat failed. Please try again later."
+        }), {
             headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
-            status: errMsg?.includes('not found') ? 404 : 
-                     errMsg?.includes('Missing') ? 400 : 500,
+            status: 200
         })
     }
 })

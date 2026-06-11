@@ -374,14 +374,15 @@ Categorize this maintenance request and assess its priority level:`
         console.error("Categorize Ticket Edge Function Error:", errMsg)
         console.error("Full error object:", error)
 
-        // Strict mode: No fake fallback responses. It either worked or it didn't.
+        // Strict mode: No fake fallback responses.
+        // We return 200 to prevent scary browser console errors, but include the "error" 
+        // field so the frontend knows to throw an exception and show a neat toast.
         return new Response(JSON.stringify({
             error: errMsg || 'Internal server error',
             message: "AI categorization failed. Please try again or categorize manually."
         }), {
             headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
-            // Return 503 for high demand, 500 otherwise, so the frontend knows it failed
-            status: errMsg.includes('high demand') ? 503 : 500
+            status: 200
         })
     }
 })

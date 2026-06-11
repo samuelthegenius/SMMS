@@ -22,18 +22,16 @@ const corsHeaders = (origin: string) => {
 // Input sanitization
 const sanitizeInput = (input: string): string => {
     if (!input) return ''
-    // Remove potential prompt injection attempts
     return input
         .replace(/ignore previous|system prompt|you are/gi, '')
-        .replace(/[<>]/g, '') // Remove potential XSS
-        .substring(0, 2000) // Limit input length
+        .replace(/[<>]/g, '')
+        .substring(0, 2000)
 }
 
 // Validate URL to prevent SSRF attacks
 const validateImageUrl = (url: string): boolean => {
     try {
         const urlObj = new URL(url)
-        // Only allow HTTPS and specific domains
         return urlObj.protocol === 'https:' && 
                (urlObj.hostname.includes('supabase.co'))
     } catch {
@@ -42,12 +40,10 @@ const validateImageUrl = (url: string): boolean => {
 }
 
 serve(async (req: Request) => {
-    // Handle CORS preflight
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders(req.headers.get('origin') || '') })
     }
 
-    // Only allow POST
     if (req.method !== 'POST') {
         return new Response(
             JSON.stringify({ error: 'Method not allowed' }),
@@ -63,7 +59,6 @@ serve(async (req: Request) => {
             throw new Error('Server Config Error: Missing GEMINI_API_KEY. Please configure this secret in Supabase Dashboard > Edge Functions > Secrets.')
         }
 
-        // Parse and validate request body
         let requestBody
         try {
             const bodyText = await req.text()
@@ -74,12 +69,10 @@ serve(async (req: Request) => {
 
         const { ticketDescription, ticketCategory, image_url } = requestBody
 
-        // Validate required fields
         if (!ticketDescription || typeof ticketDescription !== 'string') {
             throw new Error('Missing or invalid ticketDescription')
         }
 
-        // Sanitize inputs
         const sanitizedDescription = sanitizeInput(ticketDescription)
         const sanitizedCategory = sanitizeInput(ticketCategory || 'General')
 
@@ -87,13 +80,10 @@ serve(async (req: Request) => {
             throw new Error('Ticket description too short')
         }
 
-        // Construct Gemini Payload Parts
         const parts: { text?: string; inline_data?: { mime_type: string; data: string } }[] = []
 
-        // Handle Image Processing if URL is provided
         if (image_url) {
             try {
-                // Validate URL to prevent SSRF
                 if (!validateImageUrl(image_url)) {
                     throw new Error('Invalid image URL')
                 }
@@ -105,14 +95,10 @@ serve(async (req: Request) => {
                     throw new Error(`Failed to fetch image: ${imageResponse.statusText}`)
                 } else {
                     const blob = await imageResponse.blob()
-                    
-                    // Validate image size (max 10MB)
                     if (blob.size > 10 * 1024 * 1024) {
                         throw new Error('Image too large')
                     } else {
                         const arrayBuffer = await blob.arrayBuffer()
-
-                        // Convert ArrayBuffer to Base64
                         let binary = '';
                         const bytes = new Uint8Array(arrayBuffer);
                         const len = bytes.byteLength;
@@ -129,12 +115,11 @@ serve(async (req: Request) => {
                         })
                     }
                 }
-	} catch (_imgError) {
-				// Image processing failed - continue without image
-			}
+            } catch (_imgError) {
+                // Continue without image
+            }
         }
 
-        // Add Text Prompts with clear structure
         const systemPrompt = "You are a senior maintenance supervisor advising a junior technician."
         const taskPrompt = `
 Analyze this maintenance issue:
@@ -159,10 +144,9 @@ Keep responses concise and professional.
             text: `${systemPrompt}\n${taskPrompt}`
         })
 
-        // Call Gemini API with extended retry logic
         let data = null;
         let lastError = null;
-        let retries = 5; // Increased retries
+        let retries = 5;
         
         for (let i = 0; i < retries; i++) {
             const controller = new AbortController()
@@ -181,8 +165,8 @@ Keep responses concise and professional.
                                 parts: parts
                             }],
                             generationConfig: {
-                                temperature: 0.2, // Slightly higher for more creative suggestions
-                                maxOutputTokens: 600, // Longer output needed for full diagnosis and steps
+                                temperature: 0.2,
+                                maxOutputTokens: 600,
                             }
                         }),
                         signal: controller.signal
@@ -231,7 +215,6 @@ Keep responses concise and professional.
             throw new Error("AI returned no suggestion content.")
         }
 
-        // Parse the structured text response
         const jsonResponse: {
             technical_diagnosis: string
             tools_required: string[]
@@ -243,7 +226,6 @@ Keep responses concise and professional.
         }
 
         try {
-            // Split by lines and parse each section
             const lines = suggestionText.split('\n').map((line: string) => line.trim())
             
             let currentSection = ""
@@ -253,7 +235,6 @@ Keep responses concise and professional.
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i]
                 
-                // Handle multi-line diagnosis
                 if (line.toLowerCase().includes('technical diagnosis:')) {
                     currentSection = "diagnosis"
                     diagnosisText += line.substring(line.toLowerCase().indexOf('technical diagnosis:') + 20).trim() + " "
@@ -268,7 +249,6 @@ Keep responses concise and professional.
                 else if (line.toLowerCase().includes('step-by-step repair approach:')) {
                     currentSection = "steps"
                 }
-                // Continue adding to multi-line sections if no new section header is found
                 else if (line.length > 0) {
                     if (currentSection === "diagnosis") {
                         diagnosisText += line + " "
@@ -279,18 +259,13 @@ Keep responses concise and professional.
                     } else if (currentSection === "safety") {
                         if (jsonResponse.safety_precaution) jsonResponse.safety_precaution += " "
                         jsonResponse.safety_precaution += line.startsWith('-') ? line.substring(1).trim() : line
-                    } else if (currentSection === "steps") {
-                        // For steps, we could append them to diagnosis if we wanted them all in one field
-                        // Or we can just ignore them for now as the db schema doesn't have a specific field for steps
                     }
                 }
             }
             
-            // Clean up parsed values
             jsonResponse.technical_diagnosis = diagnosisText.trim()
             jsonResponse.tools_required = toolsList.filter(Boolean)
             
-            // Provide sensible defaults if sections were missing
             if (!jsonResponse.technical_diagnosis) {
                 jsonResponse.technical_diagnosis = suggestionText.substring(0, 500) + (suggestionText.length > 500 ? "..." : "")
             }
@@ -301,13 +276,11 @@ Keep responses concise and professional.
                 jsonResponse.safety_precaution = "Follow standard safety protocols for this type of maintenance."
             }
             
-            // Clean up lengths
             jsonResponse.technical_diagnosis = jsonResponse.technical_diagnosis.substring(0, 2000)
             jsonResponse.tools_required = jsonResponse.tools_required.slice(0, 15)
             jsonResponse.safety_precaution = jsonResponse.safety_precaution.substring(0, 1000)
             
         } catch (_e) {
-            // Throw original error so it's not swallowed by this catch
             throw new Error(`Failed to parse AI response: ${suggestionText.substring(0, 100)}`);
         }
 
@@ -320,14 +293,12 @@ Keep responses concise and professional.
         console.error("Suggest Fix Edge Function Error:", errMsg)
         console.error("Full error object:", error)
         
-        // Strict mode: Return real error response
         return new Response(JSON.stringify({
             error: errMsg,
             message: "AI suggestion failed. Please try again later."
         }), {
             headers: { ...corsHeaders(req.headers.get('origin') || ''), 'Content-Type': 'application/json' },
-            // Return 503 for high demand, 500 otherwise
-            status: errMsg.includes('high demand') ? 503 : 500
+            status: 200
         })
     }
 })

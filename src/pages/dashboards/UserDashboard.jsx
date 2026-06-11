@@ -69,7 +69,8 @@ export default function UserDashboard() {
                 rating,
                 rejection_count,
                 customer_feedback,
-                technician:assigned_to(full_name, email, department)
+                technician:assigned_to(full_name, email, department),
+                reporter:created_by(full_name, email, department, identification_number)
             `)
             .eq('created_by', user.id)
             .order('created_at', { ascending: false });

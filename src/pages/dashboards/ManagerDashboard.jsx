@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useSWR from 'swr';
 import { supabase } from '../../lib/supabase';
-import { Filter, AlertCircle, Clock, Wrench, CheckCircle, Eye, BarChart3, User, PlusCircle } from 'lucide-react';
+import { Filter, AlertCircle, Clock, Wrench, CheckCircle, Eye, BarChart3, User, PlusCircle, Search, X } from 'lucide-react';
 import clsx from 'clsx';
 import TicketDetails from '../../components/TicketDetails';
 import { toast } from 'sonner';
@@ -20,6 +20,7 @@ export default function ManagerDashboard() {
     const navigate = useNavigate();
     const [filter, setFilter] = useState('All');
     const [timeframe, setTimeframe] = useState('Last 30 Days');
+    const [search, setSearch] = useState('');
     const [selectedTicket, setSelectedTicket] = useState(null);
 
     const fetchTickets = async () => {
@@ -113,9 +114,19 @@ export default function ManagerDashboard() {
         return true;
     };
 
+    const searchLower = search.trim().toLowerCase();
     const filteredTickets = tickets.filter(t => {
         const matchesFacility = filter === 'All' || t.facility_type === filter;
-        return matchesFacility && isWithinTimeframe(t.created_at, timeframe);
+        const matchesTime = isWithinTimeframe(t.created_at, timeframe);
+        if (!matchesFacility || !matchesTime) return false;
+        if (!searchLower) return true;
+        return (
+            t.title?.toLowerCase().includes(searchLower) ||
+            t.description?.toLowerCase().includes(searchLower) ||
+            t.specific_location?.toLowerCase().includes(searchLower) ||
+            t.reporter?.full_name?.toLowerCase().includes(searchLower) ||
+            t.category?.toLowerCase().includes(searchLower)
+        );
     });
 
     const stats = {
@@ -182,6 +193,24 @@ export default function ManagerDashboard() {
                         ))}
                     </select>
                 </div>
+
+                <div className="flex items-center gap-2 bg-surface-50 p-1.5 rounded-xl border border-surface-100 flex-1 min-w-[200px]">
+                    <div className="bg-white p-1.5 rounded-lg shadow-sm shrink-0">
+                        <Search className="w-4 h-4 text-surface-500" />
+                    </div>
+                    <input
+                        type="text"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Search tickets..."
+                        className="border-none focus:ring-0 text-sm text-surface-700 bg-transparent font-medium outline-none flex-1 min-w-0"
+                    />
+                    {search && (
+                        <button onClick={() => setSearch('')} className="shrink-0 text-surface-400 hover:text-surface-600">
+                            <X className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Stats Cards */}
@@ -212,6 +241,12 @@ export default function ManagerDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-6">
                 {swrLoading && !tickets.length ? (
                     Array.from({ length: 4 }).map((_, idx) => <CardSkeleton key={idx} />)
+                ) : filteredTickets.length === 0 ? (
+                    <div className="col-span-2 text-center py-16 text-surface-400">
+                        <Search className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                        <p className="font-medium">{search ? `No tickets match "${search}"` : 'No tickets found'}</p>
+                        {search && <button onClick={() => setSearch('')} className="mt-2 text-sm text-primary-600 hover:underline">Clear search</button>}
+                    </div>
                 ) : (
                     filteredTickets.map((ticket) => (
                         <Card key={ticket.id} className="hover:shadow-xl transition-all duration-300 cursor-pointer group border-surface-200" onClick={() => setSelectedTicket(ticket)}>
@@ -228,7 +263,7 @@ export default function ManagerDashboard() {
                                         ticket.priority === 'low' ? "bg-emerald-100 text-emerald-700 border border-emerald-200" :
                                         "bg-surface-100 text-surface-700 border border-surface-200"
                                     )}>
-                                        {ticket.priority?.toUpperCase()} SEV.
+                                        {ticket.priority?.toUpperCase()}
                                     </span>
                                 </div>
 

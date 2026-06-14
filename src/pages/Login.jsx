@@ -184,7 +184,9 @@ export default function Login() {
             }
 
             // Don't expose specific errors to prevent user enumeration
-            const remaining = MAX_LOGIN_ATTEMPTS - (JSON.parse(localStorage.getItem(STORAGE_KEY) || '{"attempts":0}').attempts);
+            let storedAttempts = 0;
+            try { storedAttempts = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}').attempts || 0; } catch { /* corrupted storage */ }
+            const remaining = MAX_LOGIN_ATTEMPTS - storedAttempts;
             if (remaining <= 0) {
                 toast.error('Account locked. Please try again later.');
             } else {
@@ -236,9 +238,17 @@ export default function Login() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm font-semibold text-surface-700 leading-none" htmlFor="password">
-                                    Password
-                                </label>
+                                <div className="flex items-center justify-between">
+                                    <label className="text-sm font-semibold text-surface-700 leading-none" htmlFor="password">
+                                        Password
+                                    </label>
+                                    <a
+                                        href="mailto:itsupport@mtu.edu.ng?subject=Password%20Reset%20Request"
+                                        className="text-xs text-primary-600 hover:text-primary-700 font-medium transition-colors"
+                                    >
+                                        Forgot password?
+                                    </a>
+                                </div>
                                 <Input
                                     id="password"
                                     type="password"

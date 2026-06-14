@@ -44,8 +44,7 @@ export default function LandingPage() {
                                 />
                             </div>
                             <div>
-                                <h1 className="text-xl font-bold text-white tracking-tight hidden md:block">MTU SMMS</h1>
-                                <h1 className="text-xl font-bold text-white tracking-tight md:hidden">MTU SMMS</h1>
+                                <h1 className="text-xl font-bold text-white tracking-tight">MTU SMMS</h1>
                                 <p className="text-xs text-white/70 font-medium tracking-wide uppercase">Mountain Top University</p>
                             </div>
                         </Link>

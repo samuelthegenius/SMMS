@@ -270,7 +270,7 @@ export const securityMonitoring = {
     });
 
     const suspiciousIPs = Object.entries(ipCounts)
-      .filter(([count]) => count >= threshold)
+      .filter(([, count]) => count >= threshold)
       .map(([ip, count]) => ({ ip, count }));
 
     return suspiciousIPs;
@@ -445,5 +445,5 @@ export const initializeSecurityMonitoring = () => {
   // Initialize CSRF protection
   import('./csrfProtection.js').then(({ initializeCSRFProtection }) => {
     initializeCSRFProtection();
-  });
+  }).catch(err => console.error('Failed to initialize CSRF protection:', err));
 };

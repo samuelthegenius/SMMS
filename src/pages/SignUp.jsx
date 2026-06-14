@@ -359,6 +359,21 @@ export default function SignUp() {
                                     required
                                     className="bg-surface-50"
                                 />
+                                {formData.password && (
+                                    <div className="space-y-1.5 pt-1">
+                                        <div className="flex gap-1">
+                                            {[
+                                                formData.password.length >= 8,
+                                                /[A-Z]/.test(formData.password),
+                                                /[a-z]/.test(formData.password),
+                                                /\d/.test(formData.password),
+                                            ].map((met, i) => (
+                                                <div key={i} className={`h-1 flex-1 rounded-full transition-colors duration-300 ${met ? 'bg-secondary-500' : 'bg-surface-200'}`} />
+                                            ))}
+                                        </div>
+                                        <p className="text-xs text-surface-500">Min 8 chars · uppercase · lowercase · number</p>
+                                    </div>
+                                )}
                             </div>
                             <Button className="w-full mt-4" type="submit" isLoading={loading}>
                                 Create Account

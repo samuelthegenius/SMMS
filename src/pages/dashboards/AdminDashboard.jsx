@@ -1,7 +1,7 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
 import useSWR from 'swr';
 import { supabase } from '../../lib/supabase';
-import { Filter, AlertCircle, Clock, Wrench, CheckCircle, Eye, Shield, BarChart3, Users, User, Wrench as WrenchIcon } from 'lucide-react';
+import { Filter, AlertCircle, Clock, Wrench, CheckCircle, Eye, Shield, BarChart3, Users, User, Wrench as WrenchIcon, Search, X } from 'lucide-react';
 import clsx from 'clsx';
 import Loader from '../../components/Loader';
 import TicketDetails from '../../components/TicketDetails';
@@ -29,6 +29,7 @@ export default function AdminDashboard() {
     const { profile } = useAuth();
     const [filter, setFilter] = useState('All');
     const [timeframe, setTimeframe] = useState('Last 30 Days');
+    const [search, setSearch] = useState('');
     const [selectedTicket, setSelectedTicket] = useState(null);
     const [activeTab, setActiveTab] = useState('tickets'); // 'tickets', 'security', or 'users'
 
@@ -130,9 +131,19 @@ export default function AdminDashboard() {
         return true;
     };
 
+    const searchLower = search.trim().toLowerCase();
     const filteredTickets = tickets.filter(t => {
         const matchesFacility = filter === 'All' || t.facility_type === filter;
-        return matchesFacility && isWithinTimeframe(t.created_at, timeframe);
+        const matchesTime = isWithinTimeframe(t.created_at, timeframe);
+        if (!matchesFacility || !matchesTime) return false;
+        if (!searchLower) return true;
+        return (
+            t.title?.toLowerCase().includes(searchLower) ||
+            t.description?.toLowerCase().includes(searchLower) ||
+            t.specific_location?.toLowerCase().includes(searchLower) ||
+            t.reporter?.full_name?.toLowerCase().includes(searchLower) ||
+            t.category?.toLowerCase().includes(searchLower)
+        );
     });
 
     const stats = {
@@ -147,14 +158,28 @@ export default function AdminDashboard() {
     // DashboardRouter already ensures profile is set before rendering us,
     // so these are belt-and-suspenders catches only.
     if (profile && !hasAdminAccess) {
-        return <div className="text-red-500 text-center mt-10">Access Denied: You are not an IT admin or supervisor.</div>;
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+                <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mb-4">
+                    <Shield className="w-8 h-8 text-red-500" />
+                </div>
+                <h2 className="text-xl font-bold text-surface-900 mb-2">Access Denied</h2>
+                <p className="text-surface-500 max-w-sm">You don't have permission to view this dashboard. Contact your administrator if you believe this is a mistake.</p>
+            </div>
+        );
     }
 
     if (error) {
         return (
-            <div className="text-red-500 text-center mt-10">
-                <p className="text-lg font-medium">Error loading tickets</p>
-                <p className="text-sm mt-2">Please try refreshing the page</p>
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+                <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mb-4">
+                    <AlertCircle className="w-8 h-8 text-amber-500" />
+                </div>
+                <h2 className="text-xl font-bold text-surface-900 mb-2">Error loading tickets</h2>
+                <p className="text-surface-500 mb-4">Something went wrong. Please try refreshing the page.</p>
+                <button onClick={() => mutate()} className="px-4 py-2 bg-primary-500 text-white rounded-xl text-sm font-semibold hover:bg-primary-600 transition-colors">
+                    Retry
+                </button>
             </div>
         );
     }
@@ -237,7 +262,7 @@ export default function AdminDashboard() {
                             ))}
                         </select>
                     </div>
-                    
+
                     <div className="flex items-center gap-3 bg-surface-50 p-1.5 rounded-xl border border-surface-100">
                         <div className="bg-white p-1.5 rounded-lg shadow-sm">
                             <Clock className="w-4 h-4 text-surface-500" />
@@ -251,6 +276,24 @@ export default function AdminDashboard() {
                                 <option key={t} value={t}>{t}</option>
                             ))}
                         </select>
+                    </div>
+
+                    <div className="flex items-center gap-2 bg-surface-50 p-1.5 rounded-xl border border-surface-100 flex-1 min-w-[200px]">
+                        <div className="bg-white p-1.5 rounded-lg shadow-sm shrink-0">
+                            <Search className="w-4 h-4 text-surface-500" />
+                        </div>
+                        <input
+                            type="text"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Search tickets..."
+                            className="border-none focus:ring-0 text-sm text-surface-700 bg-transparent font-medium outline-none flex-1 min-w-0"
+                        />
+                        {search && (
+                            <button onClick={() => setSearch('')} className="shrink-0 text-surface-400 hover:text-surface-600">
+                                <X className="w-4 h-4" />
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -285,6 +328,12 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-6">
                     {swrLoading && !tickets.length ? (
                         Array.from({ length: 4 }).map((_, idx) => <CardSkeleton key={idx} />)
+                    ) : filteredTickets.length === 0 ? (
+                        <div className="col-span-2 text-center py-16 text-surface-400">
+                            <Search className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                            <p className="font-medium">{search ? `No tickets match "${search}"` : 'No tickets found'}</p>
+                            {search && <button onClick={() => setSearch('')} className="mt-2 text-sm text-primary-600 hover:underline">Clear search</button>}
+                        </div>
                     ) : (
                         filteredTickets.map((ticket) => (
                             <Card key={ticket.id} className="hover:shadow-xl transition-all duration-300 cursor-pointer group border-surface-200" onClick={() => setSelectedTicket(ticket)}>
@@ -301,7 +350,7 @@ export default function AdminDashboard() {
                                             ticket.priority === 'low' ? "bg-emerald-100 text-emerald-700 border border-emerald-200" :
                                             "bg-surface-100 text-surface-700 border border-surface-200"
                                         )}>
-                                            {ticket.priority?.toUpperCase()} SEV.
+                                            {ticket.priority?.toUpperCase()}
                                         </span>
                                     </div>
 

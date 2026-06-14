@@ -78,13 +78,13 @@ export default function Sidebar({ isOpen, onClose }) {
                                 to={item.path}
                                 onClick={onClose}
                                 className={clsx(
-                                    'flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group relative overflow-hidden',
+                                    'flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group relative',
                                     isActive
-                                        ? 'text-white bg-white/15 shadow-lg shadow-black/10 border-l-4 border-accent-400'
+                                        ? 'text-white bg-white/15 shadow-lg shadow-black/10'
                                         : 'text-white/70 hover:text-white hover:bg-white/10'
                                 )}
                             >
-                                {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-accent rounded-r-full" />}
+                                {isActive && <div className="absolute left-0 top-2 bottom-2 w-1 bg-accent-400 rounded-r-full" />}
                                 <Icon className={clsx("w-5 h-5 transition-colors", isActive ? "text-accent-400" : "text-white/50 group-hover:text-accent-400")} />
                                 {item.label}
                             </Link>

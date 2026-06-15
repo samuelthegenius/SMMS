@@ -32,7 +32,10 @@ export default function NotificationSettings() {
 
   // Fetch preferences on mount
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setIsLoading(false);
+      return;
+    }
     
     const fetchPreferences = async () => {
       try {

@@ -84,7 +84,6 @@ export default function ManagerDashboard() {
                     event: '*',
                     schema: 'public',
                     table: 'tickets',
-                    filter: `created_at=gt.${new Date(Date.now() - 60000).toISOString()}`
                 },
                 () => {
                     if (timeoutId) clearTimeout(timeoutId);

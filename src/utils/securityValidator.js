@@ -182,34 +182,40 @@ export const validateSecurity = {
 		const storageKey = `rate_limit_${action}`;
 		const now = Date.now();
 
+		// Read stored data — only catch storage I/O errors, not rate-limit throws
+		let data;
 		try {
 			const stored = localStorage.getItem(storageKey);
-			const data = stored ? JSON.parse(stored) : { attempts: 0, resetTime: now + windowMs };
-
-			// Reset if window expired
-			if (now > data.resetTime) {
-				data.attempts = 0;
-				data.resetTime = now + windowMs;
-			}
-
-			if (data.attempts >= maxAttempts) {
-				const resetIn = Math.ceil((data.resetTime - now) / 1000 / 60);
-				throw new Error(`Rate limit exceeded. Try again in ${resetIn} minutes.`);
-			}
-
-			// Increment and store
-			data.attempts++;
-			localStorage.setItem(storageKey, JSON.stringify(data));
-
-			return {
-				attempts: data.attempts,
-				remaining: maxAttempts - data.attempts,
-				resetTime: data.resetTime
-			};
+			data = stored ? JSON.parse(stored) : { attempts: 0, resetTime: now + windowMs };
 		} catch {
-			// If localStorage fails, allow the request
 			return { attempts: 0, remaining: maxAttempts, resetTime: now + windowMs };
 		}
+
+		// Reset if window expired
+		if (now > data.resetTime) {
+			data.attempts = 0;
+			data.resetTime = now + windowMs;
+		}
+
+		// Enforce limit — throw OUTSIDE the try/catch so it is not swallowed
+		if (data.attempts >= maxAttempts) {
+			const resetIn = Math.ceil((data.resetTime - now) / 1000 / 60);
+			throw new Error(`Rate limit exceeded. Try again in ${resetIn} minutes.`);
+		}
+
+		// Increment and store
+		data.attempts++;
+		try {
+			localStorage.setItem(storageKey, JSON.stringify(data));
+		} catch {
+			// Storage write failure is non-critical
+		}
+
+		return {
+			attempts: data.attempts,
+			remaining: maxAttempts - data.attempts,
+			resetTime: data.resetTime
+		};
 	},
 
   /**

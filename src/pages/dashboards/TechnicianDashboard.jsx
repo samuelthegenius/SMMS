@@ -767,7 +767,7 @@ export default function TechnicianDashboard() {
                                         </Button>
                                     )}
 
-                                    {job.status === 'In Progress' && (
+                                    {isTechnician && job.status === 'In Progress' && (
                                         <Button
                                             onClick={(e) => {
                                                 e.stopPropagation();
@@ -872,7 +872,7 @@ export default function TechnicianDashboard() {
                 </div>
             )}
 
-                {jobs.length === 0 && (
+                {displayedJobs.length === 0 && activeTab === 'assigned' && (
                     <Card className="border-dashed">
                         <CardContent className="py-16 text-center">
                             <div className="mx-auto h-12 w-12 text-slate-300 mb-3">

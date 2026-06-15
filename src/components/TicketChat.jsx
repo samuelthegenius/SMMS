@@ -103,9 +103,12 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
                 table: 'ticket_messages',
                 filter: `ticket_id=eq.${ticket.id}`,
             }, (payload) => {
-                // Add new message if not from current user
+                // Add new message if not from current user and not already in state (dedup AI messages)
                 if (payload.new.sender_id !== user?.id) {
-                    setMessages(prev => [...prev, payload.new]);
+                    setMessages(prev => {
+                        if (prev.some(m => m.id === payload.new.id)) return prev;
+                        return [...prev, payload.new];
+                    });
                     scrollToBottom();
                 }
             })
@@ -230,7 +233,7 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
                 .eq('id', messageId);
 
             // Non-admins can only delete their own messages (enforced in RLS too)
-            if (!isAdmin) {
+            if (!isITAdmin) {
                 query = query.eq('sender_id', user.id);
             }
 
@@ -388,7 +391,7 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
         if (msg.is_deleted) return false; // Deleted messages cannot be modified
         if (msg.sender_type === 'ai' || msg.sender_type === 'system') return false;
         // Admins can edit/delete any message, regardless of time or sender
-        if (isAdmin) return true;
+        if (isITAdmin) return true;
         // Non-admins can only edit their own messages within 5 minutes
         if (msg.sender_id !== user?.id) return false;
         const fiveMinutes = 5 * 60 * 1000;
@@ -433,7 +436,7 @@ export default function TicketChat({ ticket, onClose, isOpen }) {
                 .eq('id', messageId);
 
             // Non-admins can only edit their own messages (enforced in RLS too)
-            if (!isAdmin) {
+            if (!isITAdmin) {
                 query = query.eq('sender_id', user.id);
             }
 

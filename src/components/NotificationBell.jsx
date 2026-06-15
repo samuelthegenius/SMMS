@@ -131,8 +131,8 @@ export default function NotificationBell() {
             // Optimistic update
             setUnreadCount(0);
 
-            // Visual update: mark currently loaded list as read too
-            setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+            // Visual update: use functional updater to avoid stale closure over notifications state
+            setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
 
             const { error } = await supabase
                 .from('notifications')

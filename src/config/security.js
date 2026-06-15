@@ -10,10 +10,11 @@ export const VALIDATION_PATTERNS = {
   title: /^.{3,100}$/,
   description: /^.{10,2000}$/,
   location: /^.{0,200}$/,
-  // Security patterns to detect malicious input
-  xssPattern: /<script|javascript:|on\w+\s*=|expression\(/gi,
-  sqlPattern: /union\s+select|drop\s+table|insert\s+into|delete\s+from|'|"|;|--|\/\*/gi,
-  pathTraversal: /\.\.\/|\.\.\\|%2e%2e%2f/gi
+  // Security patterns to detect malicious input — no /g flag: these are used with .test()
+  // which maintains lastIndex state on /g regexes, causing false negatives on every other call
+  xssPattern: /<script|javascript:|on\w+\s*=|expression\(/i,
+  sqlPattern: /union\s+select|drop\s+table|insert\s+into|delete\s+from|'|"|;|--|\/\*/i,
+  pathTraversal: /\.\.\/|\.\.\\|%2e%2e%2f/i
 };
 
 // Sanitization utilities

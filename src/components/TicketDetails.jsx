@@ -64,6 +64,7 @@ export default function TicketDetails({ ticket, onClose, onUpdate, onReassign, i
             if (data?.error) {
                 console.error("AI Assistant Error:", data.error);
                 toast.error(`AI Assistant Error: ${data.error}`);
+                return;
             }
             setAiSuggestion(data);
         } catch {
@@ -145,24 +146,25 @@ export default function TicketDetails({ ticket, onClose, onUpdate, onReassign, i
     const handleStudentVerification = async (isApproved) => {
         setManagementLoading(true);
         try {
+            const { data: ticketCheck } = await supabase
+                .from('tickets')
+                .select('rejection_count')
+                .eq('id', ticket.id)
+                .single();
+
             const updates = {
                 satisfaction_status: isApproved ? 'satisfied' : 'unsatisfied',
                 rating: isApproved ? rating : null,
                 customer_feedback: rejectionReason,
                 status: isApproved ? 'Resolved' : 'In Progress'
             };
-            
-            const { data: ticketCheck } = await supabase
-                .from('tickets')
-                .select('rejection_count')
-                .eq('id', ticket.id)
-                .single();
-                
+
             if (isApproved) {
                 toast.success('Fix confirmed! Thank you for your feedback.');
             } else {
                 const currentRejectionCount = ticketCheck?.rejection_count || 0;
                 const newCount = currentRejectionCount + 1;
+                updates.rejection_count = newCount;
                 if (newCount >= 2) {
                     toast.warning('Issue reported. This ticket will be escalated to SRC for immediate intervention.', { duration: 5000 });
                 } else {

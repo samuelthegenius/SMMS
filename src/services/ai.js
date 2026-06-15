@@ -69,12 +69,6 @@ export async function categorizeTicket(title, description = '', facilityType = '
 export async function autoCategorizeWithFallback(title, description = '', facilityType = 'Other', confidenceThreshold = 0.7, priorityThreshold = 0.6) {
   try {
     const result = await categorizeTicket(title, description, facilityType);
-    
-    console.log("[DEBUG AI] Full result from categorizeTicket:", result);
-
-    if (result.error) {
-        console.error("[DEBUG AI ERROR] Edge Function Error:", result.error);
-    }
 
     // If the edge function explicitly returned an error (e.g. 503 high demand)
     if (result && result.error) {
@@ -222,26 +216,14 @@ export async function smartAIChat(ticketId, message, chatHistory = []) {
  * @param {string} aiSuggestion - AI suggestion context
  * @returns {Promise<{success: boolean, ticket: object, new_repair_guide?: object}>}
  */
-export async function updateTicketCategory(ticketId, newCategory, reason = '', aiSuggestion = '') {
-  const response = await fetch(`${API_BASE}/tickets`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      id: ticketId,
-      category: newCategory,
-      reason,
-      ai_suggestion: aiSuggestion,
-    }),
-  });
+export async function updateTicketCategory(ticketId, newCategory) {
+  const { error } = await supabase
+    .from('tickets')
+    .update({ category: newCategory })
+    .eq('id', ticketId);
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to update ticket category');
-  }
-
-  return response.json();
+  if (error) throw new Error(error.message || 'Failed to update ticket category');
+  return { success: true };
 }
 
 /**
@@ -251,25 +233,14 @@ export async function updateTicketCategory(ticketId, newCategory, reason = '', a
  * @param {string} reason - Reason for change
  * @returns {Promise<{success: boolean, ticket: object}>}
  */
-export async function updateTicketPriority(ticketId, newPriority, reason = '') {
-  const response = await fetch(`${API_BASE}/tickets`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      id: ticketId,
-      priority: newPriority,
-      reason,
-    }),
-  });
+export async function updateTicketPriority(ticketId, newPriority) {
+  const { error } = await supabase
+    .from('tickets')
+    .update({ priority: newPriority })
+    .eq('id', ticketId);
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to update ticket priority');
-  }
-
-  return response.json();
+  if (error) throw new Error(error.message || 'Failed to update ticket priority');
+  return { success: true };
 }
 
 /**
@@ -279,25 +250,14 @@ export async function updateTicketPriority(ticketId, newPriority, reason = '') {
  * @param {string} reason - Reason for change
  * @returns {Promise<{success: boolean, ticket: object}>}
  */
-export async function updateTicketStatus(ticketId, newStatus, reason = '') {
-  const response = await fetch(`${API_BASE}/tickets`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      id: ticketId,
-      status: newStatus,
-      reason,
-    }),
-  });
+export async function updateTicketStatus(ticketId, newStatus) {
+  const { error } = await supabase
+    .from('tickets')
+    .update({ status: newStatus })
+    .eq('id', ticketId);
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to update ticket status');
-  }
-
-  return response.json();
+  if (error) throw new Error(error.message || 'Failed to update ticket status');
+  return { success: true };
 }
 
 /**

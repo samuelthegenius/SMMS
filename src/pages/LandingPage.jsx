@@ -24,9 +24,10 @@ export default function LandingPage() {
         }
     }, [user, navigate]);
 
-    // Show loader during auth check OR when redirecting logged-in users
+    // Show neutral loader during auth check or while redirecting logged-in users
+    // (avoid showing the landing page skeleton to authenticated users)
     if (initializing || user) {
-        return <Loader variant="landing" />;
+        return <Loader variant="simple" />;
     }
 
     return (

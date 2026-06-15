@@ -530,7 +530,7 @@ BEGIN
                 -- Notify admin about escalation
                 INSERT INTO notifications (user_id, ticket_id, message)
                 SELECT id, NEW.id, 'ESCALATION: High-priority ticket requires intervention'
-                FROM profiles WHERE role = 'admin' LIMIT 1;
+                FROM profiles WHERE role = 'it_admin' LIMIT 1;
                 
                 -- Notify student that their ticket has been escalated
                 INSERT INTO notifications (user_id, ticket_id, message)
@@ -750,7 +750,7 @@ DECLARE
 BEGIN
     IF v_uid IS NULL THEN RETURN NEW; END IF;
     SELECT role INTO v_user_role FROM profiles WHERE id = v_uid;
-    IF v_user_role = 'admin' THEN RETURN NEW; END IF;
+    IF v_user_role IN ('it_admin', 'manager', 'supervisor') THEN RETURN NEW; END IF;
 
     IF OLD.created_by = v_uid AND v_user_role IN ('student', 'staff') THEN
         IF NEW.assigned_to IS DISTINCT FROM OLD.assigned_to THEN
@@ -858,7 +858,7 @@ CREATE POLICY "Admins can view all tickets"
     TO authenticated
     USING (EXISTS (
         SELECT 1 FROM profiles
-        WHERE id = auth.uid() AND role = 'admin'
+        WHERE id = auth.uid() AND role = 'it_admin'
     ));
 
 CREATE POLICY "Users can create tickets"
@@ -900,11 +900,44 @@ CREATE POLICY "Admins have full access to tickets"
     TO authenticated
     USING (EXISTS (
         SELECT 1 FROM profiles
-        WHERE id = auth.uid() AND role = 'admin'
+        WHERE id = auth.uid() AND role = 'it_admin'
     ))
     WITH CHECK (EXISTS (
         SELECT 1 FROM profiles
-        WHERE id = auth.uid() AND role = 'admin'
+        WHERE id = auth.uid() AND role = 'it_admin'
+    ));
+
+-- Managers, supervisors, and team leads can view all tickets for oversight
+CREATE POLICY "Managers can view all tickets"
+    ON tickets FOR SELECT
+    TO authenticated
+    USING (EXISTS (
+        SELECT 1 FROM profiles
+        WHERE id = auth.uid() AND role IN ('manager', 'supervisor', 'team_lead')
+    ));
+
+-- Managers and supervisors can update all tickets (for reassignment and status changes)
+CREATE POLICY "Managers can update all tickets"
+    ON tickets FOR UPDATE
+    TO authenticated
+    USING (EXISTS (
+        SELECT 1 FROM profiles
+        WHERE id = auth.uid() AND role IN ('manager', 'supervisor', 'team_lead')
+    ))
+    WITH CHECK (EXISTS (
+        SELECT 1 FROM profiles
+        WHERE id = auth.uid() AND role IN ('manager', 'supervisor', 'team_lead')
+    ));
+
+-- Staff can view tickets in their own department
+CREATE POLICY "Staff can view department tickets"
+    ON tickets FOR SELECT
+    TO authenticated
+    USING (EXISTS (
+        SELECT 1 FROM profiles
+        WHERE id = auth.uid()
+          AND role = 'staff'
+          AND department = tickets.department
     ));
 
 -- SRC can view all tickets (to identify patterns and escalate issues)
@@ -927,6 +960,24 @@ CREATE POLICY "SRC can escalate tickets"
     WITH CHECK (EXISTS (
         SELECT 1 FROM profiles
         WHERE id = auth.uid() AND role = 'src'
+    ));
+
+-- Student Affairs staff can view all tickets (university-wide oversight role)
+CREATE POLICY "Student Affairs staff can view all tickets"
+    ON tickets FOR SELECT
+    TO authenticated
+    USING (EXISTS (
+        SELECT 1 FROM profiles
+        WHERE id = auth.uid() AND role = 'staff' AND department = 'Student Affairs'
+    ));
+
+-- Dean can view all tickets (university-wide oversight)
+CREATE POLICY "Dean can view all tickets"
+    ON tickets FOR SELECT
+    TO authenticated
+    USING (EXISTS (
+        SELECT 1 FROM profiles
+        WHERE id = auth.uid() AND role = 'dean'
     ));
 
 -- Porters can view all hostel-related tickets
@@ -985,7 +1036,7 @@ CREATE POLICY "Departments manageable by admins"
     TO authenticated
     USING (EXISTS (
         SELECT 1 FROM profiles
-        WHERE id = auth.uid() AND role = 'admin'
+        WHERE id = auth.uid() AND role = 'it_admin'
     ));
 
 -- FACILITY_TYPES: Public read, admin write
@@ -999,7 +1050,7 @@ CREATE POLICY "Facility types manageable by admins"
     TO authenticated
     USING (EXISTS (
         SELECT 1 FROM profiles
-        WHERE id = auth.uid() AND role = 'admin'
+        WHERE id = auth.uid() AND role = 'it_admin'
     ));
 
 -- MAINTENANCE_CATEGORIES: Public read, admin write
@@ -1013,7 +1064,7 @@ CREATE POLICY "Categories manageable by admins"
     TO authenticated
     USING (EXISTS (
         SELECT 1 FROM profiles
-        WHERE id = auth.uid() AND role = 'admin'
+        WHERE id = auth.uid() AND role = 'it_admin'
     ));
 
 -- ROLE_ACCESS_CODES: Admin only (SECURITY CRITICAL)
@@ -1022,7 +1073,7 @@ CREATE POLICY "Access codes viewable by admins"
     TO authenticated
     USING (EXISTS (
         SELECT 1 FROM profiles
-        WHERE id = auth.uid() AND role = 'admin'
+        WHERE id = auth.uid() AND role = 'it_admin'
     ));
 
 CREATE POLICY "Access codes manageable by admins"
@@ -1030,11 +1081,11 @@ CREATE POLICY "Access codes manageable by admins"
     TO authenticated
     USING (EXISTS (
         SELECT 1 FROM profiles
-        WHERE id = auth.uid() AND role = 'admin'
+        WHERE id = auth.uid() AND role = 'it_admin'
     ))
     WITH CHECK (EXISTS (
         SELECT 1 FROM profiles
-        WHERE id = auth.uid() AND role = 'admin'
+        WHERE id = auth.uid() AND role = 'it_admin'
     ));
 
 -- TECHNICIAN_SKILLS: View all, manage own
@@ -1050,7 +1101,7 @@ CREATE POLICY "Users can insert own skills"
         auth.uid() = profile_id OR
         EXISTS (
             SELECT 1 FROM profiles
-            WHERE id = auth.uid() AND role = 'admin'
+            WHERE id = auth.uid() AND role = 'it_admin'
         )
     );
 
@@ -1061,7 +1112,7 @@ CREATE POLICY "Users can delete own skills"
         auth.uid() = profile_id OR
         EXISTS (
             SELECT 1 FROM profiles
-            WHERE id = auth.uid() AND role = 'admin'
+            WHERE id = auth.uid() AND role = 'it_admin'
         )
     );
 
@@ -1071,7 +1122,7 @@ CREATE POLICY "Security events viewable by admins only"
     TO authenticated
     USING (EXISTS (
         SELECT 1 FROM profiles
-        WHERE id = auth.uid() AND role = 'admin'
+        WHERE id = auth.uid() AND role = 'it_admin'
     ));
 
 -- ============================================================================

@@ -192,8 +192,14 @@ export default function AdminDashboard() {
             {/* Header with Tabs - Bento Style */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-surface-900 tracking-tight">IT Admin Dashboard</h1>
-                    <p className="text-surface-500 mt-2 text-lg">Manage IT & Networking tickets and system security</p>
+                    <h1 className="text-3xl font-bold text-surface-900 tracking-tight">
+                        {profile?.role === 'it_admin' ? 'IT Admin Dashboard' : 'Admin Dashboard'}
+                    </h1>
+                    <p className="text-surface-500 mt-2 text-lg">
+                        {profile?.role === 'it_admin'
+                            ? 'Manage IT & Networking tickets and system security'
+                            : 'System-wide ticket oversight and management'}
+                    </p>
                 </div>
 
                 {/* Tab Navigation - Modern Pill Style */}

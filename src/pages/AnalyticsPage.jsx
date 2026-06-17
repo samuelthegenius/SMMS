@@ -16,7 +16,7 @@ import { useAuth } from '../contexts/useAuth';
 
 // Lazy load AnalyticsSummary to avoid loading heavy recharts library on initial load
 const AnalyticsSummary = lazy(() => import('../components/AnalyticsSummary')); 
-import { generateTicketReport } from '../utils/generateReport';
+import { generateTicketReport, generateTicketCSV } from '../utils/generateReport';
 
 export default function AnalyticsPage() {
     const { profile, loading: authLoading } = useAuth();
@@ -40,8 +40,8 @@ export default function AnalyticsPage() {
             // Choose appropriate RPC based on role
             // IT Admin only sees IT & Networking tickets
             // Facility managers and supervisors see all tickets for oversight
-            const isITAdmin = profile?.role === 'it_admin';
-            const rpcFunction = isITAdmin ? 'get_it_admin_tickets' : 'get_supervisor_all_tickets';
+            const isITAdminOnly = profile?.role === 'it_admin';
+            const rpcFunction = isITAdminOnly ? 'get_it_admin_tickets' : 'get_supervisor_all_tickets';
             const { data, error } = await supabase.rpc(rpcFunction);
             
             if (error) {
@@ -91,6 +91,20 @@ export default function AnalyticsPage() {
     }, [profile?.role]);
 
     const hasAdminAccess = profile?.role === 'it_admin' || profile?.department === 'Student Affairs' || profile?.role === 'src' || profile?.role === 'manager' || profile?.role === 'supervisor';
+
+    const handleDownloadCSV = () => {
+        let filteredTickets = tickets;
+        if (reportTimeframe !== 'all') {
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - parseInt(reportTimeframe, 10));
+            filteredTickets = tickets.filter(t => new Date(t.created_at) >= cutoffDate);
+        }
+        if (filteredTickets.length === 0) {
+            alert('No tickets found for the selected timeframe.');
+            return;
+        }
+        generateTicketCSV(filteredTickets, reportTimeframe);
+    };
 
     const handleDownloadReport = () => {
         let filteredTickets = tickets;
@@ -174,6 +188,14 @@ export default function AnalyticsPage() {
                         <option value="30">Last 30 Days</option>
                         <option value="90">Last 90 Days</option>
                     </select>
+                    <button
+                        onClick={handleDownloadCSV}
+                        disabled={tickets.length === 0}
+                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <span>📊</span>
+                        Export CSV
+                    </button>
                     <button
                         onClick={handleDownloadReport}
                         disabled={tickets.length === 0}

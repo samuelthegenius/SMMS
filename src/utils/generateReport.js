@@ -153,3 +153,59 @@ export const generateTicketReport = async (tickets, timeframe = 'all') => {
         throw new Error('PDF generation failed. Please try again.');
     }
 };
+
+/**
+ * Generates and downloads a CSV report of maintenance tickets.
+ *
+ * @param {Array<Object>} tickets
+ * @param {string} [timeframe='all']
+ */
+export const generateTicketCSV = (tickets, timeframe = 'all') => {
+    const headers = ['Ticket ID', 'Title', 'Category', 'Facility Type', 'Location', 'Priority', 'Status', 'Assigned To', 'Created At', 'Resolved At'];
+
+    const escape = (val) => {
+        const str = val == null ? '' : String(val);
+        return str.includes(',') || str.includes('"') || str.includes('\n')
+            ? `"${str.replace(/"/g, '""')}"`
+            : str;
+    };
+
+    const rows = tickets.map(ticket => {
+        const assignedName = ticket.technician?.full_name || ticket.technician_full_name || ticket.profiles?.full_name || 'Unassigned';
+        const createdAt = ticket.created_at ? new Date(ticket.created_at).toLocaleDateString('en-GB') : 'N/A';
+        const resolvedAt = ticket.resolved_at ? new Date(ticket.resolved_at).toLocaleDateString('en-GB') : 'N/A';
+        return [
+            ticket.id || ticket.ticket_id || 'N/A',
+            ticket.title || 'Untitled',
+            ticket.category || 'N/A',
+            ticket.facility_type || 'N/A',
+            ticket.specific_location || 'N/A',
+            ticket.priority || 'N/A',
+            ticket.status || 'N/A',
+            assignedName,
+            createdAt,
+            resolvedAt,
+        ].map(escape).join(',');
+    });
+
+    let timeframeText = 'All Time';
+    if (timeframe === '7') timeframeText = 'Last 7 Days';
+    else if (timeframe === '30') timeframeText = 'Last 30 Days';
+    else if (timeframe === '90') timeframeText = 'Last 90 Days';
+
+    const metaLines = [
+        `# Mountain Top University - Maintenance Report`,
+        `# Timeframe: ${timeframeText}`,
+        `# Generated: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`,
+        '',
+    ];
+
+    const csv = [...metaLines, headers.map(escape).join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `MTU_Report_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+};

@@ -34,10 +34,12 @@ export default function AdminDashboard() {
     const [activeTab, setActiveTab] = useState('tickets'); // 'tickets', 'security', or 'users'
 
     // SWR Fetcher - Use role-appropriate RPC function
-    // Admin (IT) gets IT & Networking tickets only
-    // Facility managers/supervisors get all tickets for oversight
+    // IT Admin gets IT & Networking tickets only
+    // SRC, Dean, and Student Affairs get all tickets for oversight
+    const isOversightRole = profile?.role === 'src' || profile?.role === 'dean' || profile?.department === 'Student Affairs';
     const fetchTickets = async () => {
-        const { data, error } = await supabase.rpc('get_it_admin_tickets');
+        const rpcFunction = isOversightRole ? 'get_supervisor_all_tickets' : 'get_it_admin_tickets';
+        const { data, error } = await supabase.rpc(rpcFunction);
         
         if (error) {
             // Fallback to direct query with joins (will be filtered by RLS)
@@ -74,7 +76,7 @@ export default function AdminDashboard() {
     };
 
     const { data: tickets = [], mutate, isLoading: swrLoading, error } = useSWR(
-        'it_admin_tickets',
+        isOversightRole ? 'oversight_all_tickets' : 'it_admin_tickets',
         fetchTickets,
         {
             revalidateOnFocus: false,

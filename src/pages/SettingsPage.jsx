@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../contexts/useAuth';
 import NotificationSettings from '../components/NotificationSettings';
 import SecuritySettings from '../components/SecuritySettings';
+import TechnicianSkills from '../components/TechnicianSkills';
 import { supabase } from '../lib/supabase';
 import { Bell, User, Shield, ChevronRight, RefreshCw } from 'lucide-react';
 import { Button } from '../components/ui/Button';
@@ -103,6 +104,11 @@ export default function SettingsPage() {
               </div>
             )}
           </div>
+
+          {/* Technician Skills (only for technician/team_lead roles) */}
+          {(profile?.role === 'technician' || profile?.role === 'team_lead') && (
+            <TechnicianSkills />
+          )}
 
           {/* Notification Settings */}
           <NotificationSettings />

@@ -681,7 +681,7 @@ export default function TechnicianDashboard() {
                                     : 'text-surface-600 hover:bg-white hover:shadow-sm'
                             }`}
                         >
-                            Completed ({completedJobs.length})
+                            Completed ({completedJobs.filter(j => isWithinTimeframe(j.created_at, timeframe)).length})
                         </button>
                     )}
                     {hasReportedTickets && (

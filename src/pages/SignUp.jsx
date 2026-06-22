@@ -149,7 +149,7 @@ export default function SignUp() {
             }
 
             resetRateLimit();
-            toast.success('Account created successfully! Please check your email to verify your account.');
+            toast.success('Account created successfully! You can now sign in.');
             navigate('/login');
         } catch (error) {
             toast.error(error.message || 'Failed to create account. Please try again.');

@@ -242,9 +242,11 @@ Keep responses concise and professional.
                 else if (line.toLowerCase().includes('tools required:')) {
                     currentSection = "tools"
                 }
-                else if (line.toLowerCase().includes('safety precautions:')) {
+                else if (line.toLowerCase().includes('safety precaution')) {
                     currentSection = "safety"
-                    jsonResponse.safety_precaution = line.substring(line.toLowerCase().indexOf('safety precautions:') + 19).trim()
+                    const idx = line.toLowerCase().indexOf('safety precaution')
+                    const afterColon = line.indexOf(':', idx)
+                    jsonResponse.safety_precaution = afterColon >= 0 ? line.substring(afterColon + 1).trim() : ''
                 }
                 else if (line.toLowerCase().includes('step-by-step repair approach:')) {
                     currentSection = "steps"
@@ -252,7 +254,7 @@ Keep responses concise and professional.
                 else if (line.length > 0) {
                     if (currentSection === "diagnosis") {
                         diagnosisText += line + " "
-                    } else if (currentSection === "tools" && line.startsWith('-')) {
+                    } else if (currentSection === "tools" && (line.startsWith('-') || line.startsWith('•') || line.startsWith('*'))) {
                         toolsList.push(line.substring(1).trim())
                     } else if (currentSection === "tools" && line.match(/^\d+\./)) {
                         toolsList.push(line.substring(line.indexOf('.') + 1).trim())

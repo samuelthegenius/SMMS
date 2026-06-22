@@ -154,7 +154,7 @@ export default function TicketDetails({ ticket, onClose, onUpdate, onReassign, i
 
             const updates = {
                 satisfaction_status: isApproved ? 'satisfied' : 'unsatisfied',
-                rating: isApproved ? rating : null,
+                rating: isApproved && rating > 0 ? rating : null,
                 customer_feedback: rejectionReason,
                 status: isApproved ? 'Resolved' : 'In Progress'
             };

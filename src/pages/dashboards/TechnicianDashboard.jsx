@@ -30,7 +30,7 @@ export default function TechnicianDashboard() {
     const canVerify = isPorter || isSRC || isStaff;
     const [selectedTicket, setSelectedTicket] = useState(null);
     const [modalTab, setModalTab] = useState('details');
-    const [activeTab, setActiveTab] = useState('assigned'); // 'assigned' | 'reported'
+    const [activeTab, setActiveTab] = useState('assigned'); // 'assigned' | 'reported' | 'completed'
     const [timeframe, setTimeframe] = useState('Last 30 Days');
     const [resolvingTicket, setResolvingTicket] = useState(null);
     const [proofFile, setProofFile] = useState(null);
@@ -135,6 +135,35 @@ export default function TechnicianDashboard() {
         return enriched;
     };
 
+    // Fetch completed/resolved jobs for technicians
+    const fetchCompletedJobs = async () => {
+        const { data, error } = await supabase
+            .from('tickets')
+            .select(`
+                id,
+                title,
+                description,
+                category,
+                facility_type,
+                specific_location,
+                status,
+                priority,
+                created_at,
+                assigned_to,
+                image_url,
+                created_by
+            `)
+            .eq('assigned_to', user.id)
+            .eq('status', 'Resolved')
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        const enriched = await Promise.all(data.map(async (ticket) => ({
+            ...ticket,
+            reporter: await fetchReporterProfile(ticket.created_by)
+        })));
+        return enriched;
+    };
+
     // Use SWR
     // Use different cache key for each role
     const getSWRKey = () => {
@@ -174,6 +203,19 @@ export default function TechnicianDashboard() {
         }
     );
 
+    const { data: completedJobs = [], error: completedError } = useSWR(
+        user && isTechnician ? ['completed_jobs', user.id] : null,
+        fetchCompletedJobs,
+        {
+            revalidateOnFocus: false,
+            revalidateOnReconnect: true,
+            dedupingInterval: 30000,
+            errorRetryCount: 2,
+            refreshInterval: 0,
+            suspense: false
+        }
+    );
+
     const isWithinTimeframe = (dateString, timeframeSelection) => {
         if (timeframeSelection === 'All Time') return true;
         const date = new Date(dateString);
@@ -187,9 +229,8 @@ export default function TechnicianDashboard() {
         return true;
     };
 
-    const displayedJobs = (activeTab === 'assigned' ? jobs : reportedTickets).filter(
-        job => isWithinTimeframe(job.created_at, timeframe)
-    );
+    const activeList = activeTab === 'assigned' ? jobs : activeTab === 'completed' ? completedJobs : reportedTickets;
+    const displayedJobs = activeList.filter(job => isWithinTimeframe(job.created_at, timeframe));
 
     useEffect(() => {
         if (!user) return;
@@ -444,32 +485,36 @@ export default function TechnicianDashboard() {
     if (isLoading && !jobs.length && !reportedTickets.length) return <Loader variant="technician" />;
 
     const hasReportedTickets = reportedTickets.length > 0;
-    const fetchError = jobsError || reportedError;
+    const fetchError = jobsError || reportedError || completedError;
 
     return (
         <div className="space-y-8">
             <div>
                 <h1 className="text-3xl font-bold text-surface-900 tracking-tight">
-                    {activeTab === 'assigned'
-                        ? (canVerify
-                            ? (isPorter
-                                ? 'Verify Hostel Complaints'
-                                : isStaff
-                                    ? `Verify ${userDepartment} Complaints`
-                                    : 'Verify Student Complaints')
-                            : 'Assigned Jobs')
-                        : 'My Reported Tickets'}
+                    {activeTab === 'completed'
+                        ? 'Completed Jobs'
+                        : activeTab === 'assigned'
+                            ? (canVerify
+                                ? (isPorter
+                                    ? 'Verify Hostel Complaints'
+                                    : isStaff
+                                        ? `Verify ${userDepartment} Complaints`
+                                        : 'Verify Student Complaints')
+                                : 'Assigned Jobs')
+                            : 'My Reported Tickets'}
                 </h1>
                 <p className="text-surface-500 mt-2 text-lg">
-                    {activeTab === 'assigned'
-                        ? (canVerify
-                            ? (isPorter
-                                ? 'Validate hostel complaints before technician assignment'
-                                : isStaff
-                                    ? `Validate ${userDepartment} complaints before technician assignment`
-                                    : 'Validate all student complaints school-wide before technician assignment')
-                            : 'Manage and resolve your maintenance tasks')
-                        : 'Track tickets you have reported and chat with assigned technicians'}
+                    {activeTab === 'completed'
+                        ? 'All jobs you have successfully resolved'
+                        : activeTab === 'assigned'
+                            ? (canVerify
+                                ? (isPorter
+                                    ? 'Validate hostel complaints before technician assignment'
+                                    : isStaff
+                                        ? `Validate ${userDepartment} complaints before technician assignment`
+                                        : 'Validate all student complaints school-wide before technician assignment')
+                                : 'Manage and resolve your maintenance tasks')
+                            : 'Track tickets you have reported and chat with assigned technicians'}
                 </p>
             </div>
 
@@ -614,8 +659,8 @@ export default function TechnicianDashboard() {
                 </div>
             )}
 
-            {/* Tab Navigation - Show only if user has reported tickets */}
-            {hasReportedTickets && (
+            {/* Tab Navigation */}
+            {(hasReportedTickets || isTechnician) && (
                 <div className="flex items-center gap-1 bg-surface-100 p-1.5 rounded-2xl w-fit">
                     <button
                         onClick={() => setActiveTab('assigned')}
@@ -627,16 +672,30 @@ export default function TechnicianDashboard() {
                     >
                         {canVerify ? 'To Verify' : 'My Jobs'}
                     </button>
-                    <button
-                        onClick={() => setActiveTab('reported')}
-                        className={`px-5 py-2.5 rounded-xl font-semibold transition-all duration-200 ${
-                            activeTab === 'reported'
-                                ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/25'
-                                : 'text-surface-600 hover:bg-white hover:shadow-sm'
-                        }`}
-                    >
-                        My Reports ({reportedTickets.length})
-                    </button>
+                    {isTechnician && (
+                        <button
+                            onClick={() => setActiveTab('completed')}
+                            className={`px-5 py-2.5 rounded-xl font-semibold transition-all duration-200 ${
+                                activeTab === 'completed'
+                                    ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25'
+                                    : 'text-surface-600 hover:bg-white hover:shadow-sm'
+                            }`}
+                        >
+                            Completed ({completedJobs.length})
+                        </button>
+                    )}
+                    {hasReportedTickets && (
+                        <button
+                            onClick={() => setActiveTab('reported')}
+                            className={`px-5 py-2.5 rounded-xl font-semibold transition-all duration-200 ${
+                                activeTab === 'reported'
+                                    ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/25'
+                                    : 'text-surface-600 hover:bg-white hover:shadow-sm'
+                            }`}
+                        >
+                            My Reports ({reportedTickets.length})
+                        </button>
+                    )}
                 </div>
             )}
 
@@ -896,6 +955,18 @@ export default function TechnicianDashboard() {
                                             : 'All student complaints have been verified. Great work!')
                                     : 'No active jobs assigned to you at the moment.'}
                             </p>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {displayedJobs.length === 0 && activeTab === 'completed' && (
+                    <Card className="border-dashed">
+                        <CardContent className="py-16 text-center">
+                            <div className="mx-auto h-12 w-12 text-slate-300 mb-3">
+                                <CheckCircle className="h-12 w-12" />
+                            </div>
+                            <h3 className="text-lg font-medium text-slate-900">No completed jobs yet</h3>
+                            <p className="text-slate-500">Jobs you resolve will appear here.</p>
                         </CardContent>
                     </Card>
                 )}

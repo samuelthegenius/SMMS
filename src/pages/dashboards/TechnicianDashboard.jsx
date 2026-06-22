@@ -31,7 +31,7 @@ export default function TechnicianDashboard() {
     const [selectedTicket, setSelectedTicket] = useState(null);
     const [modalTab, setModalTab] = useState('details');
     const [activeTab, setActiveTab] = useState('assigned'); // 'assigned' | 'reported' | 'completed'
-    const [timeframe, setTimeframe] = useState('Last 30 Days');
+    const [timeframe, setTimeframe] = useState('All Time');
     const [resolvingTicket, setResolvingTicket] = useState(null);
     const [proofFile, setProofFile] = useState(null);
     const [proofPreview, setProofPreview] = useState(null);

@@ -28,7 +28,7 @@ export default function AdminDashboard() {
     // DashboardRouter already ensures we only render when profile is set.
     const { profile } = useAuth();
     const [filter, setFilter] = useState('All');
-    const [timeframe, setTimeframe] = useState('Last 30 Days');
+    const [timeframe, setTimeframe] = useState('All Time');
     const [search, setSearch] = useState('');
     const [selectedTicket, setSelectedTicket] = useState(null);
     const [activeTab, setActiveTab] = useState('tickets'); // 'tickets', 'security', or 'users'

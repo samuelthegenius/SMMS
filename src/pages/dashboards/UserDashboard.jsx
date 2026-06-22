@@ -35,7 +35,7 @@ export default function UserDashboard() {
     const [rejectionReason, setRejectionReason] = useState('');
     const [rating, setRating] = useState(0);
     const [hoverRating, setHoverRating] = useState(0);
-    const [timeframe, setTimeframe] = useState('Last 30 Days');
+    const [timeframe, setTimeframe] = useState('All Time');
 
     const isHistoryView = location.pathname === '/history';
     const viewTitle = isHistoryView ? 'History' : 'Dashboard';

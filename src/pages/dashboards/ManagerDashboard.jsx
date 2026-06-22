@@ -19,7 +19,7 @@ export default function ManagerDashboard() {
     const { profile } = useAuth();
     const navigate = useNavigate();
     const [filter, setFilter] = useState('All');
-    const [timeframe, setTimeframe] = useState('Last 30 Days');
+    const [timeframe, setTimeframe] = useState('All Time');
     const [search, setSearch] = useState('');
     const [selectedTicket, setSelectedTicket] = useState(null);
 

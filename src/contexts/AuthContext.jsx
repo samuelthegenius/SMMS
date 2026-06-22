@@ -221,6 +221,7 @@ export function AuthProvider({ children }) {
         isStudent: profile?.role === 'student',
         isSRC: profile?.role === 'src',
         isPorter: profile?.role === 'porter',
+        isDean: profile?.role === 'dean',
         // Unified Role Hierarchy
         isManager: profile?.role === 'manager',
         isSupervisorRole: profile?.role === 'supervisor',  // Specific supervisor role
@@ -231,8 +232,8 @@ export function AuthProvider({ children }) {
         // Leadership can manage technicians in their department
         canManageTechnicians: ['manager', 'supervisor', 'team_lead', 'it_admin'].includes(profile?.role),
         canReassignTechnicians: ['manager', 'supervisor', 'it_admin'].includes(profile?.role),
-        // Department-based admin access (IT Admin or Student Affairs staff or SRC)
-        hasITAdminAccess: profile?.role === 'it_admin' || profile?.department === 'Student Affairs' || profile?.role === 'src',
+        // Department-based admin access (IT Admin, Student Affairs staff, SRC, or Dean)
+        hasITAdminAccess: profile?.role === 'it_admin' || profile?.department === 'Student Affairs' || profile?.role === 'src' || profile?.role === 'dean',
         // Department Management Access (full oversight) - managers and supervisors
         hasDepartmentManagementAccess: ['manager', 'supervisor'].includes(profile?.role),
         // Backward compatibility (deprecated)

@@ -36,6 +36,7 @@ const ROLES = [
   { value: 'it_admin', label: 'IT Admin', color: 'bg-red-100 text-red-700' },
   { value: 'src', label: 'SRC', color: 'bg-pink-100 text-pink-700' },
   { value: 'porter', label: 'Porter', color: 'bg-amber-100 text-amber-700' },
+  { value: 'dean', label: 'Dean of Student Affairs', color: 'bg-teal-100 text-teal-700' },
 ];
 
 const SPECIALIZATIONS = [

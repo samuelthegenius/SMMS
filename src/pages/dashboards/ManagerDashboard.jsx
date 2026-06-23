@@ -63,6 +63,7 @@ export default function ManagerDashboard() {
         fetchTickets,
         {
             revalidateOnFocus: false,
+            revalidateOnMount: true,
             revalidateOnReconnect: true,
             dedupingInterval: 30000,
             errorRetryCount: 2,

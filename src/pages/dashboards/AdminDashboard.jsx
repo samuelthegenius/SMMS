@@ -80,12 +80,13 @@ export default function AdminDashboard() {
         fetchTickets,
         {
             revalidateOnFocus: false,
+            revalidateOnMount: true,
             revalidateOnReconnect: true,
-            dedupingInterval: 30000, // 30 seconds - increased for better performance
-            errorRetryCount: 2, // Reduced retry attempts
-            errorRetryInterval: 5000, // 5 seconds between retries
-            refreshInterval: 0, // Disable auto-refresh for better performance
-            suspense: false // Disable suspense to prevent waterfall loading
+            dedupingInterval: 30000,
+            errorRetryCount: 2,
+            errorRetryInterval: 5000,
+            refreshInterval: 0,
+            suspense: false
         }
     );
 

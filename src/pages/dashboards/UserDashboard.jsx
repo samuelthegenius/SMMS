@@ -83,8 +83,9 @@ export default function UserDashboard() {
         fetchTickets,
         {
             revalidateOnFocus: false,
+            revalidateOnMount: true,
             revalidateOnReconnect: true,
-            dedupingInterval: 30000, // 30 seconds for better performance
+            dedupingInterval: 30000,
             errorRetryCount: 2,
             errorRetryInterval: 5000,
             refreshInterval: 0,

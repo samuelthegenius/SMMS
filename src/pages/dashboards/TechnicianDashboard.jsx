@@ -179,6 +179,7 @@ export default function TechnicianDashboard() {
         fetchJobs,
         {
             revalidateOnFocus: false,
+            revalidateOnMount: true,
             revalidateOnReconnect: true,
             dedupingInterval: 30000,
             errorRetryCount: 2,
@@ -194,6 +195,7 @@ export default function TechnicianDashboard() {
         fetchReportedTickets,
         {
             revalidateOnFocus: false,
+            revalidateOnMount: true,
             revalidateOnReconnect: true,
             dedupingInterval: 30000,
             errorRetryCount: 2,

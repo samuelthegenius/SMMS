@@ -329,7 +329,40 @@ export default function TicketForm() {
 
             // Determine department based on category
             const department = getDepartmentForCategory(formData.category);
-            
+
+            // Check whether a verifier exists for this ticket type.
+            // Hostel tickets need a porter; all others need an SRC account or a staff
+            // member in the derived department. If none exists, bypass verification so
+            // the ticket is never silently stranded in 'Open'.
+            let verifierExists = false;
+            if (formData.facilityType === 'Hostel') {
+                const { count } = await supabase
+                    .from('profiles')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('role', 'porter');
+                verifierExists = count > 0;
+            } else {
+                const { count: srcCount } = await supabase
+                    .from('profiles')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('role', 'src');
+                if (srcCount > 0) {
+                    verifierExists = true;
+                } else if (department) {
+                    const { count: staffCount } = await supabase
+                        .from('profiles')
+                        .select('id', { count: 'exact', head: true })
+                        .eq('role', 'staff')
+                        .eq('department', department);
+                    verifierExists = staffCount > 0;
+                }
+            }
+
+            const initialStatus = verifierExists ? 'Open' : 'In Progress';
+            if (!verifierExists) {
+                toast.info('No verifier is available for this ticket type — it has been routed directly for technician assignment.');
+            }
+
             // Step A: Insert Ticket & Handle Assignment Gracefully
             // First insert without the join to avoid 409 errors when assigned_to is NULL
             const { data, error } = await supabase
@@ -344,7 +377,8 @@ export default function TicketForm() {
                         priority: formData.priority,
                         created_by: user.id,
                         image_url: imageUrl,
-                        department: department, // AI-derived department assignment
+                        department: department,
+                        status: initialStatus,
                     }
                 ])
                 .select()

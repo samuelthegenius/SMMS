@@ -132,7 +132,7 @@ export default function ManagerDashboard() {
     const stats = {
         total: filteredTickets.length,
         pending: filteredTickets.filter(t => t.status === 'Open').length,
-        resolved: filteredTickets.filter(t => t.status === 'Resolved').length,
+        resolved: filteredTickets.filter(t => t.status === 'Resolved' || t.status === 'Completed' || t.status === 'Closed').length,
         inProgress: filteredTickets.filter(t => t.status === 'In Progress').length,
     };
 

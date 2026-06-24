@@ -100,8 +100,7 @@ export default function TicketDetails({ ticket, onClose, onUpdate, onReassign, i
             toast.success(`Ticket ${actionText}`);
             setManagementAction(null);
 
-            // Refresh parent component if needed
-            if (onReassign) onReassign();
+            if (onUpdate) onUpdate();
 
         } catch (err) {
             toast.error(err.message || 'Failed to update ticket');
@@ -792,7 +791,7 @@ function ManagementActionForm({ action, ticket, onCancel, onSubmit, onGetAISugge
     ];
     
     const priorities = ['Low', 'Medium', 'High'];
-    const statuses = ['Open', 'In Progress', 'Resolved', 'Closed', 'Escalated', 'Pending Verification'];
+    const statuses = ['Open', 'Assigned', 'In Progress', 'Resolved', 'Closed', 'Escalated', 'Pending Verification'];
 
     const getOptions = () => {
         switch (action) {

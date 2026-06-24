@@ -417,11 +417,11 @@ export default function TechnicianDashboard() {
             if (fetchError) throw fetchError;
 
             if (isValid) {
-                // Valid complaint - mark as In Progress (ready for technician assignment)
+                // Valid complaint - mark as Assigned so the technician still clicks "Start Job"
                 const { error } = await supabase
                     .from('tickets')
                     .update({
-                        status: 'In Progress',
+                        status: 'Assigned',
                         updated_at: new Date().toISOString(),
                         rejection_reason: `Verified by ${verifierName} - ready for technician assignment`
                     })

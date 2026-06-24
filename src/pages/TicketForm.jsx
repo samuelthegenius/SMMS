@@ -358,9 +358,9 @@ export default function TicketForm() {
                 }
             }
 
-            const initialStatus = verifierExists ? 'Open' : 'In Progress';
+            const initialStatus = verifierExists ? 'Open' : 'Assigned';
             if (!verifierExists) {
-                toast.info('No verifier is available for this ticket type — it has been routed directly for technician assignment.');
+                toast.info('No verifier is available for this ticket type — your ticket has been sent directly to the assignment queue.');
             }
 
             // Step A: Insert Ticket & Handle Assignment Gracefully

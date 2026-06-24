@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import useSWR from 'swr';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
@@ -92,6 +92,27 @@ export default function UserDashboard() {
             suspense: false
         }
     );
+
+    useEffect(() => {
+        if (!user) return;
+        let timeoutId = null;
+        const subscription = supabase
+            .channel(`user_tickets_${user.id}`)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'tickets',
+                filter: `created_by=eq.${user.id}`
+            }, () => {
+                if (timeoutId) clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => mutate(), 1000);
+            })
+            .subscribe();
+        return () => {
+            if (timeoutId) clearTimeout(timeoutId);
+            subscription.unsubscribe();
+        };
+    }, [user, mutate]);
 
     const handleVerification = async (ticketId, isApproved, reason = null) => {
         const previousTickets = [...tickets];

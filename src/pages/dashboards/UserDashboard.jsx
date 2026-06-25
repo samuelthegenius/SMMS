@@ -85,20 +85,13 @@ export default function UserDashboard() {
             revalidateOnFocus: false,
             revalidateOnMount: true,
             revalidateOnReconnect: true,
-            dedupingInterval: 30000,
+            dedupingInterval: 0,
             errorRetryCount: 2,
             errorRetryInterval: 5000,
             refreshInterval: 0,
             suspense: false
         }
     );
-
-    useEffect(() => {
-        if (location.state?.refreshTickets) {
-            mutate();
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     useEffect(() => {
         if (!user) return;

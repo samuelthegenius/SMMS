@@ -432,7 +432,7 @@ export default function TicketForm() {
             toast.success('Report Submitted Successfully!');
             setSuccess(true);
             
-            setTimeout(() => navigate('/dashboard', { state: { refreshTickets: true } }), 2000);
+            setTimeout(() => navigate('/dashboard'), 2000);
         } catch {
             toast.error('Failed to submit report. Please try again.');
         } finally {

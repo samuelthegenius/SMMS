@@ -55,7 +55,7 @@ export default function AnalyticsPage() {
             revalidateOnMount: true,
             revalidateOnFocus: false,
             revalidateOnReconnect: true,
-            dedupingInterval: 30000,
+            dedupingInterval: 0,
         }
     );
 

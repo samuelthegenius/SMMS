@@ -181,7 +181,7 @@ export default function TechnicianDashboard() {
             revalidateOnFocus: false,
             revalidateOnMount: true,
             revalidateOnReconnect: true,
-            dedupingInterval: 30000,
+            dedupingInterval: 0,
             errorRetryCount: 2,
             errorRetryInterval: 5000,
             refreshInterval: 0,
@@ -197,7 +197,7 @@ export default function TechnicianDashboard() {
             revalidateOnFocus: false,
             revalidateOnMount: true,
             revalidateOnReconnect: true,
-            dedupingInterval: 30000,
+            dedupingInterval: 0,
             errorRetryCount: 2,
             errorRetryInterval: 5000,
             refreshInterval: 0,
@@ -212,7 +212,7 @@ export default function TechnicianDashboard() {
             revalidateOnFocus: false,
             revalidateOnMount: true,
             revalidateOnReconnect: true,
-            dedupingInterval: 30000,
+            dedupingInterval: 0,
             errorRetryCount: 2,
             refreshInterval: 0,
             suspense: false
@@ -308,15 +308,12 @@ export default function TechnicianDashboard() {
 
     const handleStatusUpdate = async (ticketId, newStatus, proofUrl = null) => {
         const previousJobs = [...jobs];
-        
-        // Optimistic update
-        let updatedJobs;
-        if (proofUrl) {
-            updatedJobs = jobs.map(j => j.id === ticketId ? { ...j, status: newStatus, resolution_proof_url: proofUrl } : j);
-        } else {
-            updatedJobs = jobs.map(j => j.id === ticketId ? { ...j, status: newStatus } : j);
-        }
-        mutate(updatedJobs, false);
+
+        // Optimistic update using functional form so it runs on the latest cache
+        mutate(current => (current || []).map(j => j.id === ticketId
+            ? { ...j, status: newStatus, ...(proofUrl && { resolution_proof_url: proofUrl }) }
+            : j
+        ), { revalidate: false });
 
         try {
             const updates = { status: newStatus };
@@ -335,18 +332,18 @@ export default function TechnicianDashboard() {
             if (newStatus === 'Resolved') {
                 const job = jobs.find(j => j.id === ticketId);
                 if (job?.reporter?.email) {
-                    await supabase.functions.invoke('send-email', {
+                    supabase.functions.invoke('send-email', {
                         body: {
                             type: 'ticket_completed',
                             ticket_title: job.title,
                             student_email: job.reporter.email
                         }
-                    });
+                    }).catch(emailErr => console.error('Email notification failed:', emailErr));
                 }
             }
 
             toast.success(`Ticket marked as ${newStatus}`);
-            mutate(updatedJobs, false);
+            mutate();
             mutateReported();
             mutateCompleted();
         } catch (error) {

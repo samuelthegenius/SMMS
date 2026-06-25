@@ -145,10 +145,8 @@ export default function UserDashboard() {
             ...(!isApproved && { rejection_count: newRejectionCount }),
         };
 
-        const updatedTickets = tickets.map(t => t.id === ticketId ? { ...t, ...updates } : t);
-
-        // Optimistic update
-        mutate(updatedTickets, false);
+        // Optimistic update using functional form so it always runs on the latest cache
+        mutate(current => (current || []).map(t => t.id === ticketId ? { ...t, ...updates } : t), { revalidate: false });
 
         try {
             const { error } = await supabase
@@ -180,7 +178,7 @@ export default function UserDashboard() {
             }
             setRating(0);
             setHoverRating(0);
-            mutate(); // Revalidate
+            mutate(); // Revalidate to confirm DB state
         } catch (err) {
             toast.error(err.message || 'Failed to update status');
             mutate(previousTickets, false); // Rollback

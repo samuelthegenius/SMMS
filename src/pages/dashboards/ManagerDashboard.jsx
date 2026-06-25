@@ -65,7 +65,7 @@ export default function ManagerDashboard() {
             revalidateOnFocus: false,
             revalidateOnMount: true,
             revalidateOnReconnect: true,
-            dedupingInterval: 30000,
+            dedupingInterval: 0,
             errorRetryCount: 2,
             errorRetryInterval: 5000,
             refreshInterval: 0,

@@ -131,22 +131,20 @@ serve(async (req: Request) => {
 
         // Rate limiting: Check for abuse using database-based rate limiting
         const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown'
-        
-        // Implement proper rate limiting using Supabase rate_limits table
+
         const { data: rateLimitData, error: rateLimitError } = await supabase.rpc('check_rate_limit', {
             p_identifier: `email_${clientIP}`,
             p_action: 'send_email',
             p_max_attempts: 10,
             p_window_seconds: 300 // 5 minutes
         })
-        
-	if (rateLimitError) {
-		throw new Error('Rate limit check failed')
-	}
 
-	if (rateLimitData === false) {
-		throw new Error('Rate limit exceeded. Please try again later.')
-	}
+        if (rateLimitError) {
+            // Log but don't block — rate limit table may not be set up yet
+            console.warn('Rate limit check failed (non-fatal):', rateLimitError.message)
+        } else if (rateLimitData === false) {
+            throw new Error('Rate limit exceeded. Please try again later.')
+        }
 
         const emailPromises = [];
         const dashboardLink = Deno.env.get('DASHBOARD_URL') || '[DASHBOARD_URL]';

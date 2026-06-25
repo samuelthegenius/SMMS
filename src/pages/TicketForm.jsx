@@ -425,8 +425,9 @@ export default function TicketForm() {
                         technician_name: technicianDetails?.full_name
                     }
                 });
-            } catch {
+            } catch (emailErr) {
                 // Email processing failed - don't block the UI flow
+                console.error('Email notification failed:', emailErr)
             }
 
             toast.success('Report Submitted Successfully!');

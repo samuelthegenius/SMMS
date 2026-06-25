@@ -100,8 +100,8 @@ export default function ReassignTechnician({ ticket, onReassign }) {
 						ticket_priority: ticket.priority
 					}
 				});
-			} catch {
-				// Email notification failed silently
+			} catch (emailErr) {
+				console.error('Email notification failed:', emailErr)
 			}
 
 			toast.success('Technician reassigned successfully');

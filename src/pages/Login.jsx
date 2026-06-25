@@ -170,9 +170,10 @@ export default function Login() {
             // Success - reset rate limit
             resetRateLimit();
             toast.success('Welcome back!');
-            
-            // Navigate to dashboard - the routing system will handle the auth state
-            navigate('/dashboard');
+            // No explicit navigate — the `if (user) <Navigate to="/dashboard">` guard
+            // above handles the redirect once the auth state update is applied.
+            // Calling navigate() here races against startTransition(setUser) and can
+            // cause ProtectedRoute to see user=null and flash a redirect to /login.
         } catch (error) {
             // Network failure — the server is unreachable, not a bad password
             if (isNetworkFailure(error)) {
@@ -242,12 +243,12 @@ export default function Login() {
                                     <label className="text-sm font-semibold text-surface-700 leading-none" htmlFor="password">
                                         Password
                                     </label>
-                                    <a
-                                        href="mailto:itsupport@mtu.edu.ng?subject=Password%20Reset%20Request"
+                                    <Link
+                                        to="/forgot-password"
                                         className="text-xs text-primary-600 hover:text-primary-700 font-medium transition-colors"
                                     >
                                         Forgot password?
-                                    </a>
+                                    </Link>
                                 </div>
                                 <Input
                                     id="password"

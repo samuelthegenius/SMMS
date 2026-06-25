@@ -150,7 +150,7 @@ export default function AdminDashboard() {
 
     const stats = {
         total: filteredTickets.length,
-        pending: filteredTickets.filter(t => t.status === 'Open').length,
+        pending: filteredTickets.filter(t => t.status === 'Open' || t.status === 'Assigned').length,
         resolved: filteredTickets.filter(t => t.status === 'Resolved').length,
         inProgress: filteredTickets.filter(t => t.status === 'In Progress').length,
     };

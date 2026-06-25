@@ -25,7 +25,7 @@ const STATUS_STYLES = {
     'Completed': { bg: 'bg-emerald-50', text: 'text-emerald-700', icon: CheckCircle, border: 'border-emerald-200' },
 };
 
-const ACTIVE_STATUSES = ['Open', 'In Progress', 'Escalated', 'Pending Verification'];
+const ACTIVE_STATUSES = ['Open', 'Assigned', 'In Progress', 'Escalated', 'Pending Verification'];
 const COMPLETED_STATUSES = ['Resolved', 'Closed', 'Rejected'];
 
 export default function UserDashboard() {

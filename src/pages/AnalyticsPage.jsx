@@ -8,7 +8,8 @@
  * - Separation of Concerns: keeps operational dashboard focused on ticket management.
  * - Access Control: Restricted to IT Admin, Facility Managers, Maintenance Supervisors, and SRC.
  */
-import { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
+import { useState, useMemo, lazy, Suspense } from 'react';
+import useSWR from 'swr';
 import { supabase } from '../lib/supabase';
 import Loader from '../components/Loader';
 import { BarChart, PieChart } from 'lucide-react';
@@ -20,77 +21,45 @@ import { generateTicketReport, generateTicketCSV } from '../utils/generateReport
 
 export default function AnalyticsPage() {
     const { profile, loading: authLoading } = useAuth();
-    // State Management:
-    const [tickets, setTickets] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
     const [reportTimeframe, setReportTimeframe] = useState('all');
-    const hasFetched = useRef(false);
-    const ticketsRef = useRef([]);
-    const fetchedProfileId = useRef(null);
-
-    // Memoize tickets to prevent unnecessary re-renders
-    const memoizedTickets = useMemo(() => tickets, [tickets]);
-
-    // Data Fetching:
-    // Pulls all tickets to generate comprehensive statistics.
-    // Uses role-appropriate RPC: admin (IT) gets IT tickets, supervisors get all tickets
-    const fetchTickets = useCallback(async () => {
-        try {
-            // Choose appropriate RPC based on role
-            // IT Admin only sees IT & Networking tickets
-            // Facility managers and supervisors see all tickets for oversight
-            const isITAdminOnly = profile?.role === 'it_admin';
-            const rpcFunction = isITAdminOnly ? 'get_it_admin_tickets' : 'get_supervisor_all_tickets';
-            const { data, error } = await supabase.rpc(rpcFunction);
-            
-            if (error) {
-                // Fallback to direct query with proper joins
-                const { data: fallbackData, error: fallbackError } = await supabase
-                    .from('tickets')
-                    .select(`
-                        id,
-                        title,
-                        category,
-                        facility_type,
-                        specific_location,
-                        status,
-                        priority,
-                        created_at,
-                        updated_at,
-                        resolved_at,
-                        profiles!tickets_creator_id_fkey (
-                            full_name,
-                            role
-                        )
-                    `)
-                    .order('created_at', { ascending: false });
-                
-                if (fallbackError) {
-                    setError('Failed to load analytics data. Please try again.');
-                } else {
-                    const newTickets = fallbackData || [];
-                    if (JSON.stringify(newTickets) !== JSON.stringify(ticketsRef.current)) {
-                        ticketsRef.current = newTickets;
-                        setTickets(newTickets);
-                    }
-                }
-            } else {
-                // RPC data already has the correct structure, no transformation needed
-                const newTickets = data || [];
-                if (JSON.stringify(newTickets) !== JSON.stringify(ticketsRef.current)) {
-                    ticketsRef.current = newTickets;
-                    setTickets(newTickets);
-                }
-            }
-        } catch {
-            setError('Failed to load analytics data. Please try again.');
-        } finally {
-            setLoading(false);
-        }
-    }, [profile?.role]);
 
     const hasAdminAccess = profile?.role === 'it_admin' || profile?.department === 'Student Affairs' || profile?.role === 'src' || profile?.role === 'manager' || profile?.role === 'supervisor';
+
+    const swrKey = profile && hasAdminAccess
+        ? ['analytics_tickets', profile.role]
+        : null;
+
+    const fetchTickets = async () => {
+        const isITAdminOnly = profile?.role === 'it_admin';
+        const rpcFunction = isITAdminOnly ? 'get_it_admin_tickets' : 'get_supervisor_all_tickets';
+        const { data, error } = await supabase.rpc(rpcFunction);
+        if (!error) return data || [];
+
+        // Fallback to direct query
+        const { data: fallbackData, error: fallbackError } = await supabase
+            .from('tickets')
+            .select(`
+                id, title, category, facility_type, specific_location,
+                status, priority, created_at, updated_at, resolved_at,
+                profiles!tickets_creator_id_fkey (full_name, role)
+            `)
+            .order('created_at', { ascending: false });
+        if (fallbackError) throw new Error('Failed to load analytics data. Please try again.');
+        return fallbackData || [];
+    };
+
+    const { data: tickets = [], isLoading, error, mutate } = useSWR(
+        swrKey,
+        fetchTickets,
+        {
+            revalidateOnMount: true,
+            revalidateOnFocus: false,
+            revalidateOnReconnect: true,
+            dedupingInterval: 30000,
+        }
+    );
+
+    const memoizedTickets = useMemo(() => tickets, [tickets]);
 
     const handleDownloadCSV = () => {
         let filteredTickets = tickets;
@@ -128,30 +97,14 @@ export default function AnalyticsPage() {
         generateTicketReport(filteredTickets, reportTimeframe);
     };
 
-    useEffect(() => {
-        // Only fetch data if user has admin access and we haven't fetched for this profile yet
-        if (hasAdminAccess && profile.id !== fetchedProfileId.current) {
-            fetchedProfileId.current = profile.id;
-            hasFetched.current = true;
-            fetchTickets();
-        } else if (profile && !hasAdminAccess && !loading) {
-            setError('Access denied: Admin role required');
-            setLoading(false);
-        } else if (!authLoading && !profile && !loading) {
-            setError('Please log in to access analytics');
-            setLoading(false);
-        }
-    }, [profile, authLoading, fetchTickets, loading, hasAdminAccess]);
+    if (authLoading || (isLoading && !tickets.length)) return <Loader variant="analytics" />;
 
-    // Show loader during authentication or data loading
-    if (authLoading || loading) return <Loader variant="analytics" />;
-
-    // Handle access denied
     if (error) {
         return (
             <div className="text-red-500 text-center mt-10">
                 <p className="text-lg font-medium">Error loading analytics</p>
-                <p className="text-sm mt-2">{error}</p>
+                <p className="text-sm mt-2">{error.message || 'Failed to load analytics data.'}</p>
+                <button onClick={() => mutate()} className="mt-3 text-sm underline text-red-600">Retry</button>
             </div>
         );
     }

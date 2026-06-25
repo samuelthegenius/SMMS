@@ -190,7 +190,7 @@ export default function TechnicianDashboard() {
     );
 
     // Fetch reported tickets for staff/technicians/porters
-    const { data: reportedTickets = [], error: reportedError } = useSWR(
+    const { data: reportedTickets = [], mutate: mutateReported, error: reportedError } = useSWR(
         user ? ['reported_tickets', user.id] : null,
         fetchReportedTickets,
         {
@@ -205,11 +205,12 @@ export default function TechnicianDashboard() {
         }
     );
 
-    const { data: completedJobs = [], error: completedError } = useSWR(
+    const { data: completedJobs = [], mutate: mutateCompleted, error: completedError } = useSWR(
         user && isTechnician ? ['completed_jobs', user.id] : null,
         fetchCompletedJobs,
         {
             revalidateOnFocus: false,
+            revalidateOnMount: true,
             revalidateOnReconnect: true,
             dedupingInterval: 30000,
             errorRetryCount: 2,
@@ -217,6 +218,12 @@ export default function TechnicianDashboard() {
             suspense: false
         }
     );
+
+    const mutateAll = () => {
+        mutate();
+        mutateReported();
+        mutateCompleted();
+    };
 
     const isWithinTimeframe = (dateString, timeframeSelection) => {
         if (timeframeSelection === 'All Time') return true;
@@ -255,6 +262,7 @@ export default function TechnicianDashboard() {
             filter = `assigned_to=eq.${user.id}`; // Technicians listen to their assigned tickets
         }
 
+        let timeoutId = null;
         const subscription = supabase
             .channel(channelName)
             .on('postgres_changes', {
@@ -263,20 +271,19 @@ export default function TechnicianDashboard() {
                 table: 'tickets',
                 filter: filter
             }, () => {
-                // Debounce rapid mutations
-                const timeoutId = setTimeout(() => {
-                    mutate();
+                if (timeoutId) clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => {
+                    mutateAll();
                     toast.info('List updated');
                 }, 1000);
-
-                return () => clearTimeout(timeoutId);
             })
             .subscribe();
 
         return () => {
+            if (timeoutId) clearTimeout(timeoutId);
             subscription.unsubscribe();
         };
-    }, [user, mutate, isPorter, isSRC, isStaff, userDepartment]);
+    }, [user, mutate, mutateReported, mutateCompleted, isPorter, isSRC, isStaff, userDepartment]);
 
     // Fetch satisfaction metrics for technicians
     useEffect(() => {
@@ -339,7 +346,9 @@ export default function TechnicianDashboard() {
             }
 
             toast.success(`Ticket marked as ${newStatus}`);
-            mutate(updatedJobs); // Push the updated data explicitly and revalidate
+            mutate(updatedJobs); // Optimistic jobs update + revalidate
+            mutateReported();
+            mutateCompleted();
         } catch (error) {
             console.error('handleStatusUpdate error:', error);
             toast.error(error.message || 'Failed to update status');
@@ -467,7 +476,7 @@ export default function TechnicianDashboard() {
 
                 toast.success(`Invalid complaint rejected by ${verifierName.toUpperCase()}`);
             }
-            mutate(); // Revalidate
+            mutateAll(); // Revalidate all lists
         } catch {
             toast.error('Failed to verify complaint');
             mutate(previousJobs, false); // Rollback
@@ -869,11 +878,11 @@ export default function TechnicianDashboard() {
                     onClose={() => setSelectedTicket(null)}
                     onUpdate={() => {
                         setSelectedTicket(null);
-                        mutate();
+                        mutateAll();
                     }}
                     onReassign={() => {
                         setSelectedTicket(null);
-                        mutate();
+                        mutateAll();
                         toast.success('Ticket updated successfully');
                     }}
                 />

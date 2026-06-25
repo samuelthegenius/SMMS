@@ -94,6 +94,13 @@ export default function UserDashboard() {
     );
 
     useEffect(() => {
+        if (location.state?.refreshTickets) {
+            mutate();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
         if (!user) return;
         let timeoutId = null;
         const subscription = supabase
@@ -117,48 +124,52 @@ export default function UserDashboard() {
     const handleVerification = async (ticketId, isApproved, reason = null) => {
         const previousTickets = [...tickets];
         
-        // New satisfaction feedback fields
+        // Authorization check first so we can compute rejection_count before building updates
+        let ticketCheck;
+        try {
+            const { data, error: fetchErr } = await supabase
+                .from('tickets')
+                .select('created_by, rejection_count')
+                .eq('id', ticketId)
+                .single();
+            if (fetchErr || !data || data.created_by !== user.id) {
+                toast.error('Unauthorized: You can only modify your own tickets');
+                return;
+            }
+            ticketCheck = data;
+        } catch {
+            toast.error('Failed to verify ticket ownership');
+            return;
+        }
+
+        const newRejectionCount = !isApproved ? (ticketCheck.rejection_count || 0) + 1 : ticketCheck.rejection_count;
+
         const updates = {
             satisfaction_status: isApproved ? 'satisfied' : 'unsatisfied',
-            rating: isApproved ? rating : null,
-            customer_feedback: reason
+            rating: isApproved && rating > 0 ? rating : null,
+            customer_feedback: reason,
+            status: isApproved ? 'Resolved' : 'In Progress',
+            ...(!isApproved && { rejection_count: newRejectionCount }),
         };
-        
-        const updatedTickets = tickets.map(t => t.id === ticketId ? { 
-            ...t, 
-            ...updates,
-            status: isApproved ? 'Resolved' : 'In Progress'
-        } : t);
+
+        const updatedTickets = tickets.map(t => t.id === ticketId ? { ...t, ...updates } : t);
 
         // Optimistic update
         mutate(updatedTickets, false);
 
         try {
-            // Authorization check: ensure user owns this ticket
-            const { data: ticketCheck } = await supabase
-                .from('tickets')
-                .select('created_by, rejection_count')
-                .eq('id', ticketId)
-                .single();
-
-            if (!ticketCheck || ticketCheck.created_by !== user.id) {
-                throw new Error('Unauthorized: You can only modify your own tickets');
-            }
-
             const { error } = await supabase
                 .from('tickets')
                 .update(updates)
                 .eq('id', ticketId)
-                .eq('created_by', user.id); // Double-ensure ownership
+                .eq('created_by', user.id);
 
             if (error) throw error;
 
             if (isApproved) {
                 toast.success('Fix confirmed! Thank you for your feedback.');
             } else {
-                const currentRejectionCount = ticketCheck?.rejection_count || 0;
-                const newCount = currentRejectionCount + 1;
-                if (newCount >= 2) {
+                if (newRejectionCount >= 2) {
                     toast.warning('Issue reported. This ticket will be escalated to SRC for immediate intervention.', {
                         duration: 5000
                     });

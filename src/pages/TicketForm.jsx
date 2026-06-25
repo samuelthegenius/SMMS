@@ -168,7 +168,8 @@ export default function TicketForm() {
 
         // Soft guidance: warn students when selecting non-hostel facilities
         if (isStudent && name === 'facilityType' && value !== 'Hostel' && formData.facilityType === 'Hostel') {
-            setPendingFacilityType(value);
+            setPendingFacilityType('Hostel'); // store previous value to revert on cancel
+            setFormData(prev => ({ ...prev, facilityType: value, hostel: '' }));
             setShowNonHostelWarning(true);
             return;
         }
@@ -187,17 +188,17 @@ export default function TicketForm() {
     }, [validateAndSanitizeInput, isStudent, formData.facilityType]);
 
     const confirmNonHostelSelection = useCallback(() => {
-        if (pendingFacilityType) {
-            setFormData(prev => ({ ...prev, facilityType: pendingFacilityType }));
-            setPendingFacilityType(null);
-        }
-        setShowNonHostelWarning(false);
-    }, [pendingFacilityType]);
-
-    const cancelNonHostelSelection = useCallback(() => {
         setPendingFacilityType(null);
         setShowNonHostelWarning(false);
     }, []);
+
+    const cancelNonHostelSelection = useCallback(() => {
+        if (pendingFacilityType) {
+            setFormData(prev => ({ ...prev, facilityType: pendingFacilityType }));
+        }
+        setPendingFacilityType(null);
+        setShowNonHostelWarning(false);
+    }, [pendingFacilityType]);
 
     const handleImageChange = useCallback((e) => {
         const file = e.target.files[0];
@@ -846,7 +847,7 @@ export default function TicketForm() {
                                                 className="bg-amber-600 hover:bg-amber-700 text-white text-sm"
                                                 size="sm"
                                             >
-                                                Continue with {pendingFacilityType}
+                                                Continue with {formData.facilityType}
                                             </Button>
                                             <Button
                                                 type="button"

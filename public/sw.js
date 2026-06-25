@@ -1,10 +1,10 @@
 // Optimized Service Worker for Maximum Performance
 // Implements Cache-First for static assets and Stale-While-Revalidate for dynamic content
 
-const CACHE_NAME = 'smms-v10';
-const STATIC_CACHE = 'smms-static-v10';
-const API_CACHE = 'smms-api-v10';
-const IMAGE_CACHE = 'smms-images-v10';
+const CACHE_NAME = 'smms-v11';
+const STATIC_CACHE = 'smms-static-v11';
+const API_CACHE = 'smms-api-v11';
+const IMAGE_CACHE = 'smms-images-v11';
 
 // Resources to pre-cache on install
 const PRECACHE_URLS = [
@@ -58,7 +58,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (!cacheName.includes('v10')) {
+          if (!cacheName.includes('v11')) {
             return caches.delete(cacheName);
           }
         })

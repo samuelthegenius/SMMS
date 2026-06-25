@@ -14,6 +14,25 @@ export const MAINTENANCE_CATEGORIES = [
     "Appliance Repair"
 ];
 
+export const BOYS_HOSTELS = [
+    'New Daniel Hall',
+    'Daniel 1',
+    'Guest House 1',
+    'Guest House 2',
+    'Regional House',
+    'House of Daniel',
+];
+
+export const GIRLS_HOSTELS = [
+    'New Elizabeth Hall 1',
+    'New Elizabeth Hall 2',
+    'Elizabeth 1',
+    'Elizabeth 2',
+    'Elizabeth 3',
+];
+
+export const ALL_HOSTELS = [...BOYS_HOSTELS, ...GIRLS_HOSTELS];
+
 export const FACILITY_TYPES = [
     'Hostel',
     'Lecture Hall',

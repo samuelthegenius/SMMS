@@ -31,7 +31,8 @@ export default function SignUp() {
         accessCode: '',
         specialization: '',
         idNumber: '',
-        department: ''
+        department: '',
+        gender: '',
     });
     const [loading, setLoading] = useState(false);
     // Tracks when we are mid-submission so that the session created by
@@ -113,6 +114,10 @@ export default function SignUp() {
             toast.error('Please select a specialization');
             return;
         }
+        if ((formData.role === 'student' || formData.role === 'porter') && !formData.gender) {
+            toast.error('Please select your gender');
+            return;
+        }
         if (formData.role === 'it_admin') {
             toast.error('IT Admin registration is not allowed via public signup.');
             return;
@@ -139,6 +144,7 @@ export default function SignUp() {
                     department:     formData.department,
                     specialization: formData.specialization,
                     accessCode:     formData.accessCode,
+                    gender:         formData.gender,
                 }),
             });
 
@@ -264,6 +270,27 @@ export default function SignUp() {
                                     />
                                 </div>
                             </div>
+
+                            {/* Gender - Students and Porters, for hostel filtering */}
+                            {(formData.role === 'student' || formData.role === 'porter') && (
+                                <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                                    <label className="text-sm font-semibold text-surface-700 leading-none" htmlFor="gender">
+                                        Gender
+                                    </label>
+                                    <select
+                                        id="gender"
+                                        name="gender"
+                                        value={formData.gender}
+                                        onChange={handleChange}
+                                        required
+                                        className={cn(inputClasses, "bg-surface-50 cursor-pointer")}
+                                    >
+                                        <option value="">Select gender</option>
+                                        <option value="male">Male</option>
+                                        <option value="female">Female</option>
+                                    </select>
+                                </div>
+                            )}
 
                             {/* Department - Shown for roles that don't auto-assign based on skills */}
                             {formData.role !== 'technician' && formData.role !== 'team_lead' && (

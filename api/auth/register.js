@@ -70,7 +70,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid JSON body' });
   }
 
-  const { email, password, fullName, role, idNumber, department, specialization, accessCode } = body || {};
+  const { email, password, fullName, role, idNumber, department, specialization, accessCode, gender } = body || {};
 
   // ── Field validation ────────────────────────────────────────────────────────
   if (!email || !password || !fullName || !role || !idNumber || !accessCode)
@@ -85,6 +85,8 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid ID number format' });
   if ((role === 'technician' || role === 'team_lead') && !specialization)
     return res.status(400).json({ error: 'Specialization is required for technicians and team leads' });
+  if ((role === 'student' || role === 'porter') && !['male', 'female'].includes(gender))
+    return res.status(400).json({ error: 'Gender is required for students and porters' });
 
   // ── Step 1: Validate access code ────────────────────────────────────────────
   const { data: codeRow } = await supabaseAdmin
@@ -138,6 +140,7 @@ export default async function handler(req, res) {
     role,
     identification_number: idNumber,
     department: resolvedDepartment,
+    gender: (role === 'student' || role === 'porter') ? gender : null,
     created_at: new Date().toISOString(),
   });
 

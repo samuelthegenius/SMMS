@@ -9,13 +9,13 @@ import { Input } from '../components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
 import Loader from '../components/Loader';
 import { cn } from '../lib/utils';
-import { FACILITY_TYPES, MAINTENANCE_CATEGORIES, getDepartmentForCategory } from '../utils/constants';
+import { FACILITY_TYPES, MAINTENANCE_CATEGORIES, getDepartmentForCategory, BOYS_HOSTELS, GIRLS_HOSTELS } from '../utils/constants';
 import { autoCategorizeWithFallback } from '../services/ai';
 import { mutate } from 'swr';
 
 export default function TicketForm() {
     const navigate = useNavigate();
-    const { user, initializing, isStudent } = useAuth();
+    const { user, initializing, isStudent, profile } = useAuth();
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const [showNonHostelWarning, setShowNonHostelWarning] = useState(false);
@@ -31,6 +31,7 @@ export default function TicketForm() {
         description: '',
         category: 'Electrical',
         facilityType: 'Hostel',
+        hostel: '',
         specificLocation: '',
         priority: 'Medium',
     });
@@ -175,7 +176,12 @@ export default function TicketForm() {
 
         try {
             const sanitized = validateAndSanitizeInput(name, value, false);
-            setFormData(prev => ({ ...prev, [name]: sanitized }));
+            setFormData(prev => ({
+                ...prev,
+                [name]: sanitized,
+                // Reset hostel when switching away from Hostel facility type
+                ...(name === 'facilityType' && value !== 'Hostel' ? { hostel: '' } : {}),
+            }));
         } catch {
             toast.error('Invalid input. Please check your entry.');
         }
@@ -293,7 +299,12 @@ export default function TicketForm() {
 
     const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
-        
+
+        if (formData.facilityType === 'Hostel' && !formData.hostel) {
+            toast.error('Please select your hostel.');
+            return;
+        }
+
         // Check for duplicates if not already checked and not explicitly proceeding
         if (!pendingSubmit && !showDuplicateWarning) {
             const duplicate = await checkForDuplicates();
@@ -373,6 +384,7 @@ export default function TicketForm() {
                         description: formData.description,
                         category: formData.category,
                         facility_type: formData.facilityType,
+                        hostel: formData.facilityType === 'Hostel' ? formData.hostel : null,
                         specific_location: formData.specificLocation,
                         priority: formData.priority,
                         created_by: user.id,
@@ -506,6 +518,49 @@ export default function TicketForm() {
                                     </select>
                                 </div>
                             </div>
+
+                            {formData.facilityType === 'Hostel' && (
+                                <div>
+                                    <label htmlFor="hostel" className="block text-sm font-medium text-slate-700 mb-1">Hostel</label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <Building className="h-5 w-5 text-slate-400" />
+                                        </div>
+                                        <select
+                                            name="hostel"
+                                            id="hostel"
+                                            required
+                                            className={cn(selectClasses, "pl-10")}
+                                            value={formData.hostel}
+                                            onChange={handleChange}
+                                        >
+                                            <option value="">Select your hostel</option>
+                                            {profile?.gender === 'male' ? (
+                                                BOYS_HOSTELS.map(h => (
+                                                    <option key={h} value={h}>{h}</option>
+                                                ))
+                                            ) : profile?.gender === 'female' ? (
+                                                GIRLS_HOSTELS.map(h => (
+                                                    <option key={h} value={h}>{h}</option>
+                                                ))
+                                            ) : (
+                                                <>
+                                                    <optgroup label="Boys Hostels">
+                                                        {BOYS_HOSTELS.map(h => (
+                                                            <option key={h} value={h}>{h}</option>
+                                                        ))}
+                                                    </optgroup>
+                                                    <optgroup label="Girls Hostels">
+                                                        {GIRLS_HOSTELS.map(h => (
+                                                            <option key={h} value={h}>{h}</option>
+                                                        ))}
+                                                    </optgroup>
+                                                </>
+                                            )}
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
 
                             <div>
                                 <div className="flex items-center justify-between mb-1">

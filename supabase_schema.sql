@@ -49,6 +49,7 @@ CREATE TABLE profiles (
     role text NOT NULL CHECK (role IN ('student', 'staff', 'manager', 'supervisor', 'team_lead', 'technician', 'it_admin', 'src', 'porter', 'dean')),
     identification_number text,
     department text,
+    gender text CHECK (gender IN ('male', 'female')),
     is_on_duty boolean DEFAULT true,
     created_at timestamptz DEFAULT now(),
     CONSTRAINT profiles_pkey PRIMARY KEY (id),
@@ -95,6 +96,7 @@ CREATE TABLE tickets (
     description text,
     category text,
     facility_type text,
+    hostel text,
     specific_location text,
     department text REFERENCES departments(name) ON DELETE SET NULL, -- AI-derived department assignment
     priority text DEFAULT 'Medium'::text CHECK (priority IN ('Low', 'Medium', 'High')),

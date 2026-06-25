@@ -346,7 +346,7 @@ export default function TechnicianDashboard() {
             }
 
             toast.success(`Ticket marked as ${newStatus}`);
-            mutate(updatedJobs); // Optimistic jobs update + revalidate
+            mutate(updatedJobs, false);
             mutateReported();
             mutateCompleted();
         } catch (error) {

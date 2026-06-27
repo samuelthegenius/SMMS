@@ -11,6 +11,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/useAuth';
 import { Button } from './ui/Button';
+import { Select } from './ui/Select';
 import ReassignTechnician from './ReassignTechnician';
 import TicketChat from './TicketChat';
 import { toast } from 'sonner';
@@ -871,10 +872,10 @@ function ManagementActionForm({ action, ticket, onCancel, onSubmit, onGetAISugge
                 <label className="block text-xs font-medium text-blue-700 mb-1">
                     New {action.replace('_', ' ')}
                 </label>
-                <select
+                <Select
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                    className="h-10 border-blue-200 focus-visible:border-blue-400 focus-visible:ring-blue-400/20"
                     required
                 >
                     <option value="">Select {action.replace('_', ' ')}</option>
@@ -883,7 +884,7 @@ function ManagementActionForm({ action, ticket, onCancel, onSubmit, onGetAISugge
                             {opt} {opt === getCurrentValue() ? ' (current)' : ''}
                         </option>
                     ))}
-                </select>
+                </Select>
             </div>
 
             {/* AI Suggestion Display */}

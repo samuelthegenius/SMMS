@@ -23,6 +23,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
+import { Select } from './ui/Select';
 import { toast } from 'sonner';
 import clsx from 'clsx';
 
@@ -372,17 +373,17 @@ export default function UserManagement() {
           />
         </div>
         <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-gray-400" />
-          <select
+          <Select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
-            className="border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500"
+            icon={Filter}
+            className="h-10 w-auto min-w-[10rem] bg-white"
           >
             <option value="all">All Roles</option>
             {ROLES.map(role => (
               <option key={role.value} value={role.value}>{role.label}</option>
             ))}
-          </select>
+          </Select>
           <Button 
             variant="ghost" 
             size="sm" 
@@ -535,16 +536,15 @@ export default function UserManagement() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Role *</label>
-                  <select
+                  <Select
                     value={formData.role}
                     onChange={(e) => setFormData({...formData, role: e.target.value})}
-                    className="w-full border rounded-md px-3 py-2 text-sm"
                     required
                   >
                     {ROLES.filter(r => r.value !== 'it_admin').map(role => (
                       <option key={role.value} value={role.value}>{role.label}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">ID Number *</label>
@@ -558,16 +558,15 @@ export default function UserManagement() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-                <select
+                <Select
                   value={formData.department}
                   onChange={(e) => setFormData({...formData, department: e.target.value})}
-                  className="w-full border rounded-md px-3 py-2 text-sm"
                 >
                   <option value="">Select department...</option>
                   {DEPARTMENTS.map(dept => (
                     <option key={dept} value={dept}>{dept}</option>
                   ))}
-                </select>
+                </Select>
                 <p className="text-xs text-gray-500 mt-1">
                   Default: {getDefaultDepartment(formData.role)}
                 </p>
@@ -575,17 +574,16 @@ export default function UserManagement() {
               {needsSpecialization(formData.role) && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Specialization *</label>
-                  <select
+                  <Select
                     value={formData.specialization}
                     onChange={(e) => setFormData({...formData, specialization: e.target.value})}
-                    className="w-full border rounded-md px-3 py-2 text-sm"
                     required
                   >
                     <option value="">Select specialization...</option>
                     {SPECIALIZATIONS.map(spec => (
                       <option key={spec} value={spec}>{spec}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               )}
               <div>
@@ -650,16 +648,15 @@ export default function UserManagement() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Role *</label>
-                  <select
+                  <Select
                     value={formData.role}
                     onChange={(e) => setFormData({...formData, role: e.target.value})}
-                    className="w-full border rounded-md px-3 py-2 text-sm"
                     required
                   >
                     {ROLES.map(role => (
                       <option key={role.value} value={role.value}>{role.label}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">ID Number *</label>
@@ -672,29 +669,27 @@ export default function UserManagement() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-                <select
+                <Select
                   value={formData.department}
                   onChange={(e) => setFormData({...formData, department: e.target.value})}
-                  className="w-full border rounded-md px-3 py-2 text-sm"
                 >
                   {DEPARTMENTS.map(dept => (
                     <option key={dept} value={dept}>{dept}</option>
                   ))}
-                </select>
+                </Select>
               </div>
               {needsSpecialization(formData.role) && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Specialization</label>
-                  <select
+                  <Select
                     value={formData.specialization}
                     onChange={(e) => setFormData({...formData, specialization: e.target.value})}
-                    className="w-full border rounded-md px-3 py-2 text-sm"
                   >
                     <option value="">Select specialization...</option>
                     {SPECIALIZATIONS.map(spec => (
                       <option key={spec} value={spec}>{spec}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               )}
               <div className="flex items-center gap-2">

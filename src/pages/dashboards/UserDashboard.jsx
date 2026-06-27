@@ -9,6 +9,7 @@ import clsx from 'clsx';
 import Loader from '../../components/Loader';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { Select } from '../../components/ui/Select';
 import TicketDetails from '../../components/TicketDetails';
 
 const STATUS_STYLES = {
@@ -226,15 +227,15 @@ export default function UserDashboard() {
                     <div className="bg-surface-50 p-2 rounded-xl border border-surface-100">
                         <Clock className="w-5 h-5 text-surface-500" />
                     </div>
-                    <select
+                    <Select
                         value={timeframe}
                         onChange={(e) => setTimeframe(e.target.value)}
-                        className="border-none focus:ring-0 text-sm text-surface-700 bg-transparent font-medium cursor-pointer outline-none min-w-[120px]"
+                        className="h-auto border-none shadow-none bg-transparent font-medium min-w-[120px] pl-2"
                     >
                         {['Today', 'Last 7 Days', 'Last 30 Days', 'All Time'].map(t => (
                             <option key={t} value={t}>{t}</option>
                         ))}
-                    </select>
+                    </Select>
                 </div>
             </div>
 

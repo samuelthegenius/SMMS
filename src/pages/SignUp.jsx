@@ -4,8 +4,8 @@ import { Loader2, HardHat, Building, IdCard } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/Card';
-import { cn } from '../lib/utils';
 import { MAINTENANCE_CATEGORIES, ACADEMIC_DEPARTMENTS, SERVICE_DEPARTMENTS } from '../utils/constants';
 import Loader from '../components/Loader';
 import { useAuth } from '../contexts/useAuth';
@@ -170,8 +170,6 @@ export default function SignUp() {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const inputClasses = "flex h-10 w-full rounded-md border-0 ring-1 ring-slate-200 bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200";
-
     return (
         <div className="min-h-screen bg-surface-50 flex flex-col items-center p-4 relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-primary-500/5 via-secondary-500/5 to-accent-500/5 pointer-events-none" />
@@ -210,7 +208,7 @@ export default function SignUp() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm font-medium leading-none" htmlFor="email">Email Address</label>
+                                <label className="text-sm font-semibold text-surface-700 leading-none" htmlFor="email">Email Address</label>
                                 <Input
                                     id="email"
                                     name="email"
@@ -223,13 +221,13 @@ export default function SignUp() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm font-medium leading-none" htmlFor="role">Role</label>
-                                <select
+                                <label className="text-sm font-semibold text-surface-700 leading-none" htmlFor="role">Role</label>
+                                <Select
                                     id="role"
                                     name="role"
                                     value={formData.role}
                                     onChange={handleChange}
-                                    className={cn(inputClasses, "bg-surface-50 cursor-pointer")}
+                                    className="bg-surface-50"
                                 >
                                     {[
                                         { label: 'Student', value: 'student' },
@@ -246,7 +244,7 @@ export default function SignUp() {
                                             {role.label}
                                         </option>
                                     ))}
-                                </select>
+                                </Select>
                             </div>
 
                             {/* ID Number - Shown for everyone (Student ID or Staff ID) */}
@@ -277,18 +275,18 @@ export default function SignUp() {
                                     <label className="text-sm font-semibold text-surface-700 leading-none" htmlFor="gender">
                                         Gender
                                     </label>
-                                    <select
+                                    <Select
                                         id="gender"
                                         name="gender"
                                         value={formData.gender}
                                         onChange={handleChange}
                                         required
-                                        className={cn(inputClasses, "bg-surface-50 cursor-pointer")}
+                                        className="bg-surface-50"
                                     >
                                         <option value="">Select gender</option>
                                         <option value="male">Male</option>
                                         <option value="female">Female</option>
-                                    </select>
+                                    </Select>
                                 </div>
                             )}
 
@@ -298,32 +296,28 @@ export default function SignUp() {
                                     <label className="text-sm font-semibold text-surface-700 leading-none" htmlFor="department">
                                         Department
                                     </label>
-                                    <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <Building className="h-4 w-4 text-slate-400" />
-                                        </div>
-                                        <select
-                                            id="department"
-                                            name="department"
-                                            value={formData.department}
-                                            onChange={handleChange}
-                                            required
-                                            className={cn("flex h-10 w-full rounded-md border border-surface-200 bg-surface-50 px-3 py-2 text-sm pl-10 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent", "bg-surface-50")}
-                                        >
-                                            <option value="">Select your department</option>
-                                            {formData.role === 'student'
-                                            ? ACADEMIC_DEPARTMENTS.map((dept) => (
-                                                <option key={dept} value={dept}>
-                                                    {dept}
-                                                </option>
-                                            ))
-                                            : SERVICE_DEPARTMENTS.map((dept) => (
-                                                <option key={dept} value={dept}>
-                                                    {dept}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
+                                    <Select
+                                        id="department"
+                                        name="department"
+                                        value={formData.department}
+                                        onChange={handleChange}
+                                        required
+                                        icon={Building}
+                                        className="bg-surface-50"
+                                    >
+                                        <option value="">Select your department</option>
+                                        {formData.role === 'student'
+                                        ? ACADEMIC_DEPARTMENTS.map((dept) => (
+                                            <option key={dept} value={dept}>
+                                                {dept}
+                                            </option>
+                                        ))
+                                        : SERVICE_DEPARTMENTS.map((dept) => (
+                                            <option key={dept} value={dept}>
+                                                {dept}
+                                            </option>
+                                        ))}
+                                    </Select>
                                 </div>
                             )}
 
@@ -333,33 +327,29 @@ export default function SignUp() {
                                     <label className="text-sm font-semibold text-surface-700 leading-none" htmlFor="specialization">
                                         Specialization (determines your department)
                                     </label>
-                                    <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <HardHat className="h-4 w-4 text-slate-400" />
-                                        </div>
-                                        <select
-                                            id="specialization"
-                                            name="specialization"
-                                            value={formData.specialization}
-                                            onChange={handleChange}
-                                            required
-                                            className={cn("flex h-10 w-full rounded-md border border-surface-200 bg-surface-50 pl-10 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent", "bg-surface-50")}
-                                        >
-                                            <option value="">Select maintenance category</option>
-                                            {MAINTENANCE_CATEGORIES.map((category) => (
-                                                <option key={category} value={category}>
-                                                    {category}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
+                                    <Select
+                                        id="specialization"
+                                        name="specialization"
+                                        value={formData.specialization}
+                                        onChange={handleChange}
+                                        required
+                                        icon={HardHat}
+                                        className="bg-surface-50"
+                                    >
+                                        <option value="">Select maintenance category</option>
+                                        {MAINTENANCE_CATEGORIES.map((category) => (
+                                            <option key={category} value={category}>
+                                                {category}
+                                            </option>
+                                        ))}
+                                    </Select>
                                 </div>
                             )}
 
                             {/* Conditional Access Code Input */}
                             {formData.role && (
                                 <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                                    <label className="text-sm font-medium leading-none text-indigo-600" htmlFor="accessCode">
+                                    <label className="text-sm font-semibold leading-none text-secondary-700" htmlFor="accessCode">
                                         Access Code (Required for {formData.role === 'student' ? 'Student' : formData.role === 'staff' ? 'Staff' : formData.role === 'src' ? 'SRC' : formData.role === 'dean' ? 'Dean' : formData.role.charAt(0).toUpperCase() + formData.role.slice(1)})
                                     </label>
                                     <Input
@@ -370,7 +360,7 @@ export default function SignUp() {
                                         value={formData.accessCode}
                                         onChange={handleChange}
                                         required
-                                        className="bg-indigo-50/50 border-indigo-100 focus-visible:ring-indigo-500"
+                                        className="bg-secondary-50/50 border-secondary-200 focus-visible:border-secondary-400 focus-visible:ring-secondary-400/20"
                                     />
                                 </div>
                             )}

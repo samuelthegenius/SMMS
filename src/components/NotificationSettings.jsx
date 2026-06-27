@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { Bell, Mail, Smartphone, AlertTriangle, Loader2, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { Card, CardContent } from './ui/Card';
+import { Button } from './ui/Button';
 
 export default function NotificationSettings() {
   const { user } = useAuth();
@@ -128,66 +130,72 @@ export default function NotificationSettings() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
-      </div>
+      <Card>
+        <CardContent className="flex items-center justify-center p-8">
+          <Loader2 className="w-6 h-6 animate-spin text-primary-600" />
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 max-w-2xl">
-      <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+    <Card className="max-w-2xl">
+      <CardContent className="p-6">
+      <h2 className="text-xl font-bold text-surface-900 mb-6 flex items-center gap-2">
         <Bell className="w-5 h-5" />
         Notification Settings
       </h2>
 
       {/* Push Notifications Section */}
       {pushSupported && (
-        <div className="mb-8 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
-          <h3 className="font-semibold text-indigo-900 mb-2 flex items-center gap-2">
+        <div className="mb-8 p-4 bg-primary-50 rounded-xl border border-primary-100">
+          <h3 className="font-semibold text-primary-900 mb-2 flex items-center gap-2">
             <Smartphone className="w-4 h-4" />
             Push Notifications (Browser)
           </h3>
-          <p className="text-sm text-indigo-700 mb-4">
+          <p className="text-sm text-primary-700 mb-4">
             Receive instant notifications on your device even when the app is closed.
           </p>
-          
+
           <div className="flex items-center gap-3">
             {pushPermission === 'granted' ? (
               <>
-                <span className="flex items-center gap-1 text-sm text-green-700 bg-green-100 px-3 py-1 rounded-full">
+                <span className="flex items-center gap-1 text-sm text-success-700 bg-success-100 px-3 py-1 rounded-full">
                   <Check className="w-4 h-4" />
                   Enabled
                 </span>
-                <button
+                <Button
                   onClick={handleTestPush}
                   disabled={pushLoading}
-                  className="text-sm bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                  size="sm"
                 >
                   Test Notification
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={handlePushUnsubscribe}
                   disabled={pushLoading}
-                  className="text-sm text-red-600 hover:text-red-700 px-3 py-2"
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive-600 hover:text-destructive-700 hover:bg-destructive-50"
                 >
                   Disable
-                </button>
+                </Button>
               </>
             ) : pushPermission === 'denied' ? (
-              <span className="flex items-center gap-1 text-sm text-red-700 bg-red-100 px-3 py-1 rounded-full">
+              <span className="flex items-center gap-1 text-sm text-destructive-700 bg-destructive-100 px-3 py-1 rounded-full">
                 <X className="w-4 h-4" />
                 Blocked - Please enable in browser settings
               </span>
             ) : (
-              <button
+              <Button
                 onClick={handlePushSubscribe}
                 disabled={pushLoading}
-                className="text-sm bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                size="sm"
+                className="gap-2"
               >
                 {pushLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                 Enable Push Notifications
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -195,54 +203,54 @@ export default function NotificationSettings() {
 
       {/* Escalation Alerts */}
       <div className="mb-6">
-        <h3 className="font-semibold text-slate-900 mb-1 flex items-center gap-2">
+        <h3 className="font-semibold text-surface-900 mb-1 flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-amber-500" />
           Escalation Alerts
         </h3>
-        <p className="text-sm text-slate-500 mb-3">
+        <p className="text-sm text-surface-500 mb-3">
           When verified tickets are not attended to after the threshold time
         </p>
         
         <div className="space-y-3">
-          <label className="flex items-center justify-between p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+          <label className="flex items-center justify-between p-3 bg-surface-50 rounded-xl cursor-pointer hover:bg-surface-100 transition-colors">
             <div className="flex items-center gap-3">
-              <Mail className="w-4 h-4 text-slate-500" />
+              <Mail className="w-4 h-4 text-surface-500" />
               <span className="text-sm font-medium">Email Notifications</span>
             </div>
             <input
               type="checkbox"
               checked={preferences.escalate_email}
               onChange={() => handleToggle('escalate_email')}
-              className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              className="w-5 h-5 rounded border-surface-300 text-primary-600 focus:ring-primary-500"
             />
           </label>
 
-          <label className="flex items-center justify-between p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+          <label className="flex items-center justify-between p-3 bg-surface-50 rounded-xl cursor-pointer hover:bg-surface-100 transition-colors">
             <div className="flex items-center gap-3">
-              <Smartphone className="w-4 h-4 text-slate-500" />
+              <Smartphone className="w-4 h-4 text-surface-500" />
               <span className="text-sm font-medium">Push Notifications</span>
             </div>
             <input
               type="checkbox"
               checked={preferences.escalate_push}
               onChange={() => handleToggle('escalate_push')}
-              className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              className="w-5 h-5 rounded border-surface-300 text-primary-600 focus:ring-primary-500"
             />
           </label>
 
-          <label className="flex items-center justify-between p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+          <label className="flex items-center justify-between p-3 bg-surface-50 rounded-xl cursor-pointer hover:bg-surface-100 transition-colors">
             <div className="flex items-center gap-3">
-              <Smartphone className="w-4 h-4 text-slate-500" />
+              <Smartphone className="w-4 h-4 text-surface-500" />
               <div>
                 <span className="text-sm font-medium">SMS Notifications</span>
-                <p className="text-xs text-slate-400">Critical escalations only (3+ alerts)</p>
+                <p className="text-xs text-surface-400">Critical escalations only (3+ alerts)</p>
               </div>
             </div>
             <input
               type="checkbox"
               checked={preferences.escalate_sms}
               onChange={() => handleToggle('escalate_sms')}
-              className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              className="w-5 h-5 rounded border-surface-300 text-primary-600 focus:ring-primary-500"
             />
           </label>
         </div>
@@ -250,35 +258,35 @@ export default function NotificationSettings() {
 
       {/* Assignment Alerts */}
       <div className="mb-6">
-        <h3 className="font-semibold text-slate-900 mb-1">Assignment Alerts</h3>
-        <p className="text-sm text-slate-500 mb-3">
+        <h3 className="font-semibold text-surface-900 mb-1">Assignment Alerts</h3>
+        <p className="text-sm text-surface-500 mb-3">
           When tickets are assigned to you
         </p>
         
         <div className="space-y-3">
-          <label className="flex items-center justify-between p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+          <label className="flex items-center justify-between p-3 bg-surface-50 rounded-xl cursor-pointer hover:bg-surface-100 transition-colors">
             <div className="flex items-center gap-3">
-              <Mail className="w-4 h-4 text-slate-500" />
+              <Mail className="w-4 h-4 text-surface-500" />
               <span className="text-sm font-medium">Email Notifications</span>
             </div>
             <input
               type="checkbox"
               checked={preferences.assign_email}
               onChange={() => handleToggle('assign_email')}
-              className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              className="w-5 h-5 rounded border-surface-300 text-primary-600 focus:ring-primary-500"
             />
           </label>
 
-          <label className="flex items-center justify-between p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+          <label className="flex items-center justify-between p-3 bg-surface-50 rounded-xl cursor-pointer hover:bg-surface-100 transition-colors">
             <div className="flex items-center gap-3">
-              <Smartphone className="w-4 h-4 text-slate-500" />
+              <Smartphone className="w-4 h-4 text-surface-500" />
               <span className="text-sm font-medium">Push Notifications</span>
             </div>
             <input
               type="checkbox"
               checked={preferences.assign_push}
               onChange={() => handleToggle('assign_push')}
-              className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              className="w-5 h-5 rounded border-surface-300 text-primary-600 focus:ring-primary-500"
             />
           </label>
         </div>
@@ -286,35 +294,35 @@ export default function NotificationSettings() {
 
       {/* Status Updates */}
       <div className="mb-6">
-        <h3 className="font-semibold text-slate-900 mb-1">Status Updates</h3>
-        <p className="text-sm text-slate-500 mb-3">
+        <h3 className="font-semibold text-surface-900 mb-1">Status Updates</h3>
+        <p className="text-sm text-surface-500 mb-3">
           When your tickets status changes
         </p>
         
         <div className="space-y-3">
-          <label className="flex items-center justify-between p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+          <label className="flex items-center justify-between p-3 bg-surface-50 rounded-xl cursor-pointer hover:bg-surface-100 transition-colors">
             <div className="flex items-center gap-3">
-              <Mail className="w-4 h-4 text-slate-500" />
+              <Mail className="w-4 h-4 text-surface-500" />
               <span className="text-sm font-medium">Email Notifications</span>
             </div>
             <input
               type="checkbox"
               checked={preferences.status_email}
               onChange={() => handleToggle('status_email')}
-              className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              className="w-5 h-5 rounded border-surface-300 text-primary-600 focus:ring-primary-500"
             />
           </label>
 
-          <label className="flex items-center justify-between p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+          <label className="flex items-center justify-between p-3 bg-surface-50 rounded-xl cursor-pointer hover:bg-surface-100 transition-colors">
             <div className="flex items-center gap-3">
-              <Smartphone className="w-4 h-4 text-slate-500" />
+              <Smartphone className="w-4 h-4 text-surface-500" />
               <span className="text-sm font-medium">Push Notifications</span>
             </div>
             <input
               type="checkbox"
               checked={preferences.status_push}
               onChange={() => handleToggle('status_push')}
-              className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              className="w-5 h-5 rounded border-surface-300 text-primary-600 focus:ring-primary-500"
             />
           </label>
         </div>
@@ -322,15 +330,16 @@ export default function NotificationSettings() {
 
       {/* Save Button */}
       <div className="flex justify-end">
-        <button
+        <Button
           onClick={savePreferences}
           disabled={isSaving}
-          className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+          className="gap-2"
         >
           {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
           Save Preferences
-        </button>
+        </Button>
       </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

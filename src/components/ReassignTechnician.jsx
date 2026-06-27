@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 import { Button } from './ui/Button';
+import { Select } from './ui/Select';
 
 export default function ReassignTechnician({ ticket, onReassign }) {
     const [technicians, setTechnicians] = useState([]);
@@ -121,8 +122,7 @@ export default function ReassignTechnician({ ticket, onReassign }) {
                 </p>
             )}
             <div className="flex items-center gap-2">
-                <select
-                    className="border p-2 rounded-md bg-white dark:bg-slate-800 dark:text-gray-100"
+                <Select
                     value={selectedTech}
                     onChange={(e) => setSelectedTech(e.target.value)}
                     disabled={loading || loadingTechnicians}
@@ -133,7 +133,7 @@ export default function ReassignTechnician({ ticket, onReassign }) {
                             {tech.full_name}
                         </option>
                     ))}
-                </select>
+                </Select>
                 <Button
                     onClick={handleReassign}
                     disabled={loading || !selectedTech || selectedTech === ticket.assigned_to}

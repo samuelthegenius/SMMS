@@ -6,6 +6,7 @@ import { AlertCircle, CheckCircle, Send, MapPin, AlertTriangle, FileText, Tag, B
 import { toast } from 'sonner';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
 import Loader from '../components/Loader';
 import { cn } from '../lib/utils';
@@ -441,11 +442,6 @@ export default function TicketForm() {
         }
     }, [formData, imageFile, navigate, user, pendingSubmit, showDuplicateWarning, checkForDuplicates]);
 
-    // Memoize selectClasses to prevent recreation
-    const selectClasses = useMemo(() => 
-        "flex h-10 w-full rounded-md border-0 ring-1 ring-slate-200 bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 appearance-none", 
-    []);
-
     if (initializing || !user) {
         return <Loader variant="ticket-form" />;
     }
@@ -498,65 +494,55 @@ export default function TicketForm() {
                                         </span>
                                     )}
                                 </div>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Building className="h-5 w-5 text-slate-400" />
-                                    </div>
-                                    <select
-                                        name="facilityType"
-                                        id="facilityType"
-                                        required
-                                        className={cn(selectClasses, "pl-10")}
-                                        value={formData.facilityType}
-                                        onChange={handleChange}
-                                    >
-                                        {FACILITY_TYPES.map(type => (
-                                            <option key={type} value={type}>{type}</option>
-                                        ))}
-                                    </select>
-                                </div>
+                                <Select
+                                    name="facilityType"
+                                    id="facilityType"
+                                    required
+                                    icon={Building}
+                                    value={formData.facilityType}
+                                    onChange={handleChange}
+                                >
+                                    {FACILITY_TYPES.map(type => (
+                                        <option key={type} value={type}>{type}</option>
+                                    ))}
+                                </Select>
                             </div>
 
                             {formData.facilityType === 'Hostel' && (
                                 <div>
                                     <label htmlFor="hostel" className="block text-sm font-medium text-slate-700 mb-1">Hostel</label>
-                                    <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <Building className="h-5 w-5 text-slate-400" />
-                                        </div>
-                                        <select
-                                            name="hostel"
-                                            id="hostel"
-                                            required
-                                            className={cn(selectClasses, "pl-10")}
-                                            value={formData.hostel}
-                                            onChange={handleChange}
-                                        >
-                                            <option value="">Select your hostel</option>
-                                            {profile?.gender === 'male' ? (
-                                                BOYS_HOSTELS.map(h => (
-                                                    <option key={h} value={h}>{h}</option>
-                                                ))
-                                            ) : profile?.gender === 'female' ? (
-                                                GIRLS_HOSTELS.map(h => (
-                                                    <option key={h} value={h}>{h}</option>
-                                                ))
-                                            ) : (
-                                                <>
-                                                    <optgroup label="Boys Hostels">
-                                                        {BOYS_HOSTELS.map(h => (
-                                                            <option key={h} value={h}>{h}</option>
-                                                        ))}
-                                                    </optgroup>
-                                                    <optgroup label="Girls Hostels">
-                                                        {GIRLS_HOSTELS.map(h => (
-                                                            <option key={h} value={h}>{h}</option>
-                                                        ))}
-                                                    </optgroup>
-                                                </>
-                                            )}
-                                        </select>
-                                    </div>
+                                    <Select
+                                        name="hostel"
+                                        id="hostel"
+                                        required
+                                        icon={Building}
+                                        value={formData.hostel}
+                                        onChange={handleChange}
+                                    >
+                                        <option value="">Select your hostel</option>
+                                        {profile?.gender === 'male' ? (
+                                            BOYS_HOSTELS.map(h => (
+                                                <option key={h} value={h}>{h}</option>
+                                            ))
+                                        ) : profile?.gender === 'female' ? (
+                                            GIRLS_HOSTELS.map(h => (
+                                                <option key={h} value={h}>{h}</option>
+                                            ))
+                                        ) : (
+                                            <>
+                                                <optgroup label="Boys Hostels">
+                                                    {BOYS_HOSTELS.map(h => (
+                                                        <option key={h} value={h}>{h}</option>
+                                                    ))}
+                                                </optgroup>
+                                                <optgroup label="Girls Hostels">
+                                                    {GIRLS_HOSTELS.map(h => (
+                                                        <option key={h} value={h}>{h}</option>
+                                                    ))}
+                                                </optgroup>
+                                            </>
+                                        )}
+                                    </Select>
                                 </div>
                             )}
 
@@ -587,24 +573,19 @@ export default function TicketForm() {
                                         )}
                                     </button>
                                 </div>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Tag className="h-5 w-5 text-slate-400" />
-                                    </div>
-                                    <select
-                                        name="category"
-                                        id="category"
-                                        required
-                                        className={cn(selectClasses, "pl-10")}
-                                        value={formData.category}
-                                        onChange={handleChange}
-                                    >
-                                        {MAINTENANCE_CATEGORIES.map(cat => (
-                                            <option key={cat} value={cat}>{cat}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                
+                                <Select
+                                    name="category"
+                                    id="category"
+                                    required
+                                    icon={Tag}
+                                    value={formData.category}
+                                    onChange={handleChange}
+                                >
+                                    {MAINTENANCE_CATEGORIES.map(cat => (
+                                        <option key={cat} value={cat}>{cat}</option>
+                                    ))}
+                                </Select>
+
                                 {/* AI Suggestion Card with Priority */}
                                 {showAiSuggestion && (aiSuggestion?.category || aiSuggestion?.priority) && (
                                     <div className="mt-2 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-3 animate-in fade-in slide-in-from-top-2">
@@ -694,23 +675,18 @@ export default function TicketForm() {
 
                             <div>
                                 <label htmlFor="priority" className="block text-sm font-medium text-slate-700 mb-1">Severity</label>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <AlertTriangle className="h-5 w-5 text-slate-400" />
-                                    </div>
-                                    <select
-                                        name="priority"
-                                        id="priority"
-                                        required
-                                        className={cn(selectClasses, "pl-10")}
-                                        value={formData.priority}
-                                        onChange={handleChange}
-                                    >
-                                        <option value="Low">Low</option>
-                                        <option value="Medium">Medium</option>
-                                        <option value="High">High</option>
-                                    </select>
-                                </div>
+                                <Select
+                                    name="priority"
+                                    id="priority"
+                                    required
+                                    icon={AlertTriangle}
+                                    value={formData.priority}
+                                    onChange={handleChange}
+                                >
+                                    <option value="Low">Low</option>
+                                    <option value="Medium">Medium</option>
+                                    <option value="High">High</option>
+                                </Select>
                             </div>
 
                             <div className="md:col-span-2">
@@ -720,7 +696,7 @@ export default function TicketForm() {
                                     id="description"
                                     rows={4}
                                     required
-                                    className="flex w-full rounded-md border-0 ring-1 ring-slate-200 bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
+                                    className="flex w-full rounded-xl border border-surface-300 bg-white px-4 py-2.5 text-sm shadow-sm transition-all duration-200 placeholder:text-surface-400 focus-visible:outline-none focus-visible:border-primary-400 focus-visible:ring-4 focus-visible:ring-primary-400/20 disabled:cursor-not-allowed disabled:opacity-50"
                                     placeholder="Describe the issue in detail..."
                                     value={formData.description}
                                     onChange={handleChange}

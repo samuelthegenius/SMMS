@@ -7,6 +7,7 @@ import clsx from 'clsx';
 import TicketDetails from '../../components/TicketDetails';
 import { toast } from 'sonner';
 import { Card, CardContent } from '../../components/ui/Card';
+import { Select } from '../../components/ui/Select';
 import { StatsCardSkeleton, CardSkeleton } from '../../components/SkeletonLoader';
 import { useAuth } from '../../contexts/useAuth';
 
@@ -168,30 +169,30 @@ export default function ManagerDashboard() {
                     <div className="bg-white p-1.5 rounded-lg shadow-sm">
                         <Filter className="w-4 h-4 text-surface-500" />
                     </div>
-                    <select
+                    <Select
                         value={filter}
                         onChange={(e) => setFilter(e.target.value)}
-                        className="border-none focus:ring-0 text-sm text-surface-700 bg-transparent font-medium cursor-pointer outline-none min-w-[140px]"
+                        className="h-auto border-none shadow-none bg-transparent font-medium min-w-[140px] pl-2"
                     >
                         {FACILITY_TYPES.map(type => (
                             <option key={type} value={type}>{type === 'All' ? 'All Facilities' : type}</option>
                         ))}
-                    </select>
+                    </Select>
                 </div>
 
                 <div className="flex items-center gap-3 bg-surface-50 p-1.5 rounded-xl border border-surface-100">
                     <div className="bg-white p-1.5 rounded-lg shadow-sm">
                         <Clock className="w-4 h-4 text-surface-500" />
                     </div>
-                    <select
+                    <Select
                         value={timeframe}
                         onChange={(e) => setTimeframe(e.target.value)}
-                        className="border-none focus:ring-0 text-sm text-surface-700 bg-transparent font-medium cursor-pointer outline-none min-w-[120px]"
+                        className="h-auto border-none shadow-none bg-transparent font-medium min-w-[120px] pl-2"
                     >
                         {['Today', 'Last 7 Days', 'Last 30 Days', 'All Time'].map(t => (
                             <option key={t} value={t}>{t}</option>
                         ))}
-                    </select>
+                    </Select>
                 </div>
 
                 <div className="flex items-center gap-2 bg-surface-50 p-1.5 rounded-xl border border-surface-100 flex-1 min-w-[200px]">

@@ -10,13 +10,17 @@
  */
 import { useState, useMemo, lazy, Suspense } from 'react';
 import useSWR from 'swr';
+import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 import Loader from '../components/Loader';
-import { BarChart, PieChart } from 'lucide-react';
+import { Card, CardContent } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Select } from '../components/ui/Select';
+import { BarChart3, FileSpreadsheet, FileText, ShieldAlert, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useAuth } from '../contexts/useAuth';
 
 // Lazy load AnalyticsSummary to avoid loading heavy recharts library on initial load
-const AnalyticsSummary = lazy(() => import('../components/AnalyticsSummary')); 
+const AnalyticsSummary = lazy(() => import('../components/AnalyticsSummary'));
 import { generateTicketReport, generateTicketCSV } from '../utils/generateReport';
 
 export default function AnalyticsPage() {
@@ -69,7 +73,7 @@ export default function AnalyticsPage() {
             filteredTickets = tickets.filter(t => new Date(t.created_at) >= cutoffDate);
         }
         if (filteredTickets.length === 0) {
-            alert('No tickets found for the selected timeframe.');
+            toast.error('No tickets found for the selected timeframe.');
             return;
         }
         generateTicketCSV(filteredTickets, reportTimeframe);
@@ -90,7 +94,7 @@ export default function AnalyticsPage() {
         }
 
         if (filteredTickets.length === 0) {
-            alert('No tickets found for the selected timeframe.');
+            toast.error('No tickets found for the selected timeframe.');
             return;
         }
 
@@ -101,21 +105,34 @@ export default function AnalyticsPage() {
 
     if (error) {
         return (
-            <div className="text-red-500 text-center mt-10">
-                <p className="text-lg font-medium">Error loading analytics</p>
-                <p className="text-sm mt-2">{error.message || 'Failed to load analytics data.'}</p>
-                <button onClick={() => mutate()} className="mt-3 text-sm underline text-red-600">Retry</button>
-            </div>
+            <Card className="border-destructive-200 bg-destructive-50/50 max-w-lg mx-auto mt-10">
+                <CardContent className="flex flex-col items-center text-center gap-3 py-10">
+                    <div className="w-12 h-12 rounded-2xl bg-destructive-100 flex items-center justify-center">
+                        <AlertTriangle className="w-6 h-6 text-destructive-600" />
+                    </div>
+                    <p className="text-lg font-semibold text-surface-900">Error loading analytics</p>
+                    <p className="text-sm text-surface-600">{error.message || 'Failed to load analytics data.'}</p>
+                    <Button variant="outline" size="sm" onClick={() => mutate()} className="mt-2 gap-2">
+                        <RefreshCw className="w-4 h-4" />
+                        Retry
+                    </Button>
+                </CardContent>
+            </Card>
         );
     }
 
     // Handle users without analytics access
     if (profile && !hasAdminAccess) {
         return (
-            <div className="text-red-500 text-center mt-10">
-                <p className="text-lg font-medium">Access Denied</p>
-                <p className="text-sm mt-2">You need IT Admin, Facility Manager, Maintenance Supervisor, or SRC privileges to view analytics.</p>
-            </div>
+            <Card className="border-surface-200 max-w-lg mx-auto mt-10">
+                <CardContent className="flex flex-col items-center text-center gap-3 py-10">
+                    <div className="w-12 h-12 rounded-2xl bg-destructive-100 flex items-center justify-center">
+                        <ShieldAlert className="w-6 h-6 text-destructive-600" />
+                    </div>
+                    <p className="text-lg font-semibold text-surface-900">Access Denied</p>
+                    <p className="text-sm text-surface-600">You need IT Admin, Facility Manager, Maintenance Supervisor, or SRC privileges to view analytics.</p>
+                </CardContent>
+            </Card>
         );
     }
 
@@ -123,52 +140,55 @@ export default function AnalyticsPage() {
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                        <BarChart className="w-8 h-8 text-blue-600" />
+                    <h1 className="text-2xl font-bold text-surface-900 flex items-center gap-2">
+                        <BarChart3 className="w-7 h-7 text-primary-600" />
                         Analytics Dashboard
                     </h1>
-                    <p className="text-slate-500 mt-1">Strategic insights and system performance metrics.</p>
+                    <p className="text-surface-500 mt-1">Strategic insights and system performance metrics.</p>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <select
+                    <Select
                         value={reportTimeframe}
                         onChange={(e) => setReportTimeframe(e.target.value)}
-                        className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                        className="h-10 w-auto min-w-[10rem] bg-white"
                     >
                         <option value="all">All Time</option>
                         <option value="7">Last 7 Days</option>
                         <option value="30">Last 30 Days</option>
                         <option value="90">Last 90 Days</option>
-                    </select>
-                    <button
+                    </Select>
+                    <Button
+                        variant="secondary"
+                        className="gap-2"
                         onClick={handleDownloadCSV}
                         disabled={tickets.length === 0}
-                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        <span>📊</span>
+                        <FileSpreadsheet className="w-4 h-4" />
                         Export CSV
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                        className="gap-2"
                         onClick={handleDownloadReport}
                         disabled={tickets.length === 0}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        <span>📄</span>
+                        <FileText className="w-4 h-4" />
                         Download Official Report
-                    </button>
+                    </Button>
                 </div>
             </div>
 
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                <h2 className="text-lg font-semibold text-slate-800 mb-6 border-b border-slate-100 pb-2">
-                    System Overview
-                </h2>
+            <Card className="border-surface-200">
+                <CardContent className="p-6">
+                    <h2 className="text-lg font-semibold text-surface-800 mb-6 border-b border-surface-100 pb-3">
+                        System Overview
+                    </h2>
 
-                <Suspense fallback={<div className="h-64 flex items-center justify-center"><Loader variant="analytics" /></div>}>
-                    <AnalyticsSummary key="analytics-summary" tickets={memoizedTickets} />
-                </Suspense>
-            </div>
+                    <Suspense fallback={<div className="h-64 flex items-center justify-center"><Loader variant="analytics" /></div>}>
+                        <AnalyticsSummary key="analytics-summary" tickets={memoizedTickets} />
+                    </Suspense>
+                </CardContent>
+            </Card>
         </div>
     );
 }

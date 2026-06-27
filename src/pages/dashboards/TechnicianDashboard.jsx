@@ -7,6 +7,7 @@ import Loader from '../../components/Loader';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
+import { Select } from '../../components/ui/Select';
 import TicketDetails from '../../components/TicketDetails';
 
 import useSWR from 'swr';
@@ -531,15 +532,15 @@ export default function TechnicianDashboard() {
                 <div className="bg-surface-50 p-2 rounded-xl border border-surface-100">
                     <Clock className="w-5 h-5 text-surface-500" />
                 </div>
-                <select
+                <Select
                     value={timeframe}
                     onChange={(e) => setTimeframe(e.target.value)}
-                    className="border-none focus:ring-0 text-sm text-surface-700 bg-transparent font-medium cursor-pointer outline-none min-w-[120px]"
+                    className="h-auto border-none shadow-none bg-transparent font-medium min-w-[120px] pl-2"
                 >
                     {['Today', 'Last 7 Days', 'Last 30 Days', 'All Time'].map(t => (
                         <option key={t} value={t}>{t}</option>
                     ))}
-                </select>
+                </Select>
             </div>
 
             {/* Satisfaction Metrics - Only for technicians with completed jobs */}

@@ -77,6 +77,12 @@ export default {
                 destructive: {
                     DEFAULT: '#ef4444',
                     foreground: '#ffffff',
+                    50:  '#fef2f2',
+                    100: '#fee2e2',
+                    200: '#fecaca',
+                    500: '#ef4444',
+                    600: '#dc2626',
+                    700: '#b91c1c',
                 },
                 success: {
                     DEFAULT: '#10b981',
@@ -133,14 +139,15 @@ export default {
                     '100%': { transform: 'scale(1)' },
                 },
                 shimmer: {
-                    '0%': { transform: 'translateX(-100%)' },
-                    '100%': { transform: 'translateX(100%)' },
+                    '0%': { backgroundPosition: '-200% 0' },
+                    '100%': { backgroundPosition: '200% 0' },
                 },
             },
             borderRadius: {
-                'xl': '1rem',
-                '2xl': '1.5rem',
-                '3xl': '2rem',
+                'xl': '0.75rem',  // 12px — buttons, inputs, chips
+                '2xl': '1rem',    // 16px — cards, modals
+                '3xl': '1.5rem',  // 24px — feature cards (landing)
+                '4xl': '2rem',    // 32px — large containers
             },
         },
     },

@@ -32,6 +32,7 @@ export default function Login() {
     const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
+    const [loginError, setLoginError] = useState('');
     const navigate = useNavigate();
 
     if (initializing) {
@@ -102,7 +103,9 @@ export default function Login() {
         try {
             checkRateLimit();
         } catch (error) {
-            toast.error(error.message);
+            const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            const minutesLeft = stored.lockoutTime ? Math.ceil((stored.lockoutTime - Date.now()) / 60000) : 5;
+            setLoginError(`Too many attempts. Try again in ${minutesLeft} minute${minutesLeft === 1 ? '' : 's'}.`);
             return;
         }
 
@@ -189,9 +192,9 @@ export default function Login() {
             try { storedAttempts = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}').attempts || 0; } catch { /* corrupted storage */ }
             const remaining = MAX_LOGIN_ATTEMPTS - storedAttempts;
             if (remaining <= 0) {
-                toast.error('Account locked. Please try again later.');
+                setLoginError('Too many attempts. Try again in 5 minutes.');
             } else {
-                toast.error('Invalid ID Number or password');
+                setLoginError('Incorrect email/ID or password.');
             }
         } finally {
             setLoading(false);
@@ -232,7 +235,7 @@ export default function Login() {
                                     type="text"
                                     placeholder="your@email.com or ID Number"
                                     value={identifier}
-                                    onChange={(e) => setIdentifier(e.target.value)}
+                                    onChange={(e) => { setIdentifier(e.target.value); setLoginError(''); }}
                                     required
                                     className="bg-surface-50"
                                     autoComplete="username"
@@ -254,11 +257,16 @@ export default function Login() {
                                     id="password"
                                     type="password"
                                     value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
+                                    onChange={(e) => { setPassword(e.target.value); setLoginError(''); }}
                                     required
                                     className="bg-surface-50"
                                     autoComplete="current-password"
                                 />
+                                {loginError && (
+                                    <span style={{ fontSize: '0.75rem', color: '#dc2626', marginTop: '0.375rem', display: 'block' }}>
+                                        {loginError}
+                                    </span>
+                                )}
                             </div>
                             <Button className="w-full mt-4" type="submit" isLoading={loading} disabled={loading}>
                                 Sign In

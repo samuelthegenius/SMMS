@@ -1,15 +1,13 @@
-import { cn } from "../../lib/utils"
-import * as React from "react"
+import { cn } from '../../lib/utils';
 
 function Skeleton({ className, ...props }) {
     return (
         <div
-            className={cn("animate-pulse rounded-lg bg-surface-200 relative overflow-hidden", className)}
+            className={cn('skeleton', className)}
+            aria-hidden="true"
             {...props}
-        >
-            <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-surface-100/50 to-transparent" />
-        </div>
-    )
+        />
+    );
 }
 
-export { Skeleton }
+export { Skeleton };

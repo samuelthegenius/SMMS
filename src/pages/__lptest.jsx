@@ -201,8 +201,4 @@ export default function LandingPage() {
                             &copy; {new Date().getFullYear()} Mountain Top University. All rights reserved.
                         </p>
                     </div>
-                </div>
-            </footer>
-        </div>
-    );
-}
+    
